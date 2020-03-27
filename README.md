@@ -52,7 +52,6 @@ Finally, python bindings are provided in the python-bindings directory.
 ### Install
 
 ```bash
-git submodule update --init --recursive
 python3 -m venv .venv
 . .venv/bin/activate
 pip3 install .

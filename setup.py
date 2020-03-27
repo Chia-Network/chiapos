@@ -66,7 +66,6 @@ class CMakeBuild(build_ext):
 
 setup(
     name='chiapos',
-    version='0.2.3',
     author='Mariano Sorgente',
     author_email='mariano@chia.net',
     description='Chia proof of space plotting, proving, and verifying (wraps C++)',
