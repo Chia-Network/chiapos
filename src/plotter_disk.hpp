@@ -126,23 +126,23 @@ class DiskPlotter {
 
         Timer p1;
         Timer all_phases;
-        std::vector<uint64_t> results = WritePlotFile(tmp_1_filename, k, id, memo, memo_len);
+        std::vector<uint64_t> results = WritePlotFile(tmp_1_filename.string(), k, id, memo, memo_len);
         p1.PrintElapsed("Time for phase 1 =");
 
         std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " and " << tmp_2_filename << " ..." << Timer::GetNow();
 
         Timer p2;
-        Backpropagate(tmp_2_filename, tmp_1_filename, k, id, memo, memo_len, results);
+        Backpropagate(tmp_2_filename.string(), tmp_1_filename.string(), k, id, memo, memo_len, results);
         p2.PrintElapsed("Time for phase 2 =");
 
         std::cout << std::endl << "Starting phase 3/4: Compression... " << Timer::GetNow();
         Timer p3;
-        Phase3Results res = CompressTables(k, results, tmp_2_filename, tmp_1_filename, id, memo, memo_len);
+        Phase3Results res = CompressTables(k, results, tmp_2_filename.string(), tmp_1_filename.string(), id, memo, memo_len);
         p3.PrintElapsed("Time for phase 3 =");
 
         std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables... " << Timer::GetNow();
         Timer p4;
-        WriteCTables(k, k + 1, tmp_2_filename, tmp_1_filename, res);
+        WriteCTables(k, k + 1, tmp_2_filename.string(), tmp_1_filename.string(), res);
         p4.PrintElapsed("Time for phase 4 =");
 
         std::cout << "Approximate working space used: " <<
@@ -218,7 +218,7 @@ class DiskPlotter {
         return Util::ByteAlign((kEntriesPerPark - 1) * kMaxAverageDelta) / 8;
     }
 
-    static uint32_t CalculateStubsSize(uint k) {
+    static uint32_t CalculateStubsSize(uint32_t k) {
         return Util::ByteAlign((kEntriesPerPark - 1) * (k - kStubMinusBits)) / 8;
     }
 

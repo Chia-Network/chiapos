@@ -34,7 +34,7 @@ class SortOnDiskUtils {
         uint32_t start_index = begin_bits / 8;
         uint32_t end_index;
         if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
-            take_bits = (len_bytes * 8) - begin_bits;
+            take_bits = (len_bytes - 1) * 8 - begin_bits;
         }
         end_index = (begin_bits + take_bits) / 8;
 

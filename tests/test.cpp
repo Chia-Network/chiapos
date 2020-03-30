@@ -457,9 +457,10 @@ TEST_CASE("Sort on disk") {
         uint8_t* hashes_bytes = new uint8_t[iters * 16];
         memset(hashes_bytes, 0, iters * 16);
 
-        uint32_t random_state = 0;
+        srand(0);
         for (uint32_t i = 0; i < iters; i++) {
-            string to_insert = std::to_string(rand_r(&random_state));
+            // reverting to rand()
+            string to_insert = std::to_string(rand());
             while (to_insert.length() < 16) {
                 to_insert += "0";
             }

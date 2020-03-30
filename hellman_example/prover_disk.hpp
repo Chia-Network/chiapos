@@ -89,7 +89,7 @@ class DiskProver {
         // read from disk the C1 and C3 entries.
         uint8_t c2_size = (Util::ByteAlign(k) / 8);
         uint8_t* c2_buf = new uint8_t[c2_size];
-        for (uint i = 0; i < floor((table_begin_pointers[10] -
+        for (uint32_t i = 0; i < floor((table_begin_pointers[10] -
                                     table_begin_pointers[9]) /
                                     c2_size) - 1; i++) {
             disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);
@@ -355,7 +355,7 @@ class DiskProver {
             new_sol += xs[2 * depth + 1];
             new_sol += Bits(inverses[depth][i].second, k);
             LargeBits got_sol = TryAllProofs(inverses, xs, depth + 1, new_sol);
-            if (!(got_sol == LargeBits())) 
+            if (!(got_sol == LargeBits()))
                 return got_sol;
         }
         return LargeBits();
@@ -363,7 +363,7 @@ class DiskProver {
 
     LargeBits FindFullSolution(std::vector<Bits> known_half) {
         std::vector<std::pair<uint64_t, uint64_t> > inverses[16];
-        for (int i = 0; i < 32; i += 2) 
+        for (int i = 0; i < 32; i += 2)
             inverses[i / 2] = InvertF2(known_half[i].GetValue(), known_half[i + 1].GetValue());
         LargeBits sol;
         LargeBits proof = TryAllProofs(inverses, known_half, 0, sol);
@@ -543,7 +543,7 @@ class DiskProver {
         // Gets the 64 leaf x values, concatenated together into a k*64 bit string.
         std::vector<Bits> xs = GetInputs(p7_entries[index], 6);
         LargeBits attack_proof = FindFullSolution(xs);
-        
+
         disk_file.clear();
         disk_file.sync();
         return attack_proof;
