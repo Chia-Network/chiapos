@@ -37,6 +37,7 @@ struct SmallVector {
     typedef uint16_t size_type;
 
     SmallVector() noexcept {
+        v_ = new uint128_t[5];
         count_ = 0;
     }
 
@@ -64,7 +65,7 @@ struct SmallVector {
     }
 
  private:
-    uint128_t v_[5];
+    uint128_t *v_;
     size_type count_;
 };
 
@@ -75,6 +76,7 @@ struct ParkVector {
     typedef uint32_t size_type;
 
     ParkVector() noexcept {
+        v_ = new uint128_t[1024];
         count_ = 0;
     }
 
@@ -102,7 +104,7 @@ struct ParkVector {
     }
 
  private:
-    uint128_t v_[1024];
+    uint128_t *v_;
     size_type count_;
 };
 
