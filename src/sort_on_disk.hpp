@@ -92,9 +92,13 @@ class Disk {
 
 class FileDisk : public Disk {
  public:
-    inline explicit FileDisk(const std::string& filename) {
+    FileDisk(const std::string& filename) {
         buf_ = new char[BUF_SIZE];
         Initialize(filename);
+    }
+
+    ~FileDisk() {
+        delete[] buf_;
     }
 
     inline void Close() {

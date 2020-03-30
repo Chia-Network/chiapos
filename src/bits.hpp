@@ -629,8 +629,8 @@ BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount) {
 
 
 typedef std::vector<uint128_t> LargeVector;
-using Bits = BitsGeneric<SmallVector>;
-using ParkBits = BitsGeneric<ParkVector>;
+using Bits = BitsGeneric<LargeVector>; //SmallVector>;
+using ParkBits = BitsGeneric<LargeVector>;//ParkVector>;
 using LargeBits = BitsGeneric<LargeVector>;
 
 #endif  // SRC_CPP_BITS_HPP_
