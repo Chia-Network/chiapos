@@ -93,6 +93,7 @@ class Disk {
 class FileDisk : public Disk {
  public:
     inline explicit FileDisk(const std::string& filename) {
+        buf_ = new char[BUF_SIZE];
         Initialize(filename);
     }
 
@@ -153,7 +154,7 @@ class FileDisk : public Disk {
     }
 
     std::string filename_;
-    char buf_[BUF_SIZE];
+    char *buf_;
     std::fstream f_;
 };
 

@@ -21,8 +21,11 @@
 #include <string>
 #include <utility>
 #include "./util.hpp"
-#include "./stack_allocator.h"
+#include <functional>
+#include <memory>
+#include <iostream>
 
+using namespace std;
 
 #define kBufSize 5
 
