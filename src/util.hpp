@@ -156,7 +156,7 @@ class Util {
 
     inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes, const uint32_t bytes_len,
                                                const uint32_t start_bit, const uint32_t num_bits) {
-        // assert(Util::ByteAlign(start_bit + num_bits) <= bytes_len * 8);
+        assert((start_bit + num_bits - 1) < bytes_len * 8);
         assert(num_bits <= 64);
 
         uint64_t sum = 0;
