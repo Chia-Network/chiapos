@@ -384,9 +384,10 @@ TEST_CASE("Plotting") {
 
 TEST_CASE("Invalid plot") {
     SECTION("File gets deleted") {
+        string filename = "invalid-plot.dat";
+        {
         DiskPlotter plotter = DiskPlotter();
         uint8_t memo[5] = {1, 2, 3, 4, 5};
-        string filename = "invalid-plot.dat";
         uint8_t k = 22;
         plotter.CreatePlotDisk(".", ".", filename, k, memo, 5, plot_id_1, 32);
         DiskProver prover(filename);
@@ -402,11 +403,12 @@ TEST_CASE("Invalid plot") {
             LargeBits quality = verifier.ValidateProof(plot_id_1, k, challenge, proof_data, k*8);
             REQUIRE(quality == qualities[index]);
         }
+        delete[] proof_data;
+        }
         REQUIRE(remove(filename.c_str()) == 0);
         REQUIRE_THROWS_WITH([&](){
             DiskProver p(filename);
         }(), "Invalid file " + filename);
-        delete[] proof_data;
     }
 }
 
