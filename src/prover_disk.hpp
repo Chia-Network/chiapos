@@ -92,7 +92,7 @@ class DiskProver {
         // read from disk the C1 and C3 entries.
         uint8_t c2_size = (Util::ByteAlign(k) / 8);
         uint8_t* c2_buf = new uint8_t[c2_size];
-        for (uint i = 0; i < floor((table_begin_pointers[10] -
+        for (uint32_t i = 0; i < floor((table_begin_pointers[10] -
                                     table_begin_pointers[9]) /
                                     c2_size) - 1; i++) {
             disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);

@@ -180,7 +180,7 @@ class DiskPlotter {
         return Util::ByteAlign((kEntriesPerPark - 1) * kMaxAverageDelta) / 8;
     }
 
-    static uint32_t CalculateStubsSize(uint k) {
+    static uint32_t CalculateStubsSize(uint32_t k) {
         return Util::ByteAlign((kEntriesPerPark - 1) * (k - kStubMinusBits)) / 8;
     }
 
