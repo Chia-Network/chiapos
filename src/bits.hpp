@@ -37,13 +37,20 @@ struct SmallVector {
     typedef uint16_t size_type;
 
     SmallVector() {
-        v_=(uint128_t *)malloc(5*sizeof(uint128_t));
+        v_ = new uint128_t[5];
         count_ = 0;
     }
 
+    SmallVector(const SmallVector &other)
+    {
+        v_ = new uint128_t[5];
+        count_=other.count_;
+        for (size_type i = 0; i < other.count_; i++)
+            v_[i] = other.v_[i];
+    }
+
     ~SmallVector() {
-  //      if(v_!=NULL)
-   //         free(v_);
+        delete[] v_;
     }
 
     uint128_t& operator[] (const uint16_t index) {
@@ -70,7 +77,7 @@ struct SmallVector {
     }
 
  private:
-    uint128_t *v_; // [5];
+    uint128_t *v_;
     size_type count_;
 };
 
@@ -81,14 +88,20 @@ struct ParkVector {
     typedef uint32_t size_type;
 
     ParkVector() {
-        v_=(uint128_t *)malloc(1024*sizeof(uint128_t));
+        v_ = new uint128_t[1024];
         count_ = 0;
     }
 
+    ParkVector(const ParkVector &other)
+    {
+        v_ = new uint128_t[1024];
+        count_=other.count_;
+        for (size_type i = 0; i < other.count_; i++)
+            v_[i] = other.v_[i];
+    }
+
     ~ParkVector() {
-//        if(v_!=NULL)
- //           free(v_);
-  //      v_=NULL;
+        delete[] v_;
     }
 
     uint128_t& operator[] (const uint32_t index) {
@@ -115,7 +128,7 @@ struct ParkVector {
     }
 
  private:
-    uint128_t *v_; // [1024];
+    uint128_t *v_;
     size_type count_;
 };
 
