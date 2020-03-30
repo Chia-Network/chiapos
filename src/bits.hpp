@@ -36,9 +36,14 @@ using namespace std;
 struct SmallVector {
     typedef uint16_t size_type;
 
-    SmallVector() noexcept {
-        v_ = new uint128_t[5];
+    SmallVector() {
+        v_=(uint128_t *)malloc(5*sizeof(uint128_t));
         count_ = 0;
+    }
+
+    ~SmallVector() {
+  //      if(v_!=NULL)
+   //         free(v_);
     }
 
     uint128_t& operator[] (const uint16_t index) {
@@ -65,7 +70,7 @@ struct SmallVector {
     }
 
  private:
-    uint128_t *v_;
+    uint128_t *v_; // [5];
     size_type count_;
 };
 
@@ -75,9 +80,15 @@ struct SmallVector {
 struct ParkVector {
     typedef uint32_t size_type;
 
-    ParkVector() noexcept {
-        v_ = new uint128_t[1024];
+    ParkVector() {
+        v_=(uint128_t *)malloc(1024*sizeof(uint128_t));
         count_ = 0;
+    }
+
+    ~ParkVector() {
+//        if(v_!=NULL)
+ //           free(v_);
+  //      v_=NULL;
     }
 
     uint128_t& operator[] (const uint32_t index) {
@@ -104,7 +115,7 @@ struct ParkVector {
     }
 
  private:
-    uint128_t *v_;
+    uint128_t *v_; // [1024];
     size_type count_;
 };
 
@@ -629,8 +640,8 @@ BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount) {
 
 
 typedef std::vector<uint128_t> LargeVector;
-using Bits = BitsGeneric<LargeVector>; //SmallVector>;
-using ParkBits = BitsGeneric<LargeVector>;//ParkVector>;
+using Bits = BitsGeneric<SmallVector>;
+using ParkBits = BitsGeneric<ParkVector>;
 using LargeBits = BitsGeneric<LargeVector>;
 
 #endif  // SRC_CPP_BITS_HPP_
