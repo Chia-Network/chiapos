@@ -18,8 +18,7 @@ echo "PWD is $PWD"
 
 cmake -G "MSYS Makefiles" --build .
 make
-RunTests.exe
-#pip install pytest
+$PWD/RunTests.exe
 #Test failing for windows:
 py.test -v $PWD/tests/
-pip -vv wheel .
+#pip -vv wheel .

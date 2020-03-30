@@ -31,13 +31,13 @@ jobs:
       with:
         update: true
 #
-    - name: Install Windows chiapos build dependencies
+    - name: Windows install dependencies and build
       if: startsWith(matrix.os, 'windows')
       run: |
         msys2do pacman -S --noconfirm mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-python mingw-w64-x86_64-gmp mingw-w64-x86_64-python-pip mingw-w64-x86_64-dlib mingw-w64-x86_64-python-pep517 mingw-w64-x86_64-python-pytest git
         msys2do ./windows-build.sh
 
-    - name: Build source distribution
+    - name: Build MacOS source distribution
       if: startsWith(matrix.os, 'mac')
       run: |
         pip install pep517
@@ -50,7 +50,8 @@ jobs:
         # build just python 3.7
         CIBW_BUILD: cp37-*
         # don't build i686 targets, can't seem to find cmake for these
-        CIBW_SKIP: '*-manylinux_i686'
+        # skip windows for now
+        CIBW_SKIP: '*-manylinux_i686 *-win32 *-win_amd64'
         # we need boost
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2010
         CIBW_BEFORE_BUILD_LINUX: curl -L https://github.com/Kitware/CMake/releases/download/v3.17.0/cmake-3.17.0-Linux-`uname -m`.sh > cmake.sh && yes | sh cmake.sh | cat && rm -f /usr/bin/cmake && yum -y install boost-devel gmp-devel && python -m pip install --upgrade pip && which cmake && cmake --version
