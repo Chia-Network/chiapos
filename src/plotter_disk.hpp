@@ -664,9 +664,17 @@ class DiskPlotter {
             // Sort keys represent the ordering of entries, sorted by (y, pos, offset),
             // but using less bits (only k+1 instead of 2k + 9, etc.)
             // This is a map from old position to array of sort keys (one for each R entry with this pos)
-            Bits old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
+            //Bits old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
+            Bits **old_sort_keys = new Bits*[kReadMinusWrite];
+            for(int i = 0; i < kReadMinusWrite; ++i) {
+                old_sort_keys[i] = new Bits[kMaxMatchesSingleEntry];
+            }
             // Map from old position to other positions that it matches with
-            uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
+            //uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
+            uint64_t **old_offsets = new uint64_t*[kReadMinusWrite];
+            for(int i = 0; i < kReadMinusWrite; ++i) {
+                old_offsets[i] = new uint64_t[kMaxMatchesSingleEntry];
+            }
             // Map from old position to count (number of times it appears)
             uint16_t old_counters[kReadMinusWrite];
 
@@ -877,6 +885,16 @@ class DiskPlotter {
             delete[] left_entry_buf;
             delete[] new_left_entry_buf;
             delete[] right_entry_buf;
+
+            for(int i = 0; i < kReadMinusWrite; ++i) {
+                delete [] old_offsets[i];
+            }
+            delete [] old_offsets;
+
+            for(int i = 0; i < kReadMinusWrite; ++i) {
+                delete [] old_sort_keys[i];
+            }
+            delete [] old_sort_keys;
         }
         delete[] memory;
     }
