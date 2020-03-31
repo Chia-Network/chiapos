@@ -31,21 +31,10 @@ class SortOnDiskUtils {
      * index, to the given index.
      */
     inline static uint64_t ExtractNum(uint8_t* bytes, uint32_t len_bytes, uint32_t begin_bits, uint32_t take_bits) {
-        uint32_t start_index = begin_bits / 8;
-        uint32_t end_index;
         if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
-            take_bits = (len_bytes) * 8 - begin_bits;
+            take_bits = len_bytes * 8 - begin_bits;
         }
-        end_index = (begin_bits + take_bits) / 8;
-
-        assert(take_bits <= 64);
-        uint64_t sum = bytes[start_index] & ((1 << (8 - (begin_bits % 8))) - 1);
-        for (uint32_t i = start_index + 1; i <= end_index; i++) {
-            sum = (sum << 8);
-            if(i < len_bytes) // Fix to prevent overflow and maintain compatibility. Function may only return 57 bits in some cases
-                sum += bytes[i];
-        }
-        return sum >> (8 - ((begin_bits + take_bits) % 8));
+        return Util::SliceInt64FromBytes(bytes, len_bytes, begin_bits, take_bits);
     }
 
     /*
@@ -92,8 +81,13 @@ class Disk {
 
 class FileDisk : public Disk {
  public:
-    inline explicit FileDisk(const std::string& filename) {
+    FileDisk(const std::string& filename) {
+        buf_ = new char[BUF_SIZE];
         Initialize(filename);
+    }
+
+    ~FileDisk() {
+        delete[] buf_;
     }
 
     inline void Close() {
@@ -153,7 +147,7 @@ class FileDisk : public Disk {
     }
 
     std::string filename_;
-    char buf_[BUF_SIZE];
+    char *buf_;
     std::fstream f_;
 };
 
