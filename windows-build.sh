@@ -3,7 +3,7 @@
 # Stop in case of error
 set -e
 
-export CMAKE_GENERATOR='Unix Makefiles'
+export CMAKE_GENERATOR='MSYS Makefiles'
 
 #export PATH=$PATH:"C:\msys64\mingw64\bin"
 echo "PATH is $PATH"
@@ -17,7 +17,7 @@ echo "PWD is $PWD"
 /C/Windows/system32/where.exe git
 
 #pip wheel . -G "MSYS Makefiles"
-cmake -G "Unix Makefiles" --build .
+cmake -G "MSYS Makefiles" --build .
 make
 
 echo "Running RunTests.exe"
@@ -28,5 +28,5 @@ py.test -v $PWD/tests/
 
 echo "Testing Windows Complete"
 #echo "Trying to build a wheel"
-pip -v wheel $PWD --build-option --wheel-dir=dist/
+pip wheel $PWD --build-option --wheel-dir=dist/
 #--prefer-binary?

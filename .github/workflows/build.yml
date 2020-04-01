@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
       with:
-        fetch-depth: 1
+        fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
     - uses: actions/setup-python@v1
       if: "!startsWith(matrix.os, 'windows')"
@@ -37,7 +37,7 @@ jobs:
     - name: Windows install dependencies and build
       if: startsWith(matrix.os, 'windows')
       run: |
-        msys2do pacman -S --noconfirm mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-gmp mingw-w64-x86_64-dlib mingw-w64-x86_64-python-pep517 mingw-w64-x86_64-python-pytest mingw-w64-x86_64-python-pip mingw-w64-x86_64-python-wheel mingw-w64-x86_64-python-setuptools mingw-w64-python-setuptools-scm git
+        msys2do pacman -S --noconfirm mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-gmp mingw-w64-x86_64-dlib mingw-w64-x86_64-python-pep517 mingw-w64-x86_64-python-pytest mingw-w64-x86_64-python-pip mingw-w64-x86_64-python-wheel mingw-w64-x86_64-python-setuptools mingw-w64-x86_64-python-setuptools-scm git
         msys2do ./windows-build.sh
 
     - name: Build source distribution with MacOS
