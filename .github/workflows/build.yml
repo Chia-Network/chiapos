@@ -71,7 +71,7 @@ jobs:
         name: wheels
         path: ./dist
     - name: Install twine
-      if: "!startsWith(matrix.os, 'windows')"
+      if: !startsWith(matrix.os, 'windows')
       run: pip install twine
     - name: Publish distribution to Test PyPI
       if: "!startsWith(matrix.os, 'windows')"
@@ -82,7 +82,7 @@ jobs:
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
       run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
     - name: Publish distribution to PyPI
-      if: startsWith(github.event.ref, 'refs/tags') && "!startsWith(matrix.os, 'windows')"
+      if: startsWith(github.event.ref, 'refs/tags') && !startsWith(matrix.os, 'windows')
       env:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
