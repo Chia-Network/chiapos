@@ -20,9 +20,8 @@ make
 echo "Running RunTests.exe"
 $PWD/RunTests.exe
 
-echo "Not Running py.test -v tests/"
-#Test failing for windows:
-#py.test -v $PWD/tests/
+echo "Running py.test -v tests/"
+py.test -v $PWD/tests/
 
-echo "Done because we can't build wheels yet."
-#pip -vv wheel .
+echo "Trying to build a wheel"
+pip -vv wheel .
