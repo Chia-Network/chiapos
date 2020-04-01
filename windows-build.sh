@@ -25,5 +25,5 @@ py.test -v $PWD/tests/
 
 echo "Testing Windows Complete"
 #echo "Trying to build a wheel"
-pip -vv wheel $PWD --build-option --wheel-dir=dist/
+pip -v wheel $PWD --build-option --wheel-dir=dist/
 #--prefer-binary?
