@@ -21,11 +21,8 @@
 #include <string>
 #include <utility>
 #include "./util.hpp"
-#include <functional>
-#include <memory>
-#include <iostream>
+#include "./stack_allocator.h"
 
-using namespace std;
 
 #define kBufSize 5
 
@@ -36,21 +33,8 @@ using namespace std;
 struct SmallVector {
     typedef uint16_t size_type;
 
-    SmallVector() {
-        v_ = new uint128_t[5];
+    SmallVector() noexcept {
         count_ = 0;
-    }
-
-    SmallVector(const SmallVector &other)
-    {
-        v_ = new uint128_t[5];
-        count_=other.count_;
-        for (size_type i = 0; i < other.count_; i++)
-            v_[i] = other.v_[i];
-    }
-
-    ~SmallVector() {
-        delete[] v_;
     }
 
     uint128_t& operator[] (const uint16_t index) {
@@ -77,7 +61,7 @@ struct SmallVector {
     }
 
  private:
-    uint128_t *v_;
+    uint128_t v_[5];
     size_type count_;
 };
 
@@ -87,21 +71,8 @@ struct SmallVector {
 struct ParkVector {
     typedef uint32_t size_type;
 
-    ParkVector() {
-        v_ = new uint128_t[1024];
+    ParkVector() noexcept {
         count_ = 0;
-    }
-
-    ParkVector(const ParkVector &other)
-    {
-        v_ = new uint128_t[1024];
-        count_=other.count_;
-        for (size_type i = 0; i < other.count_; i++)
-            v_[i] = other.v_[i];
-    }
-
-    ~ParkVector() {
-        delete[] v_;
     }
 
     uint128_t& operator[] (const uint32_t index) {
@@ -128,7 +99,7 @@ struct ParkVector {
     }
 
  private:
-    uint128_t *v_;
+    uint128_t v_[1024];
     size_type count_;
 };
 
@@ -267,7 +238,7 @@ template <class T> class BitsGeneric {
             this->AppendValue(b.values_[b.values_.size() - 1], b.last_size_);
         }
         return *this;
-    }  
+    }
 
     BitsGeneric<T>& operator++() {
         uint128_t limit = ((uint128_t)std::numeric_limits<uint64_t> :: max() << 64) +
@@ -277,10 +248,12 @@ template <class T> class BitsGeneric {
         if (values_[values_.size() - 1] != last_bucket_mask) {
             values_[values_.size() - 1]++;
         } else {
+            bool all_one = true;
             if (values_.size() > 1) {
                 // Otherwise, search for the first bucket that isn't full of 1 bits.
                 for (int16_t i = values_.size() - 2; i >= 0; i--)
                     if (values_[i] != limit) {
+                        all_one = false;
                         // Increment it.
                         values_[i]++;
                         // Buckets that were full of 1 bits turn all to 0 bits.
@@ -309,7 +282,7 @@ template <class T> class BitsGeneric {
             values_[values_.size() - 1]--;
             return *this;
         }
-        
+
         if (values_.size() > 1) {
             // Search for the first bucket different than 0.
             for (int16_t i = values_.size() - 2; i >= 0; i--)

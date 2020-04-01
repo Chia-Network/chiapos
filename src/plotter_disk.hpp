@@ -664,17 +664,9 @@ class DiskPlotter {
             // Sort keys represent the ordering of entries, sorted by (y, pos, offset),
             // but using less bits (only k+1 instead of 2k + 9, etc.)
             // This is a map from old position to array of sort keys (one for each R entry with this pos)
-            //Bits old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
-            Bits **old_sort_keys = new Bits*[kReadMinusWrite];
-            for(int i = 0; i < kReadMinusWrite; ++i) {
-                old_sort_keys[i] = new Bits[kMaxMatchesSingleEntry];
-            }
+            uint64_t old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
             // Map from old position to other positions that it matches with
-            //uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
-            uint64_t **old_offsets = new uint64_t*[kReadMinusWrite];
-            for(int i = 0; i < kReadMinusWrite; ++i) {
-                old_offsets[i] = new uint64_t[kMaxMatchesSingleEntry];
-            }
+            uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
             // Map from old position to count (number of times it appears)
             uint16_t old_counters[kReadMinusWrite];
 
@@ -765,13 +757,10 @@ class DiskPlotter {
                             used_positions[(entry_pos + entry_offset) % kCachedPositionsSize] = true;
 
                             uint64_t old_write_pos = entry_pos % kReadMinusWrite;
-                            if (table_index == 7) {
-                                // Stores the sort key for this R entry, which is just y (so k bits)
-                                old_sort_keys[old_write_pos][old_counters[old_write_pos]] = Bits(entry_sort_key, k);
-                            } else {
-                                // Stores the sort key for this R entry
-                                old_sort_keys[old_write_pos][old_counters[old_write_pos]] = Bits(entry_sort_key, k + 1);
-                            }
+
+                            // Stores the sort key for this R entry
+                            old_sort_keys[old_write_pos][old_counters[old_write_pos]] = entry_sort_key;
+
                             // Stores the other matching pos for this R entry (pos6 + offset)
                             old_offsets[old_write_pos][old_counters[old_write_pos]] = entry_pos + entry_offset;
                             ++old_counters[old_write_pos];
@@ -850,8 +839,8 @@ class DiskPlotter {
                         // Creates and writes the new right entry, with the cached data
                         uint64_t new_offset_pos = new_positions[old_offsets[write_pointer_pos % kReadMinusWrite]
                                                                 [counter] % kCachedPositionsSize];
-
-                        Bits& new_right_entry = old_sort_keys[write_pointer_pos % kReadMinusWrite][counter];
+                        Bits new_right_entry = table_index == 7 ? Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], k) :
+                                                                  Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], k + 1);
                         new_right_entry += new_pos_bin;
                         //match_positions.push_back(std::make_pair(new_pos, new_offset_pos));
                         new_right_entry.AppendValue(new_offset_pos - new_pos, kOffsetSize);
@@ -885,16 +874,6 @@ class DiskPlotter {
             delete[] left_entry_buf;
             delete[] new_left_entry_buf;
             delete[] right_entry_buf;
-
-            for(int i = 0; i < kReadMinusWrite; ++i) {
-                delete [] old_offsets[i];
-            }
-            delete [] old_offsets;
-
-            for(int i = 0; i < kReadMinusWrite; ++i) {
-                delete [] old_sort_keys[i];
-            }
-            delete [] old_sort_keys;
         }
         delete[] memory;
     }
@@ -1028,7 +1007,7 @@ class DiskPlotter {
             bool should_read_entry = true;
             std::vector<uint64_t> left_new_pos(kCachedPositionsSize);
 
-            Bits old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
+            uint64_t old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint16_t old_counters[kReadMinusWrite];
             for (uint32_t i = 0; i < kReadMinusWrite; i++) {
@@ -1082,7 +1061,7 @@ class DiskPlotter {
                         } else if (entry_pos == current_pos) {
                             uint64_t old_write_pos = entry_pos % kReadMinusWrite;
                             old_sort_keys[old_write_pos][old_counters[old_write_pos]]
-                                = Bits(entry_sort_key, right_sort_key_size);
+                                = entry_sort_key;
                             old_offsets[old_write_pos][old_counters[old_write_pos]] = (entry_pos + entry_offset);
                             ++old_counters[old_write_pos];
                         } else {
@@ -1131,7 +1110,7 @@ class DiskPlotter {
                             }
                         }
                         Bits to_write = Bits(line_point, 2*k);
-                        to_write += old_sort_keys[write_pointer_pos % kReadMinusWrite][counter];
+                        to_write += Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], right_sort_key_size);
 
                         to_write.ToBytes(right_entry_buf);
                         right_writer.write((const char*)right_entry_buf, right_entry_size_bytes);
