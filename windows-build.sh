@@ -3,7 +3,7 @@
 # Stop in case of error
 set -e
 
-export CMAKE_GENERATOR='MSYS Makefiles'
+export CMAKE_GENERATOR='Unix Makefiles'
 
 #export PATH=$PATH:"C:\msys64\mingw64\bin"
 echo "PATH is $PATH"
@@ -13,8 +13,11 @@ echo "PWD is $PWD"
 #python3 -m venv venv
 #. venv/bin/activate
 
+# Which git are we using?
+/C/Windows/system32/where.exe git
+
 #pip wheel . -G "MSYS Makefiles"
-cmake -G "MSYS Makefiles" --build .
+cmake -G "Unix Makefiles" --build .
 make
 
 echo "Running RunTests.exe"
