@@ -1007,7 +1007,7 @@ class DiskPlotter {
             bool should_read_entry = true;
             std::vector<uint64_t> left_new_pos(kCachedPositionsSize);
 
-            Bits old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
+            uint64_t old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint16_t old_counters[kReadMinusWrite];
             for (uint32_t i = 0; i < kReadMinusWrite; i++) {
@@ -1061,7 +1061,7 @@ class DiskPlotter {
                         } else if (entry_pos == current_pos) {
                             uint64_t old_write_pos = entry_pos % kReadMinusWrite;
                             old_sort_keys[old_write_pos][old_counters[old_write_pos]]
-                                = Bits(entry_sort_key, right_sort_key_size);
+                                = entry_sort_key;
                             old_offsets[old_write_pos][old_counters[old_write_pos]] = (entry_pos + entry_offset);
                             ++old_counters[old_write_pos];
                         } else {
@@ -1110,7 +1110,7 @@ class DiskPlotter {
                             }
                         }
                         Bits to_write = Bits(line_point, 2*k);
-                        to_write += old_sort_keys[write_pointer_pos % kReadMinusWrite][counter];
+                        to_write += Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], right_sort_key_size);
 
                         to_write.ToBytes(right_entry_buf);
                         right_writer.write((const char*)right_entry_buf, right_entry_size_bytes);

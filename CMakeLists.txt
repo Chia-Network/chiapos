@@ -22,7 +22,6 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
-  ${CMAKE_CURRENT_SOURCE_DIR}/hellman_example
   )
 
 add_library(fse ${FSE_FILES})
@@ -51,10 +50,6 @@ add_executable(ProofOfSpace
     src/cli.cpp
 )
 
-add_executable(HellmanAttacks
-    src/cli.cpp
-)
-
 add_executable(RunTests
     tests/test-main.cpp
     tests/test.cpp
@@ -63,16 +58,13 @@ add_executable(RunTests
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries(chiapos PRIVATE fse)
   target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(HellmanAttacks fse)
   target_link_libraries(RunTests fse)
 elseif (WIN32)
   target_link_libraries(chiapos PRIVATE fse)
   target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(HellmanAttacks fse)
   target_link_libraries(RunTests fse)
 else()
   target_link_libraries(chiapos PRIVATE fse stdc++fs)
   target_link_libraries(ProofOfSpace fse stdc++fs)
-  target_link_libraries(HellmanAttacks fse stdc++fs)
   target_link_libraries(RunTests fse stdc++fs)
 endif()
