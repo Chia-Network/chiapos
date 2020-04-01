@@ -23,5 +23,6 @@ $PWD/RunTests.exe
 echo "Running py.test -v tests/"
 py.test -v $PWD/tests/
 
-echo "Trying to build a wheel"
-pip -vv wheel .
+echo "Testing Windows Complete"
+#echo "Trying to build a wheel"
+#pip -vv wheel .
