@@ -248,10 +248,12 @@ template <class T> class BitsGeneric {
         if (values_[values_.size() - 1] != last_bucket_mask) {
             values_[values_.size() - 1]++;
         } else {
+            bool all_one = true;
             if (values_.size() > 1) {
                 // Otherwise, search for the first bucket that isn't full of 1 bits.
                 for (int16_t i = values_.size() - 2; i >= 0; i--)
                     if (values_[i] != limit) {
+                        all_one = false;
                         // Increment it.
                         values_[i]++;
                         // Buckets that were full of 1 bits turn all to 0 bits.
