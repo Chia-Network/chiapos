@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-18.04, windows-latest] # windows-latest doesn't work yet
+        os: [windows-latest] # windows-latest doesn't work yet
 #        os: [windows-latest] # windows-latest doesn't work yet
 
     steps:
