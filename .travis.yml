@@ -1,0 +1,15 @@
+language: python            # this works for Linux but is an error on macOS or Windows
+jobs:
+  include:
+    - name: "Python 3.7.4 on macOS"
+      os: osx
+      osx_image: xcode11.3  # Python 3.7.4 running on macOS 10.14.4
+      language: shell       # 'language: python' is an error on Travis CI macOS
+      before_install:
+        - choco install python --version 3.7.5
+        - python -m pip install --upgrade pip
+#      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
+install: pip3 install --upgrade pip  # all three OSes agree about 'pip3'
+# 'python' points to Python 2.7 on macOS but points to Python 3.8 on Linux and Windows
+# 'python3' is a 'command not found' error on Windows but 'py' works on Windows only
+script: python3 setup.py || python my_app.py
