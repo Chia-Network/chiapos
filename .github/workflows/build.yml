@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest] # windows-latest doesn't work yet
+        os: [windows-latest, macos-10.14] # windows-latest doesn't work yet
 #        os: [windows-latest] # windows-latest doesn't work yet
 
     steps:
