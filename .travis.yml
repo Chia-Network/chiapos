@@ -2,10 +2,6 @@ language: python            # this works for Linux but is an error on macOS or W
 python:
   - 3.7
 #  - 3.8
-before_install:
-  - python --version
-  - pip install -U pip
-  - pip install -U pytest
 jobs:
   include:
     - name: "Python 3.7.4 on macOS"
@@ -13,8 +9,11 @@ jobs:
       osx_image: xcode11.3  # Python 3.7.4 running on macOS 10.14.4
       language: shell       # 'language: python' is an error on Travis CI macOS
       before_install:
-        - choco install python --version 3.7.5
+#        - choco install python --version 3.7.5
         - python -m pip install --upgrade pip
+        - python --version
+        - pip install -U pip
+        - pip install -U pytest
 #      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
 #install: pip3 install --upgrade pip  # all three OSes agree about 'pip3'
 install: pip wheel .
