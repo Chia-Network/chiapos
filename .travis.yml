@@ -1,7 +1,7 @@
 language: python            # this works for Linux but is an error on macOS or Windows
 python:
   - 3.7
-  - 3.8
+#  - 3.8
 before_install:
   - python --version
   - pip install -U pip
