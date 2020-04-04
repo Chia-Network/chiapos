@@ -10,7 +10,7 @@ jobs:
       language: shell       # 'language: python' is an error on Travis CI macOS
       before_install:
 #        - choco install python --version 3.7.5
-        - python -m pip install --upgrade pip
+        #- python -m pip install --upgrade pip
         - python --version
         - pip install -U pip
         - pip install -U pytest
