@@ -17,7 +17,7 @@
 
 #include <numeric>
 
-// Unique plot id which will be used as an AES key, and determines the PoSpace.
+// Unique plot id which will be used as a ChaCha8 key, and determines the PoSpace.
 const uint32_t kIdLen = 32;
 
 // Must be set high enough to prevent attacks of fast plotting
