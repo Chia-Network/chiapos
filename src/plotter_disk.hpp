@@ -314,7 +314,7 @@ class DiskPlotter {
     // and f functions, are evaluated. The result is an intermediate plot file, that is
     // several times larger than what the final file will be, but that has all of the
     // proofs of space in it. First, F1 is computed, which is special since it uses
-    // AES256, and each encrption provides multiple output values. Then, the rest of the
+    // ChaCha8, and each encryption provides multiple output values. Then, the rest of the
     // f functions are computed, and a sort on disk happens for each table.
     std::vector<uint64_t> WritePlotFile(uint8_t* memory, FileDisk& tmp1_disk, uint8_t k, const uint8_t* id,
                                         const uint8_t* memo, uint8_t memo_len) {

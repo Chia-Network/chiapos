@@ -83,13 +83,13 @@ void load_tables()
 // Class to evaluate F1
 class F1Calculator {
  public:
-    inline F1Calculator(uint8_t k, const uint8_t* aes_key) {
+    inline F1Calculator(uint8_t k, const uint8_t* orig_key) {
         uint8_t enc_key[32];
         this->k_ = k;
 
         // First byte is 1, the index of this table
         enc_key[0] = 1;
-        memcpy(enc_key + 1, aes_key, 31);
+        memcpy(enc_key + 1, orig_key, 31);
 
         // Setup ChaCha8 context with zero-filled IV
         chacha8_keysetup(&this->enc_ctx_, enc_key, 256, NULL);
@@ -123,14 +123,17 @@ class F1Calculator {
         // How many bits of L are in the current block (the rest are in the next block)
         const uint16_t bits_of_L = std::min((uint16_t)(kF1BlockSizeBits - bits_before_L), num_output_bits);
 
-        // True if L is divided into two blocks, and therefore 2 AES encryptions will be performed.
+        // True if L is divided into two blocks, and therefore 2 ChaCha8
+        // keystream blocks will be generated.
         const bool spans_two_blocks = bits_of_L < num_output_bits;
 
         uint8_t ciphertext_bytes[kF1BlockSizeBits/8];
         Bits output_bits;
 
-        // This counter is what will be encrypted. This is similar to AES counter mode, but not XORing
-        // any data at the end.
+        // This counter is used to initialize words 12 and 13 of ChaCha8
+        // initial state (4x4 matrix of 32-bit words). This is similar to
+        // encrypting plaintext at a given offset, but we have no plaintext, so
+        // no XORing at the end.
         chacha8_get_keystream(&this->enc_ctx_, counter, 1, ciphertext_bytes);
         Bits ciphertext0(ciphertext_bytes, kF1BlockSizeBits/8, kF1BlockSizeBits);
 
@@ -318,8 +321,8 @@ class FxCalculator {
     // Returns an evaluation of F_i(L), and the metadata (L) that must be stored to evaluate F_i+1.
     inline std::pair<Bits, Bits> CalculateBucket(const Bits& y1, const Bits& y2, const Bits& L, const Bits& R) {
         // y1 is xored into the result. This ensures that we have some cryptographic "randomness"
-        // encoded into each f function, since f1 output y is the results of an AES256 encryption.
-        // All other f functions apart from f1 don't use AES256, they use 2 round AES128.
+        // encoded into each f function, since f1 output y is the result of a ChaCha8 encryption.
+        // All other f functions apart from f1 don't use ChaCha8, they use 2 round AES128.
         if (L.GetSize() <= kBlockSizeBits) {
             return std::make_pair(CalculateF(L, Bits(), R, Bits()) ^ y1, Compose(L, R));
         } else {
