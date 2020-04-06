@@ -27,11 +27,15 @@
 #include "util.hpp"
 #include "bits.hpp"
 #include "aes.hpp"
+#include "chacha8.h"
 #include "pos_constants.hpp"
 
 
 // AES block size
 const uint8_t kBlockSizeBits = 128;
+
+// ChaCha8 block size
+const uint16_t kF1BlockSizeBits = 512;
 
 // Extra bits of output from the f functions. Instead of being a function from k -> k bits,
 // it's a function from k -> k + kExtraBits bits. This allows less collisions in matches.
@@ -80,63 +84,61 @@ void load_tables()
 class F1Calculator {
  public:
     inline F1Calculator(uint8_t k, const uint8_t* aes_key) {
+        uint8_t enc_key[32];
         this->k_ = k;
-        this->aes_key_ = new uint8_t[32];
 
         // First byte is 1, the index of this table
-        this->aes_key_[0] = 1;
-        memcpy(this->aes_key_ + 1, aes_key, 31);
+        enc_key[0] = 1;
+        memcpy(enc_key + 1, aes_key, 31);
 
-        // Loads the key into the global AES context
-        aes_load_key(this->aes_key_, 32);
+        // Setup ChaCha8 context with zero-filled IV
+        chacha8_keysetup(&this->enc_ctx_, enc_key, 256, NULL);
     }
 
     inline ~F1Calculator() {
-        delete[] this->aes_key_;
+
     }
 
     // Disable copying
     F1Calculator(const F1Calculator&) = delete;
 
-    // Reloads the AES key. If another F1 or Fx object is created, this must be called
-    // since the AES context is global.
+    // Reloading the encryption key is a no-op since encryption state is local.
     inline void ReloadKey() {
-        aes_load_key(this->aes_key_, 32);
+
     }
 
     // Performs one evaluation of the F function on input L of k bits.
     inline Bits CalculateF(const Bits& L) const {
-        uint8_t num_output_bits = k_;
+        uint16_t num_output_bits = k_;
 
-        // Calculates the counter that will be AES-encrypted. since k < 128, we can fit several k bit
-        // blocks into one AES block.
-        Bits counter((L.GetValue() * (uint128_t)num_output_bits) / kBlockSizeBits, kBlockSizeBits);
+        // Calculates the counter that will be used to get ChaCha8 keystream.
+        // Since k < kF1BlockSizeBits, we can fit several k bit blocks into one
+        // ChaCha8 block.
+        uint128_t counter_bit = L.GetValue() * (uint128_t)num_output_bits;
+        uint64_t counter = counter_bit / kF1BlockSizeBits;
 
         // How many bits are before L, in the current block
-        uint32_t bits_before_L = (L.GetValue() * (uint128_t)num_output_bits) % kBlockSizeBits;
+        uint32_t bits_before_L = counter_bit % kF1BlockSizeBits;
 
         // How many bits of L are in the current block (the rest are in the next block)
-        const uint8_t bits_of_L = std::min((uint8_t)(kBlockSizeBits - bits_before_L), num_output_bits);
+        const uint16_t bits_of_L = std::min((uint16_t)(kF1BlockSizeBits - bits_before_L), num_output_bits);
 
         // True if L is divided into two blocks, and therefore 2 AES encryptions will be performed.
         const bool spans_two_blocks = bits_of_L < num_output_bits;
 
-        uint8_t counter_bytes[kBlockSizeBits/8];
-        uint8_t ciphertext_bytes[kBlockSizeBits/8];
+        uint8_t ciphertext_bytes[kF1BlockSizeBits/8];
         Bits output_bits;
 
         // This counter is what will be encrypted. This is similar to AES counter mode, but not XORing
         // any data at the end.
-        counter.ToBytes(counter_bytes);
-        aes256_enc(counter_bytes, ciphertext_bytes);
-        Bits ciphertext0(ciphertext_bytes, kBlockSizeBits/8, kBlockSizeBits);
+        chacha8_get_keystream(&this->enc_ctx_, counter, 1, ciphertext_bytes);
+        Bits ciphertext0(ciphertext_bytes, kF1BlockSizeBits/8, kF1BlockSizeBits);
 
         if (spans_two_blocks) {
             // Performs another encryption if necessary
             ++counter;
-            counter.ToBytes(counter_bytes);
-            aes256_enc(counter_bytes, ciphertext_bytes);
-            Bits ciphertext1(ciphertext_bytes, kBlockSizeBits/8, kBlockSizeBits);
+            chacha8_get_keystream(&this->enc_ctx_, counter, 1, ciphertext_bytes);
+            Bits ciphertext1(ciphertext_bytes, kF1BlockSizeBits/8, kF1BlockSizeBits);
             output_bits = ciphertext0.Slice(bits_before_L) + ciphertext1.Slice(0, num_output_bits - bits_of_L);
         } else {
             output_bits = ciphertext0.Slice(bits_before_L, bits_before_L + num_output_bits);
@@ -158,36 +160,33 @@ class F1Calculator {
     // Returns an evaluation of F1(L), and the metadata (L) that must be stored to evaluate F2,
     // for 'number_of_evaluations' adjacent inputs.
     inline std::vector<std::pair<Bits, Bits> > CalculateBuckets(const Bits& start_L, uint64_t number_of_evaluations) {
-        uint8_t num_output_bits = k_;
+        uint16_t num_output_bits = k_;
 
         uint64_t two_to_the_k = (uint64_t)1 << k_;
         if (start_L.GetValue() + number_of_evaluations > two_to_the_k) {
             throw "Evaluation out of range";
         }
         // Counter for the first input
-        uint64_t counter = (start_L.GetValue() * (uint128_t)num_output_bits) / kBlockSizeBits;
+        uint64_t counter = (start_L.GetValue() * (uint128_t)num_output_bits) / kF1BlockSizeBits;
         // Counter for the last input
         uint64_t counter_end = ((start_L.GetValue() + (uint128_t)number_of_evaluations + 1) * num_output_bits)
-                               / kBlockSizeBits;
+                               / kF1BlockSizeBits;
 
         std::vector<Bits> blocks;
-        uint64_t L = (counter * kBlockSizeBits) / num_output_bits;
-        uint8_t counter_bytes[kBlockSizeBits/8];
-        uint8_t ciphertext_bytes[kBlockSizeBits/8];
+        uint64_t L = (counter * kF1BlockSizeBits) / num_output_bits;
+        uint8_t ciphertext_bytes[kF1BlockSizeBits/8];
 
-        // Evaluates the AES for each block
+        // Evaluates ChaCha8 for each block
         while (counter <= counter_end) {
-            Bits counter_bits(counter, kBlockSizeBits);
-            counter_bits.ToBytes(counter_bytes);
-            aes256_enc(counter_bytes, ciphertext_bytes);
-            Bits ciphertext(ciphertext_bytes, kBlockSizeBits/8, kBlockSizeBits);
+            chacha8_get_keystream(&this->enc_ctx_, counter, 1, ciphertext_bytes);
+            Bits ciphertext(ciphertext_bytes, kF1BlockSizeBits/8, kF1BlockSizeBits);
             blocks.push_back(std::move(ciphertext));
             ++counter;
         }
 
         std::vector<std::pair<Bits, Bits>> results;
         uint64_t block_number = 0;
-        uint8_t start_bit = (start_L.GetValue() * (uint128_t)num_output_bits) % kBlockSizeBits;
+        uint16_t start_bit = (start_L.GetValue() * (uint128_t)num_output_bits) % kF1BlockSizeBits;
 
         // For each of the inputs, grabs the correct slice from the encrypted data.
         for (L = start_L.GetValue(); L < start_L.GetValue() + number_of_evaluations; L++) {
@@ -199,19 +198,19 @@ class F1Calculator {
                 extra_data = extra_data + Bits(0, kExtraBits - extra_data.GetSize());
             }
 
-            if (start_bit + num_output_bits < kBlockSizeBits) {
+            if (start_bit + num_output_bits < kF1BlockSizeBits) {
                 // Everything can be sliced from the current block
                 results.push_back(std::make_pair(blocks[block_number].Slice(start_bit, start_bit + num_output_bits)
                                                   + extra_data, L_bits));
             } else {
                 // Must move forward one block
                 Bits left = blocks[block_number].Slice(start_bit);
-                Bits right = blocks[block_number + 1].Slice(0, num_output_bits - (kBlockSizeBits - start_bit));
+                Bits right = blocks[block_number + 1].Slice(0, num_output_bits - (kF1BlockSizeBits - start_bit));
                 results.push_back(std::make_pair(left + right + extra_data, L_bits));
                 ++block_number;
             }
             // Start bit of the output slice in the current block
-            start_bit = (start_bit + num_output_bits) % kBlockSizeBits;
+            start_bit = (start_bit + num_output_bits) % kF1BlockSizeBits;
         }
         return results;
     }
@@ -220,8 +219,8 @@ class F1Calculator {
     // Size of the plot
     uint8_t k_;
 
-    // 32 byte AES key
-    uint8_t* aes_key_;
+    // ChaCha8 context
+    struct chacha8_ctx enc_ctx_;
 };
 
 // Class to evaluate F2 .. F7.
