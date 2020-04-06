@@ -36,9 +36,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp)
+pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++11 -maes")
+set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z -maes")
+set (CMAKE_C_FLAGS "-g -O3 -Wall")
 try_run(CMAKE_AESNI_TEST_RUN_RESULT
     CMAKE_AESNI_TEST_COMPILE_RESULT
     ${CMAKE_CURRENT_BINARY_DIR}/cmake_aesni_test
@@ -56,11 +57,13 @@ ENDIF()
 
 add_executable(ProofOfSpace
     src/cli.cpp
+    src/chacha8.c
 )
 
 add_executable(RunTests
     tests/test-main.cpp
     tests/test.cpp
+    src/chacha8.c
 )
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
