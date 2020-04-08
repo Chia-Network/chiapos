@@ -35,7 +35,8 @@ class TestPythonBindings(unittest.TestCase):
 
         print(f"total proofs {total_proofs} out of {iterations}\
             {total_proofs / iterations}")
-        assert total_proofs == 4647
+        assert total_proofs > 4000
+        assert total_proofs < 6000
         pr = None
         Path("myplot.dat").unlink()
 
