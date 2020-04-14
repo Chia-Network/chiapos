@@ -13,6 +13,9 @@ echo "PWD is $PWD"
 #python3 -m venv venv
 #. venv/bin/activate
 
+# Which git are we using?
+/C/Windows/system32/where.exe git
+
 #pip wheel . -G "MSYS Makefiles"
 cmake -G "MSYS Makefiles" --build .
 make
@@ -25,4 +28,5 @@ py.test -v $PWD/tests/
 
 echo "Testing Windows Complete"
 #echo "Trying to build a wheel"
-#pip -vv wheel .
+pip wheel $PWD --build-option --wheel-dir=dist/
+#--prefer-binary?

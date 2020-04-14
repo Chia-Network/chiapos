@@ -1,0 +1,31 @@
+language: python            # this works for Linux but is an error on macOS or Windows
+python:
+  - 3.7
+#  - 3.8
+jobs:
+  include:
+    - name: "Python 3.7.7 on macOS"
+      os: osx
+      osx_image: xcode9.4  # Python 3.7.7 running on macOS 10.13 Travis default at 4/14/2020
+      language: shell       # 'language: python' is an error on Travis CI macOS
+      before_install:
+        #- python -m pip install --upgrade pip
+        - python3 --version
+        - pip3 install -U pip
+        #- pip3 install -U pytest
+        #- brew upgrade boost
+        - python3 -m pip install cibuildwheel==1.3.0
+        - export MACOSX_DEPLOYMENT_TARGET="10.13"
+        - export CIBW_BUILD="cp37-* cp38-*"
+        - export CIBW_ENVIRONMENT='CC=clang CXX=clang++ LD=ld.lld AR=llvm-ar'
+        - export CIBW_TEST_REQUIRES="pytest"
+        - export CIBW_TEST_COMMAND="py.test -v {project}/tests"
+        - export PATH="/usr/local/opt/llvm/bin:$PATH"
+#      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
+#install: pip3 install --upgrade pip  # all three OSes agree about 'pip3'
+install: python3 -m cibuildwheel --output-dir wheelhouse
+# 'python' points to Python 2.7 on macOS but points to Python 3.8 on Linux and Windows
+# 'python3' is a 'command not found' error on Windows but 'py' works on Windows only
+#script: python3 setup.py || python my_app.py
+#script: python3 -m pytest
+#
