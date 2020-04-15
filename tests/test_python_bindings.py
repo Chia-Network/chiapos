@@ -14,6 +14,8 @@ class TestPythonBindings(unittest.TestCase):
 
         pl = DiskPlotter()
         pl.create_plot_disk(".", ".", "myplot.dat", 21, bytes([1, 2, 3, 4, 5]), plot_seed)
+        pl = None
+
         pr = DiskProver(str(Path("myplot.dat")))
 
         total_proofs: int = 0
