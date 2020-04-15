@@ -15,7 +15,9 @@
 #ifndef SRC_CPP_PROVER_DISK_HPP_
 #define SRC_CPP_PROVER_DISK_HPP_
 
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <math.h>
 #include <iostream>

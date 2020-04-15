@@ -31,6 +31,9 @@
 #include <map>
 #include <queue>
 
+#ifdef _WIN32
+#include "uint128_t.h"
+#else
 // __uint__128_t is only available in 64 bit architectures and on certain
 // compilers.
 typedef __uint128_t uint128_t;
@@ -41,7 +44,7 @@ std::ostream &operator<<(std::ostream & strm, uint128_t const & v) {
          << (uint64_t)(v & (((uint128_t)1 << 64) - 1)) << ")";
     return strm;
 }
-
+#endif
 
 class Timer {
  public:
@@ -104,9 +107,17 @@ class Util {
     }
 
     static void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes) {
-        uint8_t buf[num_bytes];
+#ifdef _WIN32
+        uint8_t *buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
         file.write(reinterpret_cast<char*>(buf), num_bytes);
+        delete[] buf;
+#else
+        uint8_t *buf = new uint8_t[num_bytes];
+        memset(buf, 0, num_bytes);
+        file.write(reinterpret_cast<char*>(buf), num_bytes);
+        delete[] buf;
+#endif
     }
 
     /*
