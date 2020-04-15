@@ -17,10 +17,11 @@ class TestPythonBindings(unittest.TestCase):
         pr = DiskProver(str(Path("myplot.dat")))
 
         total_proofs: int = 0
-        iterations: int = 5000
+        iterations: int = 100
 
         v = Verifier()
         for i in range(iterations):
+            print(i)
             challenge = sha256(i.to_bytes(4, "big")).digest()
             for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
                 proof = pr.get_full_proof(challenge, index)
