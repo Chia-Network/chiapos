@@ -26,21 +26,8 @@
 #include <string>
 #include <utility>
 
-#if __has_include(<filesystem>)
-
-#include <filesystem>
-namespace filesystem = std::filesystem;
-
-#elif __has_include(<experimental/filesystem>)
-
-#include <experimental/filesystem>
-namespace filesystem = std::experimental::filesystem;
-
-#else
-#error "an implementation of filesystem is required!"
-#endif
-
-
+#include "../lib/include/filesystem.hh"
+namespace fs = ghc::filesystem;
 #include "util.hpp"
 #include "encoding.hpp"
 #include "calculate_bucket.hpp"
@@ -94,19 +81,19 @@ class DiskPlotter {
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
 
-        // Cross platform way to concatenate paths, c++17.
-        filesystem::path tmp_1_filename = filesystem::path(tmp_dirname) / filesystem::path(filename + ".tmp");
-        filesystem::path tmp_2_filename = filesystem::path(tmp_dirname) / filesystem::path(filename + ".2.tmp");
-        filesystem::path final_filename = filesystem::path(final_dirname) / filesystem::path(filename);
+        // Cross platform way to concatenate paths, gulrak library.
+        fs::path tmp_1_filename = fs::path(tmp_dirname) / fs::path(filename + ".tmp");
+        fs::path tmp_2_filename = fs::path(tmp_dirname) / fs::path(filename + ".2.tmp");
+        fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
         // Check if the paths exist
-        if (!filesystem::exists(tmp_dirname)) {
+        if (!fs::exists(tmp_dirname)) {
             std::string err_string = "Directory " + tmp_dirname + " does not exist";
             std::cerr << err_string << std::endl;
             throw err_string;
         }
 
-        if (!filesystem::exists(final_dirname)) {
+        if (!fs::exists(final_dirname)) {
             std::string err_string = "Directory " + final_dirname + " does not exist";
             std::cerr << err_string << std::endl;
             throw err_string;
@@ -151,10 +138,10 @@ class DiskPlotter {
                      static_cast<double>(res.final_table_begin_pointers[11])/(1024*1024*1024) << " GB" << std::endl;
         all_phases.PrintElapsed("Total time =");
 
-        bool removed_1 = filesystem::remove(tmp_1_filename);
-        filesystem::copy(tmp_2_filename, final_filename, filesystem::copy_options::overwrite_existing);
+        bool removed_1 = fs::remove(tmp_1_filename);
+        fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
 
-        bool removed_2 = filesystem::remove(tmp_2_filename);
+        bool removed_2 = fs::remove(tmp_2_filename);
 
         std::cout << "Removed " << tmp_1_filename << "? " << removed_1 << std::endl;
         std::cout << "Removed " << tmp_2_filename << "? " << removed_2 << std::endl;
