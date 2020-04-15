@@ -50,7 +50,11 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 //#define DISABLE_AESNI
 
 #ifndef DISABLE_AESNI
+#ifdef _WIN32
+#include<intrin.h>
+#else
 #include <cpuid.h>
+#endif
 #include "aesni.hpp"
 
 bool bHasAES=false;
@@ -306,11 +310,17 @@ void aes_load_key(uint8_t *enc_key, int keylen) {
 #ifndef DISABLE_AESNI
     if(!bCheckedAES)
     {
+#ifdef _WIN32
+         int regs[4];
+         __cpuid( regs, 1 );
+         bHasAES = ( regs[2] >> 25 ) & 1;
+#else
          uint32_t eax, ebx, ecx, edx;
 
          eax = ebx = ecx = edx = 0;
          __get_cpuid(1, &eax, &ebx, &ecx, &edx);
          bHasAES=(ecx & bit_AES) > 0;
+#endif
          bCheckedAES=true;
     }
             
