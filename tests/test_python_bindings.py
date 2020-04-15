@@ -23,7 +23,8 @@ class TestPythonBindings(unittest.TestCase):
 
         v = Verifier()
         for i in range(iterations):
-            print(i)
+            if i % 100 == 0:
+                print(i)
             challenge = sha256(i.to_bytes(4, "big")).digest()
             for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
                 proof = pr.get_full_proof(challenge, index)
