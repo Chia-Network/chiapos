@@ -117,7 +117,7 @@ class F1Calculator {
         uint32_t bits_before_L = (L.GetValue() * (uint128_t)num_output_bits) % kBlockSizeBits;
 
         // How many bits of L are in the current block (the rest are in the next block)
-        const uint8_t bits_of_L = std::min<uint8_t>((uint8_t)(kBlockSizeBits - bits_before_L), num_output_bits);
+        const uint8_t bits_of_L = std::min((uint8_t)(kBlockSizeBits - bits_before_L), num_output_bits);
 
         // True if L is divided into two blocks, and therefore 2 AES encryptions will be performed.
         const bool spans_two_blocks = bits_of_L < num_output_bits;
