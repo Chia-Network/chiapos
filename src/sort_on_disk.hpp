@@ -506,10 +506,10 @@ class Sorting {
 
         for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
             uint64_t b_size = bucket_sizes[i];
-            uint64_t to_consume = std::min(unit, b_size);
+            uint64_t to_consume = std::min<uint64_t>(unit, b_size);
 
             while (to_consume > 0) {
-                uint64_t next_amount = std::min(length, to_consume);
+                uint64_t next_amount = std::min<uint64_t>(length, to_consume);
                 disk.Read(disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len,
                           mem, next_amount * entry_len);
                 disk.Write(spare_begin + spare_written * entry_len,
@@ -671,7 +671,7 @@ class Sorting {
         for (uint64_t i = 0; i < num_entries; i++) {
             if (buf_size == 0) {
                 // If read buffer is empty, read from disk and refill it.
-                buf_size = std::min((uint64_t) BUF_SIZE / entry_len, num_entries - i);
+                buf_size = std::min<uint64_t>((uint64_t) BUF_SIZE / entry_len, num_entries - i);
                 buf_ptr = 0;
                 read_handle->read(reinterpret_cast<char*>(buffer), buf_size * entry_len);
                 if (set_prefix == false) {

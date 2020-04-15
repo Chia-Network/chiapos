@@ -282,7 +282,7 @@ class DiskProver {
 
         uint128_t sum_deltas = 0;
         uint128_t sum_stubs = 0;
-        for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark) + 1, (uint32_t)deltas.size()); i++) {
+        for (uint32_t i = 0; i < std::min<uint32_t>((uint32_t)(position % kEntriesPerPark) + 1, (uint32_t)deltas.size()); i++) {
             sum_deltas += deltas[i];
             sum_stubs += stubs[i];
         }
