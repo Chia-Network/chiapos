@@ -15,11 +15,7 @@
 #ifndef SRC_CPP_SORT_ON_DISK_HPP_
 #define SRC_CPP_SORT_ON_DISK_HPP_
 
-#ifdef _WIN32
-#define BUF_SIZE 65536
-#else
 #define BUF_SIZE 262144
-#endif
 
 #include <vector>
 #include <iostream>

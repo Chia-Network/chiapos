@@ -113,10 +113,9 @@ class Util {
         file.write(reinterpret_cast<char*>(buf), num_bytes);
         delete[] buf;
 #else
-        uint8_t *buf = new uint8_t[num_bytes];
+        uint8_t buf[num_bytes];
         memset(buf, 0, num_bytes);
         file.write(reinterpret_cast<char*>(buf), num_bytes);
-        delete[] buf;
 #endif
     }
 
