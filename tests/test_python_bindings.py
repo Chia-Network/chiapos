@@ -19,11 +19,11 @@ class TestPythonBindings(unittest.TestCase):
         pr = DiskProver(str(Path("myplot.dat")))
 
         total_proofs: int = 0
-        iterations: int = 100
+        iterations: int = 5000
 
         v = Verifier()
         for i in range(iterations):
-            if i % 10 == 0:
+            if i % 100 == 0:
                 print(i)
             challenge = sha256(i.to_bytes(4, "big")).digest()
             for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
@@ -35,7 +35,7 @@ class TestPythonBindings(unittest.TestCase):
 
         print(f"total proofs {total_proofs} out of {iterations}\
             {total_proofs / iterations}")
-        # assert total_proofs == 90
+        assert total_proofs == 4647
         pr = None
         Path("myplot.dat").unlink()
 
