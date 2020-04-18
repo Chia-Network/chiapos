@@ -490,8 +490,13 @@ template <class T> class BitsGeneric {
             last_size_ = length;
         } else {
             uint8_t free_bits = 64 - last_size_;
-            // If the value fits into the last bucket, append it all there.
-            if (length <= free_bits) {
+            if (last_size_ == 0 && length == 64) {
+                // Special case for OSX -O3, as per -fsanitize=undefined
+                // runtime error: shift exponent 64 is too large for 64-bit type 'uint64_t' (aka 'unsigned long long')
+                values_[values_.size() - 1] = value;
+                last_size_ = length;
+            } else if (length <= free_bits) {
+                // If the value fits into the last bucket, append it all there.
                 values_[values_.size() - 1] = (values_[values_.size() - 1] << length) + value;
                 last_size_ += length;
             } else {
