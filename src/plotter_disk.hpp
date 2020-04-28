@@ -1192,8 +1192,8 @@ class DiskPlotter {
                 // significant (k-kMinusStubs) bits, and largely random/incompressible. The small delta is the rest,
                 // which can be efficiently encoded since it's usually very small.
 
-                uint64_t stub = big_delta % (((uint128_t)1) << (uint128_t)(k - kStubMinusBits));
-                uint64_t small_delta = (big_delta - stub) >> (k - kStubMinusBits);
+                uint64_t stub = big_delta & ((1ULL << (k - kStubMinusBits)) - 1);
+                uint64_t small_delta = big_delta >> (k - kStubMinusBits);
 
                 // std::cout << "LP and last LP: " << (int)line_point << " ... " << (int)last_line_point << std::endl;
                 // std::cout << "Big delta: " << big_delta << std::endl;
