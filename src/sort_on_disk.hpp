@@ -178,13 +178,13 @@ class BucketStore {
         bucket_log_ = bucket_log;
         entries_per_seg_ = entries_per_seg;
 
-        for (uint64_t i = 0; i < pow(2, bucket_log); i++) {
+        for (uint64_t i = 0; i < (1UL << bucket_log); i++) {
             bucket_sizes_.push_back(0);
         }
 
         seg_size_ = 4 + entry_len_ * entries_per_seg;
 
-        length_ = floor(mem_len / seg_size_);
+        length_ = mem_len / seg_size_;
 
         // Initially, all the segments are empty, store them as a linked list,
         // where a segment points to the next empty segment.
@@ -449,7 +449,7 @@ class Sorting {
     inline static void SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
-        uint64_t length = floor(mem_len / entry_len);
+        uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
         // i.e. bucket_sizes[10] represents how many entries start with the prefix 1010.
@@ -502,7 +502,7 @@ class Sorting {
         std::vector<uint64_t> consumed_per_bucket(N_buckets, 0);
 
         // The spare stores about 5 * N_buckets * len(mem) entries.
-        uint64_t unit = floor(length / static_cast<double>(N_buckets) * 5);
+        uint64_t unit = length / N_buckets * 5;
 
         for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
             uint64_t b_size = bucket_sizes[i];
@@ -744,7 +744,7 @@ class Sorting {
     inline static void CheckSortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, bool quicksort = false) {
-        uint64_t length = floor(mem_len / entry_len);
+        uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         for (auto& n : bucket_sizes) total_size += n;
 

@@ -16,7 +16,6 @@
 #define SRC_CPP_CALCULATE_BUCKET_HPP_
 
 #include <stdint.h>
-#include <cmath>
 #include <vector>
 #include <bitset>
 #include <iostream>
