@@ -36,12 +36,15 @@ namespace fs = ghc::filesystem;
 #include "sort_on_disk.hpp"
 #include "pos_constants.hpp"
 
+#define CDIV(a, b) (((a) + (b) - 1) / (b))
+
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
 const uint64_t kMemorySize = 2147483648;  // 2^31, or 2GB
 
 // Number of buckets to use for SortOnDisk.
 const uint32_t kNumSortBuckets = 16;
+const uint32_t kLogNumSortBuckets = 4;
 
 // During backprop and compress, the write pointer is ahead of the read pointer
 // Note that the large the offset, the higher these values must be
@@ -188,7 +191,7 @@ class DiskPlotter {
     // values of k, we need extra space to account for the additional variability.
     static uint32_t CalculateC3Size(uint8_t k) {
         if (k < 20) {
-            return floor(Util::ByteAlign(8 * kCheckpoint1Interval) / 8);
+            return Util::ByteAlign(8 * kCheckpoint1Interval) / 8;
         } else {
             // TODO(alex): tighten this bound, based on formula
             return Util::ByteAlign(kC3BitsPerEntry * kCheckpoint1Interval) / 8;
@@ -291,8 +294,6 @@ class DiskPlotter {
         std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
         std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
-        uint32_t bucket_log = floor(log2(kNumSortBuckets));
-
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
         for (uint64_t lp = 0; lp <= (((uint64_t)1) << (k-kBatchSizes)); lp++) {
@@ -304,7 +305,7 @@ class DiskPlotter {
                 // We write the x, y pair
                 plot_file.write(reinterpret_cast<char*>(buf), entry_size_bytes);
 
-                bucket_sizes[SortOnDiskUtils::ExtractNum(buf, entry_size_bytes, 0, bucket_log)] += 1;
+                bucket_sizes[SortOnDiskUtils::ExtractNum(buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
 
                 if (x + 1 > max_value) {
                     break;
@@ -492,7 +493,7 @@ class DiskPlotter {
 
                             // Computes sort bucket, so we can sort the table by y later, more easily
                             right_bucket_sizes[SortOnDiskUtils::ExtractNum(right_buf, right_entry_size_bytes, 0,
-                                                                            floor(log2(kNumSortBuckets)))] += 1;
+                                                                           kLogNumSortBuckets)] += 1;
                         }
                     }
                     if (y_bucket == bucket + 2) {
@@ -807,7 +808,7 @@ class DiskPlotter {
                         left_writer.write(reinterpret_cast<char *>(new_left_entry_buf), new_left_entry_size_bytes);
 
                         new_bucket_sizes_pos[SortOnDiskUtils::ExtractNum(new_left_entry_buf, new_left_entry_size_bytes,
-                                                                        0, floor(log2(kNumSortBuckets)))] += 1;
+                                                                        0, kLogNumSortBuckets)] += 1;
                         // Mapped positions, so we can rewrite the R entry properly
                         new_positions[current_pos % kCachedPositionsSize] = left_entry_counter;
 
@@ -1104,7 +1105,7 @@ class DiskPlotter {
                         to_write.ToBytes(right_entry_buf);
                         right_writer.write((const char*)right_entry_buf, right_entry_size_bytes);
                         bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf, right_entry_size_bytes, 0,
-                                                                 floor(log2(kNumSortBuckets)))] += 1;
+                                                                 kLogNumSortBuckets)] += 1;
                     }
                 }
                 current_pos += 1;
@@ -1169,7 +1170,7 @@ class DiskPlotter {
                 right_writer_2.write(reinterpret_cast<char*>(right_entry_buf), right_entry_size_bytes);
 
                 new_bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf, right_entry_size_bytes, 0,
-                                                             floor(log2(kNumSortBuckets)))] += 1;
+                                                             kLogNumSortBuckets)] += 1;
                 // Every EPP entries, writes a park
                 if (index % kEntriesPerPark == 0) {
                     if (index != 0) {
@@ -1192,8 +1193,8 @@ class DiskPlotter {
                 // significant (k-kMinusStubs) bits, and largely random/incompressible. The small delta is the rest,
                 // which can be efficiently encoded since it's usually very small.
 
-                uint64_t stub = big_delta % (((uint128_t)1) << (uint128_t)(k - kStubMinusBits));
-                uint64_t small_delta = (big_delta - stub) >> (k - kStubMinusBits);
+                uint64_t stub = big_delta & ((1ULL << (k - kStubMinusBits)) - 1);
+                uint64_t small_delta = big_delta >> (k - kStubMinusBits);
 
                 // std::cout << "LP and last LP: " << (int)line_point << " ... " << (int)last_line_point << std::endl;
                 // std::cout << "Big delta: " << big_delta << std::endl;
@@ -1283,10 +1284,10 @@ class DiskPlotter {
 
         uint64_t begin_byte_C1 = res.final_table_begin_pointers[7] + number_of_p7_parks * P7_park_size;
 
-        uint64_t total_C1_entries = ceil(res.final_entries_written /
-                                         static_cast<double>(kCheckpoint1Interval));
+        uint64_t total_C1_entries = CDIV(res.final_entries_written,
+                                         kCheckpoint1Interval);
         uint64_t begin_byte_C2 = begin_byte_C1 + (total_C1_entries + 1) * (Util::ByteAlign(k) / 8);
-        uint64_t total_C2_entries = ceil(total_C1_entries / static_cast<double>(kCheckpoint2Interval));
+        uint64_t total_C2_entries = CDIV(total_C1_entries, kCheckpoint2Interval);
         uint64_t begin_byte_C3 = begin_byte_C2 + (total_C2_entries + 1) * (Util::ByteAlign(k) / 8);
 
         uint32_t size_C3 = CalculateC3Size(k);

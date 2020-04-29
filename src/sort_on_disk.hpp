@@ -178,13 +178,13 @@ class BucketStore {
         bucket_log_ = bucket_log;
         entries_per_seg_ = entries_per_seg;
 
-        for (uint64_t i = 0; i < pow(2, bucket_log); i++) {
+        for (uint64_t i = 0; i < (1UL << bucket_log); i++) {
             bucket_sizes_.push_back(0);
         }
 
         seg_size_ = 4 + entry_len_ * entries_per_seg;
 
-        length_ = floor(mem_len / seg_size_);
+        length_ = mem_len / seg_size_;
 
         // Initially, all the segments are empty, store them as a linked list,
         // where a segment points to the next empty segment.
@@ -298,43 +298,43 @@ class BucketStore {
         return idx;
     }
 
-    // Similar to how 'Bits' class works, appends an entry to the entries list, such as all entries are stored into 128-bit blocks.
-    // Bits class was avoided since it consumes more time than a uint128_t array.
-    static void AddBucketEntry(uint8_t* big_endian_bytes, uint64_t num_bytes, uint16_t size_bits, uint128_t* entries, uint64_t& cnt) {
+    // Similar to how 'Bits' class works, appends an entry to the entries list, such as all entries are stored into 64-bit blocks.
+    // Bits class was avoided since it consumes more time than a uint64_t array.
+    static void AddBucketEntry(uint8_t* big_endian_bytes, uint64_t num_bytes, uint16_t size_bits, uint64_t* entries, uint64_t& cnt) {
         assert(size_bits / 8 >= num_bytes);
         uint16_t extra_space = size_bits - num_bytes * 8;
         uint64_t init_cnt = cnt;
         uint16_t last_size = 0;
-        while (extra_space >= 128) {
-            extra_space -= 128;
+        while (extra_space >= 64) {
+            extra_space -= 64;
             entries[cnt++] = 0;
-            last_size = 128;
+            last_size = 64;
         }
         if (extra_space > 0) {
             entries[cnt++] = 0;
             last_size = extra_space;
         }
-        for (uint64_t i = 0; i < num_bytes; i += 16) {
-            uint128_t val = 0;
+        for (uint64_t i = 0; i < num_bytes; i += 8) {
+            uint64_t val = 0;
             uint8_t bucket_size = 0;
-            for (uint64_t j = i; j < i + 16 && j < num_bytes; j++) {
+            for (uint64_t j = i; j < i + 8 && j < num_bytes; j++) {
                 val = (val << 8) + big_endian_bytes[j];
                 bucket_size += 8;
             }
-            if (cnt == init_cnt || last_size == 128) {
+            if (cnt == init_cnt || last_size == 64) {
                 entries[cnt++] = val;
                 last_size = bucket_size;
             } else {
-                uint8_t free_space = 128 - last_size;
+                uint8_t free_space = 64 - last_size;
                 if (free_space >= bucket_size) {
                     entries[cnt - 1] = (entries[cnt - 1] << bucket_size) + val;
                     last_size += bucket_size;
                 } else {
                     uint8_t suffix_size = bucket_size - free_space;
-                    uint128_t mask = (static_cast<uint128_t>(1)) << suffix_size;
+                    uint64_t mask = (static_cast<uint64_t>(1)) << suffix_size;
                     mask--;
-                    uint128_t suffix = (val & mask);
-                    uint128_t prefix = (val >> suffix_size);
+                    uint64_t suffix = (val & mask);
+                    uint64_t prefix = (val >> suffix_size);
                     entries[cnt - 1] = (entries[cnt - 1] << free_space) + prefix;
                     entries[cnt++] = suffix;
                     last_size = suffix_size;
@@ -344,15 +344,15 @@ class BucketStore {
     }
 
     // Extracts 'number_of_entries' from bucket b and empties memory of those from BucketStore.
-    inline uint128_t* BucketHandle(uint64_t b, uint64_t number_of_entries, uint64_t& final_size) {
+    inline uint64_t* BucketHandle(uint64_t b, uint64_t number_of_entries, uint64_t& final_size) {
         uint32_t L = entry_len_;
-        uint32_t entry_size = L / 16;
-        if (L % 16)
+        uint32_t entry_size = L / 8;
+        if (L % 8)
             ++entry_size;
         uint64_t cnt = 0;
         uint64_t cnt_entries = 0;
-        // Entry bytes will be compressed into uint128_t array.
-        uint128_t* entries = new uint128_t[number_of_entries * entry_size];
+        // Entry bytes will be compressed into uint64_t array.
+        uint64_t* entries = new uint64_t[number_of_entries * entry_size];
 
         // As long as we have a head segment in bucket b...
         while (bucket_head_ids_[b] != length_) {
@@ -417,9 +417,9 @@ class BucketStore {
 
 class Sorting {
  public:
-    static void EntryToBytes(uint128_t* entries, uint32_t start_pos, uint32_t end_pos, uint8_t last_size, uint8_t buffer[]) {
+    static void EntryToBytes(uint64_t* entries, uint32_t start_pos, uint32_t end_pos, uint8_t last_size, uint8_t buffer[]) {
         uint8_t shift = Util::ByteAlign(last_size) - last_size;
-        uint128_t val = entries[end_pos - 1] << (shift);
+        uint64_t val = entries[end_pos - 1] << (shift);
         uint16_t cnt = 0;
         uint8_t iterations = last_size / 8;
         if (last_size % 8)
@@ -431,8 +431,8 @@ class Sorting {
 
         if (end_pos - start_pos >= 2) {
             for (int32_t i = end_pos - 2; i >= (int32_t) start_pos; i--) {
-                uint128_t val = entries[i];
-                for (uint8_t j = 0; j < 16; j++) {
+                uint64_t val = entries[i];
+                for (uint8_t j = 0; j < 8; j++) {
                     buffer[cnt++] = (val & 0xff);
                     val >>= 8;
                 }
@@ -449,7 +449,7 @@ class Sorting {
     inline static void SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
-        uint64_t length = floor(mem_len / entry_len);
+        uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
         // i.e. bucket_sizes[10] represents how many entries start with the prefix 1010.
@@ -502,7 +502,7 @@ class Sorting {
         std::vector<uint64_t> consumed_per_bucket(N_buckets, 0);
 
         // The spare stores about 5 * N_buckets * len(mem) entries.
-        uint64_t unit = floor(length / static_cast<double>(N_buckets) * 5);
+        uint64_t unit = length / N_buckets * 5;
 
         for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
             uint64_t b_size = bucket_sizes[i];
@@ -555,12 +555,12 @@ class Sorting {
                 uint64_t size;
                 // Don't extract from the bucket more entries than the difference between read and written entries (this avoids
                 // overwritting entries that were not read yet).
-                uint128_t* bucket_handle = bstore.BucketHandle(b, consumed_per_bucket[b] - written_per_bucket[b], size);
-                uint32_t entry_size = entry_len / 16;
-                uint8_t last_size = (entry_len * 8) % 128;
+                uint64_t* bucket_handle = bstore.BucketHandle(b, consumed_per_bucket[b] - written_per_bucket[b], size);
+                uint32_t entry_size = entry_len / 8;
+                uint8_t last_size = (entry_len * 8) % 64;
                 if (last_size == 0)
-                    last_size = 128;
-                if (entry_len % 16)
+                    last_size = 64;
+                if (entry_len % 8)
                     ++entry_size;
                 for (uint64_t i = 0; i < size; i += entry_size) {
                     EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
@@ -744,7 +744,7 @@ class Sorting {
     inline static void CheckSortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, bool quicksort = false) {
-        uint64_t length = floor(mem_len / entry_len);
+        uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         for (auto& n : bucket_sizes) total_size += n;
 

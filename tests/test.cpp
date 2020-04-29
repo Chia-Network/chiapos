@@ -533,11 +533,11 @@ TEST_CASE("Sort on disk") {
             }
             uint32_t m = bs.MaxBucket();
             uint64_t final_size;
-            uint128_t* bucket_handle = bs.BucketHandle(m, 1000000, final_size);
-            uint32_t entry_size = size / 16;
-            uint8_t last_size = (size * 8) % 128;
+            uint64_t* bucket_handle = bs.BucketHandle(m, 1000000, final_size);
+            uint32_t entry_size = size / 8;
+            uint8_t last_size = (size * 8) % 64;
             if (last_size == 0)
-                last_size = 128;
+                last_size = 64;
             for (uint32_t i = 0; i < final_size; i += entry_size) {
                 Sorting::EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
                 Bits x(buf, size, size*8);

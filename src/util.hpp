@@ -228,9 +228,9 @@ class Util {
     static void GetRandomBytes(uint8_t* buf, uint32_t num_bytes) {
         std::random_device rd;
         std::mt19937 mt(rd());
-        std::uniform_real_distribution<double> dist(0, 256);
+        std::uniform_int_distribution<int> dist(0, 255);
         for (uint32_t i = 0; i < num_bytes; i++) {
-            buf[i] = static_cast<uint32_t>(floor(dist(mt))) % 256;  // Mod in case we generate the random number 256:
+            buf[i] = dist(mt);
         }
     }
 

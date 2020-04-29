@@ -19,7 +19,6 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
-#include <math.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -94,9 +93,9 @@ class DiskProver {
         // read from disk the C1 and C3 entries.
         uint8_t c2_size = (Util::ByteAlign(k) / 8);
         uint8_t* c2_buf = new uint8_t[c2_size];
-        for (uint32_t i = 0; i < floor((table_begin_pointers[10] -
-                                    table_begin_pointers[9]) /
-                                    c2_size) - 1; i++) {
+        for (uint32_t i = 0; i < (table_begin_pointers[10] -
+                                  table_begin_pointers[9]) /
+                                  c2_size - 1; i++) {
             disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);
             this->C2.push_back(Bits(c2_buf, c2_size, c2_size*8).Slice(0, k).GetValue());
         }
@@ -223,7 +222,7 @@ class DiskProver {
     // the park is read, and finally, entry deltas are added up to the position that we
     // are looking for.
     uint128_t ReadLinePoint(uint8_t table_index, uint64_t position) {
-        uint64_t park_index = floor(position / kEntriesPerPark);
+        uint64_t park_index = position / kEntriesPerPark;
         uint32_t park_size_bits = DiskPlotter::CalculateParkSize(k, table_index) * 8;
         disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
 

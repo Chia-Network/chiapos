@@ -33,6 +33,18 @@ std::map<double, FSE_DTable*> DT_MEMO = {};
 
 class Encoding {
  public:
+    // Calculates x * (x-1) / 2. Division is done before multiplication.
+    static uint128_t GetXEnc(uint64_t x) {
+        uint64_t a = x, b = x - 1;
+
+        if (a % 2 == 0)
+            a /= 2;
+        else
+            b /= 2;
+
+        return (uint128_t)a * b;
+    }
+
     // Encodes two max k bit values into one max 2k bit value. This can be thought of
     // mapping points in a two dimensional space into a one dimensional space. The benefits
     // of this are that we can store these line points efficiently, by sorting them, and only
@@ -46,7 +58,8 @@ class Encoding {
         if (y > x) {
             std::swap(x, y);
         }
-        return ((uint128_t)x * (uint128_t)(x-1)) / 2 + y;
+
+        return GetXEnc(x) + y;
     }
 
     // Does the opposite as the above function, deterministicaly mapping a one dimensional
@@ -57,10 +70,10 @@ class Encoding {
         uint64_t x = 0;
         for (int8_t i = 63; i >= 0; i--) {
             uint64_t new_x = x + ((uint64_t)1 << i);
-            if ((uint128_t)new_x * (new_x - 1) / 2 <= index)
+            if (GetXEnc(new_x) <= index)
                 x = new_x;
         }
-        return std::pair<uint64_t, uint64_t>(x, index - (((uint128_t)x * (x-1)) / 2));
+        return std::pair<uint64_t, uint64_t>(x, index - GetXEnc(x));
     }
 
     static std::vector<short> CreateNormalizedCount(double R) {
