@@ -105,6 +105,7 @@ class DiskProver {
     }
 
     ~DiskProver() {
+        std::lock_guard<std::mutex> l(_mtx);
         this->disk_file.close();
         delete[] this->memo;
     }
@@ -133,6 +134,7 @@ class DiskProver {
     // from the 64 value proof. Note that this is more efficient than fetching all
     // 64 x values, which are in different parts of the disk.
     std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t* challenge) {
+        std::lock_guard<std::mutex> l(_mtx);
         // This tells us how many f7 outputs (and therefore proofs) we have for this
         // challenge. The expected value is one proof.
         std::vector<uint64_t> p7_entries = GetP7Entries(challenge);
@@ -184,6 +186,7 @@ class DiskProver {
     // called, and there are actually proofs present. The index represents which proof to fetch,
     // if there are multiple.
     LargeBits GetFullProof(const uint8_t* challenge, uint32_t index) {
+        std::lock_guard<std::mutex> l(_mtx);
         std::vector<uint64_t> p7_entries = GetP7Entries(challenge);
         if (p7_entries.size() == 0 || index >= p7_entries.size()) {
             disk_file.clear();
@@ -208,6 +211,7 @@ class DiskProver {
     }
 
  private:
+    mutable std::mutex _mtx;
     ifstream disk_file;
     std::string filename;
     uint32_t memo_size;

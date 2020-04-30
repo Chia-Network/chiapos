@@ -41,6 +41,7 @@ PYBIND11_MODULE(chiapos, m) {
             const uint8_t* memo_ptr = reinterpret_cast<const uint8_t*>(memo_str.data());
             std::string id_str(id);
             const uint8_t* id_ptr = reinterpret_cast<const uint8_t*>(id_str.data());
+            py::gil_scoped_release release;
             dp.CreatePlotDisk(tmp_dir, final_dir, filename, k, memo_ptr, len(memo), id_ptr, len(id));
         });
 
@@ -72,6 +73,7 @@ PYBIND11_MODULE(chiapos, m) {
             }
             std::string challenge_str(challenge);
             const uint8_t* challenge_ptr = reinterpret_cast<const uint8_t*>(challenge_str.data());
+            py::gil_scoped_release release;
             std::vector<LargeBits> qualities = dp.GetQualitiesForChallenge(challenge_ptr);
             std::vector<py::bytes> ret;
             uint8_t* quality_buf = new uint8_t[32];
@@ -86,6 +88,7 @@ PYBIND11_MODULE(chiapos, m) {
         .def("get_full_proof", [](DiskProver &dp, const py::bytes &challenge, uint32_t index) {
             std::string challenge_str(challenge);
             const uint8_t* challenge_ptr = reinterpret_cast<const uint8_t*>(challenge_str.data());
+            py::gil_scoped_release release;
             LargeBits proof = dp.GetFullProof(challenge_ptr, index);
             uint8_t* proof_buf = new uint8_t[Util::ByteAlign(64 * dp.GetSize()) / 8];
             proof.ToBytes(proof_buf);
