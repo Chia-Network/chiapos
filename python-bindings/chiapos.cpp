@@ -41,7 +41,6 @@ PYBIND11_MODULE(chiapos, m) {
             const uint8_t* memo_ptr = reinterpret_cast<const uint8_t*>(memo_str.data());
             std::string id_str(id);
             const uint8_t* id_ptr = reinterpret_cast<const uint8_t*>(id_str.data());
-            py::gil_scoped_release release;
             dp.CreatePlotDisk(tmp_dir, final_dir, filename, k, memo_ptr, len(memo), id_ptr, len(id));
         });
 

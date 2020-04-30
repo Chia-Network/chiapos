@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <algorithm>    // std::min
+#include <mutex>
 
 #include "util.hpp"
 #include "encoding.hpp"
