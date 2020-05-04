@@ -63,8 +63,9 @@ class DiskProver {
         uint8_t size_buf[2];
         disk_file.read(reinterpret_cast<char*>(size_buf), 2);
         uint32_t format_description_size = Bits(size_buf, 2, 16).GetValue();
-        uint8_t* format_description_read = new uint8_t[format_description_size];
+        uint8_t* format_description_read = new uint8_t[format_description_size + 1];
         disk_file.read(reinterpret_cast<char*>(format_description_read), format_description_size);
+        format_description_read[format_description_size] = '\0';
         std::string format_str(reinterpret_cast<char*>(format_description_read));
 
         // We cannot read a plot with a different format version
