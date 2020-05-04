@@ -176,9 +176,9 @@ int main(int argc, char *argv[]) {
             Verifier verifier = Verifier();
 
             uint32_t success = 0;
-            id = Strip0x(id);
             uint8_t id_bytes[32];
-            HexToBytes(id, id_bytes);
+            prover.GetId(id_bytes);
+            k = prover.GetSize();
 
             for (uint32_t num = 0; num < iterations; num++) {
                 vector<unsigned char> hash_input = intToBytes(num, 4);
@@ -189,7 +189,6 @@ int main(int argc, char *argv[]) {
 
                 vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
                 for (uint32_t i = 0; i < qualities.size(); i++) {
-                    k = qualities[i].GetSize() / 2;
                     LargeBits proof = prover.GetFullProof(hash.data(), i);
                     uint8_t proof_data[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
@@ -197,7 +196,7 @@ int main(int argc, char *argv[]) {
                     cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                     cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                     LargeBits quality = verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k*8);
-                    if (quality.GetSize() == 2*k) {
+                    if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
                         cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
                         success++;
@@ -208,7 +207,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             std::cout << "Total success: " << success << "/" << iterations << ", " <<
-                         (success/static_cast<double>(iterations)) << "%." << std::endl;
+                         (success*100/static_cast<double>(iterations)) << "%." << std::endl;
         } else {
             cout << "Invalid operation. Use generate/prove/verify/check" << endl;
         }
