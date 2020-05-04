@@ -363,10 +363,12 @@ template <class T> class BitsGeneric {
             // Append all the in between buckets
             for (uint32_t i = start_bucket + 1; i < end_bucket; i++)
                 result.AppendValue(values_[i], 64);
-            uint8_t bucket_size = ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
-            // Get the suffix from the last bucket.
-            SplitNumberByPrefix(values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
-            result.AppendValue(prefix, end_index % 64);
+            if (end_index % 64) {
+                uint8_t bucket_size = ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+                // Get the suffix from the last bucket.
+                SplitNumberByPrefix(values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
+                result.AppendValue(prefix, end_index % 64);
+            }
             return result;
         }
     }
