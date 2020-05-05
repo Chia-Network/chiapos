@@ -81,6 +81,12 @@ class DiskPlotter {
     void CreatePlotDisk(std::string tmp_dirname, std::string final_dirname, std::string filename,
                         uint8_t k, const uint8_t* memo,
                         uint32_t memo_len, const uint8_t* id, uint32_t id_len) {
+        if (k < kMinPlotSize || k > kMaxPlotSize) {
+            std::string err_string = "Plot size k=" + std::to_string(k) + " is invalid";
+            std::cerr << err_string << std::endl;
+            throw err_string;
+        }
+
         std::cout << std::endl << "Starting plotting progress into temporary dir " << tmp_dirname << "." << std::endl;
         std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
@@ -111,8 +117,6 @@ class DiskPlotter {
         park_deltas_bytes = new uint8_t[CalculateMaxDeltasSize(k, 1)];
 
         assert(id_len == kIdLen);
-        assert(k >= kMinPlotSize);
-        assert(k <= kMaxPlotSize);
 
         std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
 
