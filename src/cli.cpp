@@ -50,7 +50,7 @@ void HelpAndQuit(cxxopts::Options options) {
     cout << options.help({""}) << endl;
     cout << "./ProofOfSpace generate" << endl;
     cout << "./ProofOfSpace prove <challenge>" << endl;
-    cout << "./ProofOfSpace verify <challenge> <proof>" << endl;
+    cout << "./ProofOfSpace verify <proof> <challenge>" << endl;
     cout << "./ProofOfSpace check" << endl;
     exit(0);
 }
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
             HelpAndQuit(options);
         }
         operation = argv[1];
-        std::cout << "operation" << operation << std::endl;
+        std::cout << "operation: " << operation << std::endl;
 
         if (operation == "help") {
             HelpAndQuit(options);
@@ -137,8 +137,6 @@ int main(int argc, char *argv[]) {
             if (argc < 4) {
                 HelpAndQuit(options);
             }
-            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3] << " and k="
-                 << static_cast<int>(k) << endl << endl;
             Verifier verifier = Verifier();
 
             id = Strip0x(id);
@@ -152,6 +150,13 @@ int main(int argc, char *argv[]) {
                 cout << "Invalid challenge, should be 32 bytes" << endl;
                 exit(1);
             }
+            if (proof.size() % 16) {
+                cout << "Invalid proof, should be a multiple of 8 bytes" << endl;
+                exit(1);
+            }
+            k = proof.size() / 16;
+            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3] << " and k="
+                 << static_cast<int>(k) << endl << endl;
             uint8_t id_bytes[32];
             uint8_t challenge_bytes[32];
             uint8_t proof_bytes[proof.size() / 2];
@@ -160,7 +165,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(proof, proof_bytes);
 
             LargeBits quality = verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k*8);
-            if (quality.GetSize() == 2*k) {
+            if (quality.GetSize() == 256) {
                 cout << "Proof verification suceeded. Quality: " << quality << endl;
             } else {
                 cout << "Proof verification failed." << endl;
