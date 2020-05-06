@@ -34,14 +34,16 @@ PYBIND11_MODULE(chiapos, m) {
 
     py::class_<DiskPlotter>(m, "DiskPlotter")
         .def(py::init<>())
-        .def("create_plot_disk", [](DiskPlotter &dp, const std::string tmp_dir, const std::string final_dir,
+        .def("create_plot_disk", [](DiskPlotter &dp, const std::string tmp_dir, 
+                                    const std::string tmp2_dir,
+                                    const std::string final_dir,
                                     const std::string filename, uint8_t k,
                                     const py::bytes &memo, const py::bytes &id) {
             std::string memo_str(memo);
             const uint8_t* memo_ptr = reinterpret_cast<const uint8_t*>(memo_str.data());
             std::string id_str(id);
             const uint8_t* id_ptr = reinterpret_cast<const uint8_t*>(id_str.data());
-            dp.CreatePlotDisk(tmp_dir, final_dir, filename, k, memo_ptr, len(memo), id_ptr, len(id));
+            dp.CreatePlotDisk(tmp_dir, tmp2_dir, final_dir, filename, k, memo_ptr, len(memo), id_ptr, len(id));
         });
 
     py::class_<DiskProver>(m, "DiskProver")
