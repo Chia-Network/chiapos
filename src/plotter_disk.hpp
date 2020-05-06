@@ -78,7 +78,7 @@ class DiskPlotter {
     // This method creates a plot on disk with the filename. A temporary file, "plotting" + filename,
     // is created and will be larger than the final plot file. This file is deleted at the end of
     // the process.
-    void CreatePlotDisk(std::string tmp_dirname, std::string final_dirname, std::string filename,
+    void CreatePlotDisk(std::string tmp_dirname, std::string tmp2_dirname, std::string final_dirname, std::string filename,
                         uint8_t k, const uint8_t* memo,
                         uint32_t memo_len, const uint8_t* id, uint32_t id_len) {
         if (k < kMinPlotSize || k > kMaxPlotSize) {
@@ -87,19 +87,25 @@ class DiskPlotter {
             throw err_string;
         }
 
-        std::cout << std::endl << "Starting plotting progress into temporary dir " << tmp_dirname << "." << std::endl;
+        std::cout << std::endl << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and " << tmp2_dirname << std::endl;
         std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         fs::path tmp_1_filename = fs::path(tmp_dirname) / fs::path(filename + ".tmp");
-        fs::path tmp_2_filename = fs::path(tmp_dirname) / fs::path(filename + ".2.tmp");
+        fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
             std::string err_string = "Directory " + tmp_dirname + " does not exist";
+            std::cerr << err_string << std::endl;
+            throw err_string;
+        }
+
+        if (!fs::exists(tmp2_dirname)) {
+            std::string err_string = "Directory " + tmp2_dirname + " does not exist";
             std::cerr << err_string << std::endl;
             throw err_string;
         }
