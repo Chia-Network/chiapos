@@ -64,8 +64,9 @@ class DiskProver {
         uint8_t size_buf[2];
         disk_file.read(reinterpret_cast<char*>(size_buf), 2);
         uint32_t format_description_size = Bits(size_buf, 2, 16).GetValue();
-        uint8_t* format_description_read = new uint8_t[format_description_size];
+        uint8_t* format_description_read = new uint8_t[format_description_size + 1];
         disk_file.read(reinterpret_cast<char*>(format_description_read), format_description_size);
+        format_description_read[format_description_size] = '\0';
         std::string format_str(reinterpret_cast<char*>(format_description_read));
 
         // We cannot read a plot with a different format version
@@ -90,13 +91,18 @@ class DiskProver {
 
         disk_file.seekg(table_begin_pointers[9]);
 
+        uint8_t c2_size = (Util::ByteAlign(k) / 8);
+        uint32_t c2_entries = (table_begin_pointers[10] -
+                               table_begin_pointers[9]) / c2_size;
+        if (c2_entries == 0 || c2_entries == 1) {
+            delete[] format_description_read;
+            throw std::invalid_argument("Invalid C2 table size");
+        }
+
         // The list of C2 entries is small enough to keep in memory. When proving, we can
         // read from disk the C1 and C3 entries.
-        uint8_t c2_size = (Util::ByteAlign(k) / 8);
         uint8_t* c2_buf = new uint8_t[c2_size];
-        for (uint32_t i = 0; i < (table_begin_pointers[10] -
-                                  table_begin_pointers[9]) /
-                                  c2_size - 1; i++) {
+        for (uint32_t i = 0; i < c2_entries - 1; i++) {
             disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);
             this->C2.push_back(Bits(c2_buf, c2_size, c2_size*8).Slice(0, k).GetValue());
         }

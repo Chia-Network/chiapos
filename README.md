@@ -1,3 +1,4 @@
+![Build](https://github.com/Chia-Network/chiapos/workflows/Build/badge.svg)
 # Chia Proof of Space
 
 A prototype of Chia's proof of space, written in C++. Includes a plotter, prover, and verifier.

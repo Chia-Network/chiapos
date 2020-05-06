@@ -363,10 +363,12 @@ template <class T> class BitsGeneric {
             // Append all the in between buckets
             for (uint32_t i = start_bucket + 1; i < end_bucket; i++)
                 result.AppendValue(values_[i], 64);
-            uint8_t bucket_size = ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
-            // Get the suffix from the last bucket.
-            SplitNumberByPrefix(values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
-            result.AppendValue(prefix, end_index % 64);
+            if (end_index % 64) {
+                uint8_t bucket_size = ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+                // Get the suffix from the last bucket.
+                SplitNumberByPrefix(values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
+                result.AppendValue(prefix, end_index % 64);
+            }
             return result;
         }
     }
@@ -456,14 +458,18 @@ template <class T> class BitsGeneric {
         return str;
     }
 
-    // If the bitarray fits into 64 bits, returns it as an uint64_t, otherwise throws error
-    uint64_t GetValue() const {
-        if (values_.size() != 1) {
-            std::cout << "Number of values is: " << values_.size() << std::endl;
+    // If the bitarray fits into 128 bits, returns it as an uint128_t, otherwise throws error
+    uint128_t GetValue() const {
+        if (values_.size() > 2) {
+            std::cout << "Number of 64 bit values is: " << values_.size() << std::endl;
             std::cout << "Size of bits is: " << GetSize() << std::endl;
-            throw std::string("Number doesn't fit into a 64-bit type.");
+            throw std::string("Number doesn't fit into a 128-bit type.");
         }
-        return values_[0];
+
+        if(GetSize()<=64)
+                return values_[0];
+
+        return (((uint128_t)values_[0])<<(GetSize()-64))+values_[1];
     }
 
     uint32_t GetSize() const {

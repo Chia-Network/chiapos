@@ -50,7 +50,7 @@ void HelpAndQuit(cxxopts::Options options) {
     cout << options.help({""}) << endl;
     cout << "./ProofOfSpace generate" << endl;
     cout << "./ProofOfSpace prove <challenge>" << endl;
-    cout << "./ProofOfSpace verify <challenge> <proof>" << endl;
+    cout << "./ProofOfSpace verify <proof> <challenge>" << endl;
     cout << "./ProofOfSpace check" << endl;
     exit(0);
 }
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
             HelpAndQuit(options);
         }
         operation = argv[1];
-        std::cout << "operation" << operation << std::endl;
+        std::cout << "operation: " << operation << std::endl;
 
         if (operation == "help") {
             HelpAndQuit(options);
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(id, id_bytes);
 
             DiskPlotter plotter = DiskPlotter();
-            plotter.CreatePlotDisk(tempdir, finaldir, filename, k, memo_bytes, 5, id_bytes, 32);
+            plotter.CreatePlotDisk(tempdir, tempdir, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32);
         } else if (operation == "prove") {
             if (argc < 3) {
                 HelpAndQuit(options);
@@ -137,8 +137,6 @@ int main(int argc, char *argv[]) {
             if (argc < 4) {
                 HelpAndQuit(options);
             }
-            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3] << " and k="
-                 << static_cast<int>(k) << endl << endl;
             Verifier verifier = Verifier();
 
             id = Strip0x(id);
@@ -152,6 +150,13 @@ int main(int argc, char *argv[]) {
                 cout << "Invalid challenge, should be 32 bytes" << endl;
                 exit(1);
             }
+            if (proof.size() % 16) {
+                cout << "Invalid proof, should be a multiple of 8 bytes" << endl;
+                exit(1);
+            }
+            k = proof.size() / 16;
+            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3] << " and k="
+                 << static_cast<int>(k) << endl << endl;
             uint8_t id_bytes[32];
             uint8_t challenge_bytes[32];
             uint8_t proof_bytes[proof.size() / 2];
@@ -160,7 +165,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(proof, proof_bytes);
 
             LargeBits quality = verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k*8);
-            if (quality.GetSize() == 2*k) {
+            if (quality.GetSize() == 256) {
                 cout << "Proof verification suceeded. Quality: " << quality << endl;
             } else {
                 cout << "Proof verification failed." << endl;
@@ -176,9 +181,9 @@ int main(int argc, char *argv[]) {
             Verifier verifier = Verifier();
 
             uint32_t success = 0;
-            id = Strip0x(id);
             uint8_t id_bytes[32];
-            HexToBytes(id, id_bytes);
+            prover.GetId(id_bytes);
+            k = prover.GetSize();
 
             for (uint32_t num = 0; num < iterations; num++) {
                 vector<unsigned char> hash_input = intToBytes(num, 4);
@@ -189,7 +194,6 @@ int main(int argc, char *argv[]) {
 
                 vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
                 for (uint32_t i = 0; i < qualities.size(); i++) {
-                    k = qualities[i].GetSize() / 2;
                     LargeBits proof = prover.GetFullProof(hash.data(), i);
                     uint8_t proof_data[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
@@ -197,7 +201,7 @@ int main(int argc, char *argv[]) {
                     cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                     cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                     LargeBits quality = verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k*8);
-                    if (quality.GetSize() == 2*k) {
+                    if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
                         cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
                         success++;
@@ -208,7 +212,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             std::cout << "Total success: " << success << "/" << iterations << ", " <<
-                         (success/static_cast<double>(iterations)) << "%." << std::endl;
+                         (success*100/static_cast<double>(iterations)) << "%." << std::endl;
         } else {
             cout << "Invalid operation. Use generate/prove/verify/check" << endl;
         }
