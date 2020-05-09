@@ -28,6 +28,10 @@
 #include <string>
 #include <utility>
 
+// Gulrak filesystem brings in Windows headers that cause some issues with std
+#define _HAS_STD_BYTE 0
+#define NOMINMAX
+
 #include "../lib/include/filesystem.hh"
 namespace fs = ghc::filesystem;
 #include "util.hpp"
