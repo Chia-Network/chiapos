@@ -43,6 +43,11 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
     return arrayOfByte;
 }
 
+static uint128_t to_uint128(uint64_t hi, uint64_t lo)
+{
+    return (uint128_t)hi << 64 | lo;
+}
+
 TEST_CASE("Util") {
     SECTION("Increment and decrement") {
         uint8_t bytes[3] = {45, 172, 225};
@@ -133,13 +138,47 @@ TEST_CASE("Bits") {
         REQUIRE(large == ((large << 160)) >> 160);
         REQUIRE((large << 160).GetSize() == 200);
 
-        Bits l = Bits(123287490, 20);
+        Bits l = Bits(123287490 & ((1U << 20) - 1), 20);
         l = l + Bits(0, 5);
 
         Bits m = Bits(5, 3);
         uint8_t buf[1];
         m.ToBytes(buf);
         REQUIRE(buf[0] == (5 << 5));
+
+        uint64_t a_hi = 0x97ef8e98bce1bb4ULL, a_lo = 0x6924069578d89abeULL;
+        uint64_t b_hi = 0xe1dcbd9c33572c8ULL, b_lo = 0x8a2b75bbdbb73f73ULL;
+        uint8_t ab_len = 124;
+        Bits a(to_uint128(a_hi, a_lo), ab_len);
+        Bits b(to_uint128(b_hi, b_lo), ab_len);
+
+        uint128_t sum = to_uint128(0x79cc4c34f038e7cULL, 0xf34f7c51548fda31ULL);
+        uint128_t sum_res = a.Add(b).GetValue();
+        cout << "sum_res: " << sum_res << endl;
+        REQUIRE(sum_res == sum);
+
+        uint128_t xor_res = to_uint128(0x763333048fb697cULL, 0xe30f732ea36fa5cdULL);
+        REQUIRE((a ^ b).GetValue() == xor_res);
+
+        uint128_t r1 = to_uint128(0x2fdf1d3179c3768ULL, 0xd2480d2af1b1357dULL);
+        uint128_t r15 = to_uint128(0x5ece19ab9644515ULL, 0xbaddeddb9fb9f0eeULL);
+        uint128_t r60 = to_uint128(0x8a2b75bbdbb73f7ULL, 0x3e1dcbd9c33572c8ULL);
+        uint128_t r63 = to_uint128(0x515baddeddb9fb9ULL, 0xf0ee5ece19ab9644ULL);
+        uint128_t r1_res = a.Rotl(1).GetValue();
+        uint128_t r15_res = b.Rotl(15).GetValue();
+        uint128_t r60_res = b.Rotl(60).GetValue();
+        uint128_t r63_res = b.Rotl(63).GetValue();
+        cout << "r1_res: " << r1_res << endl;
+        REQUIRE(r1_res == r1);
+        cout << "r15_res: " << r15_res << endl;
+        REQUIRE(r15_res == r15);
+        cout << "r60_res: " << r60_res << endl;
+        REQUIRE(r60_res == r60);
+        cout << "r63_res: " << r63_res << endl;
+        REQUIRE(r63_res == r63);
+
+        REQUIRE(a.Trunc(60) == Bits(0x924069578d89abeULL, 60));
+        REQUIRE(b.Trunc(99) == Bits(to_uint128(0x1c33572c8ULL, 0x8a2b75bbdbb73f73ULL), 99));
     }
     SECTION("Park Bits") {
         uint32_t num_bytes = 16000;
@@ -203,6 +242,17 @@ bool CheckMatch(int64_t yl, int64_t yr) {
         }
     }
     return false;
+}
+
+void VerifyF(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y)
+{
+    uint8_t aes_key[16] = {0};
+    uint8_t sizes[] = { 1, 2, 4, 4, 3, 2 };
+    uint8_t size = sizes[t - 2];
+    FxCalculator f(k, t, aes_key);
+
+    Bits res = f.CalculateF(Bits(L, k * size), Bits(R, k * size), Bits(y1, k + kExtraBits));
+    REQUIRE((uint64_t)res.GetValue() == y);
 }
 
 TEST_CASE("F functions") {
@@ -306,6 +356,21 @@ TEST_CASE("F functions") {
         }
         REQUIRE(total_matches > (1 << k) / 2);
         REQUIRE(total_matches < (1 << k) * 2);
+    }
+
+    SECTION("Fx") {
+        VerifyF(2, 16, 0x44cb, 0x204f, 0x10530d, 0x168ae6);
+        VerifyF(2, 16, 0x3c5f, 0xfda9, 0x1cc476, 0x74347);
+        VerifyF(3, 16, 0x35bf992d, 0x7ce42c82, 0x18f2a0, 0x51432);
+        VerifyF(3, 16, 0x7204e52d, 0xf1fd42a2, 0x1450c4, 0x124691);
+        VerifyF(4, 16, 0x5b6e6e307d4bedc, 0x8a9a021ea648a7dd, 0x1865a6, 0xf9e4a);
+        VerifyF(4, 16, 0xb9d179e06c0fd4f5, 0xf06d3fef701966a0, 0xeeadb, 0x42071);
+        VerifyF(5, 16, 0xc2cd789a380208a9, 0x19999e3fa46d6753, 0x12f80f, 0x14aebb);
+        VerifyF(5, 16, 0xbe3edc0a1ef2a4f0, 0x4da98f1d3099fdf5, 0x1ff58c, 0xa9866);
+        VerifyF(6, 16, 0xc965815a47c5, 0xf5e008d6af57, 0xf890d, 0x1b174);
+        VerifyF(6, 16, 0xd420677f6cbd, 0x5894aa2ca1af, 0x177ef4, 0x19eaab);
+        VerifyF(7, 16, 0x5fec898f, 0x82283d15, 0xa7a08, 0x168c89);
+        VerifyF(7, 16, 0x64ac5db9, 0x7923986, 0x2c87e, 0xafa6f);
     }
 }
 

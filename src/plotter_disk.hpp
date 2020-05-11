@@ -40,8 +40,6 @@ namespace fs = ghc::filesystem;
 #include "sort_on_disk.hpp"
 #include "pos_constants.hpp"
 
-#define CDIV(a, b) (((a) + (b) - 1) / (b))
-
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
 

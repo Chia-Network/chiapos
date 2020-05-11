@@ -58,6 +58,10 @@ struct SmallVector {
         return count_;
     }
 
+    void resize(const size_type n) {
+        count_ = n;
+    }
+
  private:
     uint64_t v_[10];
     size_type count_;
@@ -151,6 +155,8 @@ template <class T> class BitsGeneric {
             AppendValue(0, zeros);
             AppendValue(value, Util::GetSizeBits(value));
         } else {
+            /* 'value' must be under 'size' bits. */
+            assert(size == 64 || value == (value & ((1ULL << size) - 1)));
             values_.push_back(value);
             this->last_size_ = size;
         }
@@ -245,6 +251,72 @@ template <class T> class BitsGeneric {
         return *this;
     }
 
+    BitsGeneric<T> Add(const BitsGeneric<T>& other) const {
+        int i, size = values_.size();
+        uint32_t carry = 0;
+        BitsGeneric<T> res;
+
+        assert(GetSize() == other.GetSize());
+
+        res.values_.resize(size);
+        res.values_[size - 1] = values_[size - 1] + other.values_[size - 1];
+        if (last_size_ < 64) {
+            carry = res.values_[size - 1] >> last_size_;
+            res.values_[size - 1] &= (1ULL << last_size_) - 1;
+        } else {
+            carry = res.values_[size - 1] < values_[size - 1];
+        }
+
+        for (i = size - 2; i >= 0; i--) {
+            uint64_t sum = values_[i] + carry;
+            uint64_t sum2 = sum + other.values_[i];
+
+            /* If a+carry is zero, carry will remain the same. */
+            if (sum)
+                carry = sum2 < other.values_[i];
+
+            res.values_[i] = sum2;
+        }
+
+        res.last_size_ = last_size_;
+        return res;
+    }
+
+    BitsGeneric<T> Rotl(uint32_t shift) const {
+        uint64_t tmp, mask = (last_size_ < 64 ? 1ULL << last_size_ : 0ULL) - 1;
+        int i, size = values_.size();
+        uint32_t shift2 = 64 - shift;
+        BitsGeneric<T> res;
+
+        assert(shift < 64);
+
+        res.values_.resize(size);
+        res.last_size_ = last_size_;
+
+        if (size < 2) {
+            assert(shift < last_size_);
+            res.values_[0] = values_[0] << shift | values_[0] >> (last_size_ - shift);
+            res.values_[0] &= mask;
+            return res;
+        } else {
+            tmp = values_[0] >> shift2;
+        }
+        for (i = 0; i < size - 2; i++) {
+            res.values_[i] = values_[i] << shift | values_[i + 1] >> shift2;
+        }
+
+        res.values_[size - 2] = values_[size - 2] << shift;
+        if (shift <= last_size_) {
+            res.values_[size - 2] |= values_[size - 1] >> (last_size_ - shift);
+        } else {
+            res.values_[size - 2] |= values_[size - 1] << (shift - last_size_);
+            res.values_[size - 2] |= tmp >> last_size_;
+        }
+
+        res.values_[size - 1] = (values_[size - 1] << shift | tmp) & mask;
+        return res;
+    }
+
     BitsGeneric<T>& operator++() {
         uint64_t limit = ((uint64_t)std::numeric_limits<uint32_t> :: max() << 32) +
                           (uint64_t)std::numeric_limits<uint32_t> :: max();
@@ -328,6 +400,14 @@ template <class T> class BitsGeneric {
         return res;
     }
 
+    BitsGeneric<T> Trunc(uint32_t n_bits) const {
+        return Slice(GetSize() - n_bits, GetSize());
+    }
+
+    uint64_t TruncToInt(uint32_t n_bits) const {
+        return SliceBitsToInt(GetSize() - n_bits, GetSize());
+    }
+
     BitsGeneric<T> Slice(uint32_t start_index) const {
         return Slice(start_index, GetSize());
     }
@@ -383,7 +463,7 @@ template <class T> class BitsGeneric {
         } */
         if ((start_index >> 6) == (end_index >> 6)) {
             uint64_t res = values_[start_index >> 6];
-            if ((start_index >> 6) == values_.size() - 1)
+            if ((start_index >> 6) == (uint32_t)values_.size() - 1)
                 res = res >> (last_size_ - (end_index & 63));
             else
                 res = res >> (64 - (end_index & 63));
@@ -394,9 +474,11 @@ template <class T> class BitsGeneric {
             uint64_t prefix, suffix;
             SplitNumberByPrefix(values_[(start_index >> 6)], 64, start_index & 63, &prefix, &suffix);
             uint64_t result = suffix;
-            uint8_t bucket_size = ((end_index >> 6) == values_.size() - 1) ? last_size_ : 64;
-            SplitNumberByPrefix(values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
-            result = (result << (end_index & 63)) + prefix;
+            if (end_index % 64) {
+                uint8_t bucket_size = ((end_index >> 6) == (uint32_t)values_.size() - 1) ? last_size_ : 64;
+                SplitNumberByPrefix(values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
+                result = (result << (end_index & 63)) + prefix;
+            }
             return result;
         }
     }

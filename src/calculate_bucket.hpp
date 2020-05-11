@@ -265,6 +265,7 @@ class FxCalculator {
         aes_load_key(this->aes_key_, 16);
     }
 
+#if 0
     // Performs one evaluation of the f function, whose input is divided into 3 pieces of at
     // most 128 bits each.
     inline Bits CalculateF(const Bits& La, const Bits& Lb, const Bits& Ra, const Bits& Rb) {
@@ -317,12 +318,85 @@ class FxCalculator {
                 return Bits();
         }
     }
+#endif
+
+    Bits Aplus(Bits a, Bits b) const {
+        int shift = k_ + kExtraBits, rlen = length_;
+        uint64_t res = 0;
+
+        while (rlen > 0) {
+            res ^= a.TruncToInt(shift) + b.TruncToInt(shift);
+            a = a >> shift;
+            b = b >> shift;
+            rlen -= shift;
+        }
+
+        res &= (1ULL << shift) - 1;
+        return Bits(res, shift);
+    }
+
+    Bits Axor(Bits a, Bits b) const {
+        int shift = k_ + kExtraBits, rlen = length_;
+        uint64_t res = 0;
+
+        while (rlen > 0) {
+            res += a.TruncToInt(shift) ^ b.TruncToInt(shift);
+            a = a >> shift;
+            b = b >> shift;
+            rlen -= shift;
+        }
+
+        res &= (1ULL << shift) - 1;
+        return Bits(res, shift);
+    }
+
+    // Performs one evaluation of the f function.
+    inline Bits CalculateF(const Bits& L, const Bits& R, const Bits& y1) const {
+        if (table_index_ == 2) {
+            uint64_t x1 = L.GetValue(), v = R.Rotl(12).GetValue(), a, b;
+
+            a = (x1 + v) << kExtraBits;
+            b = ((x1 >> kExtraBits) + v) ^ ((x1 >> 2*kExtraBits) + (v >> kExtraBits));
+            a &= (1ULL << (k_ + kExtraBits)) - 1;
+            b &= (1U << kExtraBits) - 1;
+            return Bits(a ^ b, k_ + kExtraBits) ^ y1;
+        } else {
+            uint8_t shift = 1 << (7 - table_index_);
+            Bits R2 = R.Rotl(shift);
+
+            if (table_index_ % 2) {
+                return Axor(L, R2) ^ y1;
+            } else {
+                return Aplus(L, R2).Add(y1);
+            }
+        }
+    }
+
+    // Composes two metadatas L and R, into a metadata for the next table.
+    inline Bits Compose(const Bits& L, const Bits& R) const {
+        switch (table_index_) {
+            case 2:
+            case 3:
+                return L + R;
+            case 4:
+                return L ^ R.Rotl(16);
+            case 5:
+                assert(length_ % 4 == 0);
+                return L.Add(R.Rotl(8)).Trunc(3*k_);
+            case 6:
+                assert(length_ % 3 == 0);
+                return (L ^ R.Rotl(4)).Trunc(2*k_);
+            default:
+                return Bits();
+        }
+    }
 
     // Returns an evaluation of F_i(L), and the metadata (L) that must be stored to evaluate F_i+1.
     inline std::pair<Bits, Bits> CalculateBucket(const Bits& y1, const Bits& y2, const Bits& L, const Bits& R) {
+#if 0
         // y1 is xored into the result. This ensures that we have some cryptographic "randomness"
-        // encoded into each f function, since f1 output y is the result of a ChaCha8 encryption.
-        // All other f functions apart from f1 don't use ChaCha8, they use 2 round AES128.
+        // encoded into each f function, since f1 output y is the result of an AES256 encryption.
+        // All other f functions apart from f1 don't use AES256, they use 2 round AES128.
         if (L.GetSize() <= kBlockSizeBits) {
             return std::make_pair(CalculateF(L, Bits(), R, Bits()) ^ y1, Compose(L, R));
         } else {
@@ -332,6 +406,12 @@ class FxCalculator {
                                         R.Slice(kBlockSizeBits)) ^ y1,
                                   Compose(L, R));
         }
+#endif
+        // y1 is xored or added into the result. This ensures that we have some
+        // cryptographic "randomness" encoded into each f function, since f1
+        // output y is the result of a ChaCha8 encryption. All other f
+        // functions apart from f1 don't use ChaCha8.
+        return std::make_pair(CalculateF(L, R, y1), Compose(L, R));
     }
 
     // Given two buckets with entries (y values), computes which y values match, and returns a list
