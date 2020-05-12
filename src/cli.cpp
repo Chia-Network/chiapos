@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
         uint8_t k = 20;
         string filename = "plot.dat";
         string tempdir = ".";
+        string tempdir2 = ".";
         string finaldir = ".";
         string operation = "help";
         string memo  = "0102030405";
@@ -74,6 +75,7 @@ int main(int argc, char *argv[]) {
                .add_options()
                 ("k, size", "Plot size", cxxopts::value<uint8_t>(k))
                 ("t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))
+                ("2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))
                 ("d, finaldir", "Final directory", cxxopts::value<string>(finaldir))
                 ("f, file", "Filename", cxxopts::value<string>(filename))
                 ("m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))
@@ -106,7 +108,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(id, id_bytes);
 
             DiskPlotter plotter = DiskPlotter();
-            plotter.CreatePlotDisk(tempdir, tempdir, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32);
+            plotter.CreatePlotDisk(tempdir, tempdir2, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32);
             delete(memo_bytes);
         } else if (operation == "prove") {
             if (argc < 3) {
