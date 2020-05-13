@@ -22,4 +22,5 @@ Makefile
 build
 .pytest_cache
 **/*.egg-info
-
+.mypy_cache
+*.whl
