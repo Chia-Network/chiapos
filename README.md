@@ -8,8 +8,13 @@
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:cpp)
 # Chia Proof of Space
 
-A prototype of Chia's proof of space, written in C++. Includes a plotter, prover, and verifier.
-Only runs on 64 bit architectures with AES-NI support. Read the [Proof of Space document](https://www.chia.net/assets/proof_of_space.pdf) to learn about what proof of space is and how it works.
+Chia's proof of space, written in C++. Includes a plotter, prover, and verifier.
+Only runs on 64 bit architectures with AES-NI support. Read the
+[Proof of Space document](https://www.chia.net/assets/proof_of_space.pdf) to
+learn about what proof of space is and how it works.
+
+Expect significant changes by June 30, 2020 that will break the plot file
+format, move to chacha8, and otherwise improve plotting performance.
 
 ## C++ Usage Instructions
 
@@ -33,7 +38,7 @@ cmake --build . -- -j 6
 
 ```bash
 ./ProofOfSpace -k 25 -f "plot.dat" -m "0x1234" generate
-./ProofOfSpace -k 25 -f "plot.dat" -m "0x4567" -t TEMPDIR -2 SECOND_TEMPDIR generate
+./ProofOfSpace -k 25 -f "final-plot.dat" -m "0x4567" -t TMPDIR -2 SECOND_TMPDIR generate
 ./ProofOfSpace -f "plot.dat" prove <32 byte hex challenge>
 ./ProofOfSpace -k 25 verify <hex proof> <32 byte hex challenge>
 ./ProofOfSpace -f "plot.dat" check <iterations>
@@ -48,7 +53,8 @@ time ./ProofOfSpace -k 25 generate
 
 ### Hellman Attacks usage
 
-There is an experimental implementation which implements some of the Hellman Attacks that can provide significant space savings for the final file.
+There is an experimental implementation which implements some of the Hellman
+Attacks that can provide significant space savings for the final file.
 
 
 ```bash
@@ -72,8 +78,8 @@ pip3 install .
 
 ### Run python tests
 
-Testings uses pytest. Type checking uses pyright, and linting uses flake8 and
-mypy.
+Testings uses pytest. Type checking uses pyright (currenlty disabled), and
+linting uses flake8 and mypy.
 
 ```bash
 py.test ./tests -s -v
