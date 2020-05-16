@@ -44,7 +44,7 @@ namespace fs = ghc::filesystem;
 
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
-const uint64_t kMemorySize = 6*2147483648;  // 2^31, or 2GB
+const uint64_t kMemorySize = 2147483648;  // 2^31, or 2GB
 
 // Number of buckets to use for SortOnDisk.
 const uint32_t kNumSortBuckets = 16;
