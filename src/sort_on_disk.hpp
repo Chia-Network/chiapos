@@ -102,7 +102,7 @@ class FileDisk : public Disk {
         // Seek, read, and replace into memcache
         if((!bReading)||(begin!=readPos))
         {
-		// std::cout << &f_ << ": Read seek " << begin << " for " << length << std::endl;
+		std::cout << &f_ << ": Read seek " << begin << " for " << length << std::endl;
 		f_.seekg(begin);
 		bReading=true;
 	}
@@ -114,7 +114,7 @@ class FileDisk : public Disk {
         // Seek and write from memcache
 	if((bReading)||(begin!=writePos))
 	{
-		// std::cout << &f_ << ": Write seek " << begin << " for " << length << std::endl;
+		std::cout << &f_ << ": Write seek " << begin << " for " << length << std::endl;
 		f_.seekp(begin);
 		bReading=false;
         }
@@ -747,6 +747,7 @@ class Sorting {
     inline static void CheckSortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, bool quicksort = false) {
+return;
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         for (auto& n : bucket_sizes) total_size += n;
