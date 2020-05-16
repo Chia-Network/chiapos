@@ -136,22 +136,25 @@ class DiskPlotter {
 
         assert(id_len == kIdLen);
 
+        // Memory to be used for sorting and buffers
+        uint8_t* memory = new uint8_t[kMemorySize];
+
         std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
 
         Timer p1;
         Timer all_phases;
-        std::vector<uint64_t> results = WritePlotFile(tmp1_disk, k, id, memo, memo_len);
+        std::vector<uint64_t> results = WritePlotFile(memory, tmp1_disk, k, id, memo, memo_len);
         p1.PrintElapsed("Time for phase 1 =");
 
         std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " and " << tmp_2_filename << " ..." << Timer::GetNow();
 
         Timer p2;
-        Backpropagate(tmp1_disk, k, id, memo, memo_len, results);
+        Backpropagate(memory, tmp1_disk, k, id, memo, memo_len, results);
         p2.PrintElapsed("Time for phase 2 =");
 
         std::cout << std::endl << "Starting phase 3/4: Compression... " << Timer::GetNow();
         Timer p3;
-        Phase3Results res = CompressTables(k, results, tmp2_disk, tmp1_disk, id, memo, memo_len);
+        Phase3Results res = CompressTables(memory, k, results, tmp2_disk, tmp1_disk, id, memo, memo_len);
         p3.PrintElapsed("Time for phase 3 =");
 
         std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables... " << Timer::GetNow();
@@ -164,6 +167,8 @@ class DiskPlotter {
         std::cout << "Final File size: " <<
                      static_cast<double>(res.final_table_begin_pointers[11])/(1024*1024*1024) << " GB" << std::endl;
         all_phases.PrintElapsed("Total time =");
+
+        delete[] memory;
 
         bool removed_1 = fs::remove(tmp_1_filename);
         fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
@@ -298,7 +303,7 @@ class DiskPlotter {
     // proofs of space in it. First, F1 is computed, which is special since it uses
     // AES256, and each encrption provides multiple output values. Then, the rest of the
     // f functions are computed, and a sort on disk happens for each table.
-    std::vector<uint64_t> WritePlotFile(FileDisk& tmp1_disk, uint8_t k, const uint8_t* id,
+    std::vector<uint64_t> WritePlotFile(uint8_t* memory, FileDisk& tmp1_disk, uint8_t k, const uint8_t* id,
                                         const uint8_t* memo, uint8_t memo_len) {
         uint32_t header_size = WriteHeader(tmp1_disk, k, id, memo, memo_len);
 
@@ -367,9 +372,6 @@ class DiskPlotter {
 
         // Number of buckets that y values will be put into.
         double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
-
-        // Memory to be used for sorting
-        uint8_t* memory = new uint8_t[kMemorySize];
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
@@ -594,7 +596,7 @@ class DiskPlotter {
         // Pointer to the end of the last table + 1, used for spare space for disk sorting
         plot_table_begin_pointers[8] = plot_table_begin_pointers[7] +
                                        (right_entry_size_bytes * (total_table_entries + 1));
-        delete[] memory;
+        
         std::cout << "Final plot table begin pointers: " << std::endl;
         for (uint8_t i = 1; i <= 8; i++) {
             std::cout << "\tTable " << int{i} << " 0x"
@@ -608,7 +610,7 @@ class DiskPlotter {
     // The purpose of backpropagate is to eliminate any dead entries that don't contribute
     // to final values in f7, to minimize disk usage. A sort on disk is applied to each table,
     // so that they are sorted by position.
-    void Backpropagate(FileDisk& tmp1_disk, uint8_t k,
+    void Backpropagate(uint8_t* memory, FileDisk& tmp1_disk, uint8_t k,
                        const uint8_t* id, const uint8_t* memo, uint32_t memo_len,
                        const std::vector<uint64_t>& results) {
         std::vector<uint64_t> plot_table_begin_pointers = results;
@@ -621,9 +623,6 @@ class DiskPlotter {
 
         // The end of the table 7, is spare space that we can use for sorting
         uint64_t spare_pointer = plot_table_begin_pointers[8];
-
-        // Memory to be used for sorting
-        uint8_t* memory = new uint8_t[kMemorySize];
 
         // Iterates through each table (with a left and right pointer), starting at 6 & 7.
         for (uint8_t table_index = 7; table_index > 1; --table_index) {
@@ -960,7 +959,6 @@ class DiskPlotter {
             delete[] new_left_entry_buf;
             delete[] right_entry_buf;
         }
-        delete[] memory;
     }
 
     // This writes a number of entries into a file, in the final, optimized format. The park contains
@@ -1032,7 +1030,7 @@ class DiskPlotter {
     // Converting into this format requires a few passes and sorts on disk. It also assumes that the
     // backpropagation step happened, so there will be no more dropped entries. See the design
     // document for more details on the algorithm.
-    Phase3Results CompressTables(uint8_t k, vector<uint64_t> plot_table_begin_pointers, FileDisk& tmp2_disk /*filename*/,
+    Phase3Results CompressTables(uint8_t* memory, uint8_t k, vector<uint64_t> plot_table_begin_pointers, FileDisk& tmp2_disk /*filename*/,
                                  FileDisk& tmp1_disk /*plot_filename*/, const uint8_t* id, const uint8_t* memo,
                                  uint32_t memo_len) {
         // In this phase we open a new file, where the final contents of the plot will be stored.
@@ -1049,8 +1047,6 @@ class DiskPlotter {
         tmp2_disk.Write(header_size - 10*8, table_1_pointer_bytes, 8);
 
         uint64_t spare_pointer = plot_table_begin_pointers[8];
-
-        uint8_t* memory = new uint8_t[kMemorySize];
 
         uint64_t final_entries_written = 0;
         uint32_t right_entry_size_bytes = 0;
@@ -1389,8 +1385,6 @@ class DiskPlotter {
 
             table_timer.PrintElapsed("Total compress table time:");
         }
-
-        delete[] memory;
 
         // These results will be used to write table P7 and the checkpoint tables in phase 4.
         return Phase3Results{plot_table_begin_pointers, final_table_begin_pointers, final_entries_written,
