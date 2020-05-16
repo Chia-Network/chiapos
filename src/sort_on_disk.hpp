@@ -85,7 +85,7 @@ class SortOnDiskUtils {
 class Disk {
  public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
-    virtual void Write(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
+    virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
 };
 
 class FileDisk : public Disk {
@@ -110,7 +110,7 @@ class FileDisk : public Disk {
 	readPos=begin+length;
     }
 
-    inline void Write(uint64_t begin, uint8_t* memcache, uint64_t length) override {
+    inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         // Seek and write from memcache
 	if((bReading)||(begin!=writePos))
 	{
@@ -118,7 +118,7 @@ class FileDisk : public Disk {
 		f_.seekp(begin);
 		bReading=false;
         }
-        f_.write(reinterpret_cast<char*>(memcache), length);
+        f_.write(reinterpret_cast<const char*>(memcache), length);
 	writePos=begin+length;
     }
 
