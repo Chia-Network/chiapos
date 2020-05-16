@@ -28,10 +28,10 @@ ECB-AES128
     2b7e151628aed2a6abf7158809cf4f3c
 
   resulting cipher
-    3ad77bb40d7a3660a89ecaf32466ef97 
-    f5d3d58503b9699de785895a96fdbaaf 
-    43b1cd7f598ece23881b00e3ed030688 
-    7b0c785e27e8ad3f8223207104725dd4 
+    3ad77bb40d7a3660a89ecaf32466ef97
+    f5d3d58503b9699de785895a96fdbaaf
+    43b1cd7f598ece23881b00e3ed030688
+    7b0c785e27e8ad3f8223207104725dd4
 
 
 NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
@@ -74,7 +74,7 @@ bool bCheckedAES=false;
 typedef uint8_t state_t[4][4];
 
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
-// The numbers below can be computed dynamically trading ROM for RAM - 
+// The numbers below can be computed dynamically trading ROM for RAM -
 // This can be useful in (embedded) bootloader applications, where ROM is often limited.
 static const uint8_t sbox[256] = {
   //0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
@@ -113,7 +113,7 @@ static const uint8_t rsbox[256] = {
   0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
   0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d };
 
-// The round constant word array, Rcon[i], contains the values given by 
+// The round constant word array, Rcon[i], contains the values given by
 // x to the power (i-1) being powers of x (x is denoted as {02}) in the field GF(2^8)
 static const uint8_t Rcon[11] = {
   0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
@@ -123,8 +123,8 @@ static const uint8_t Rcon[11] = {
  * that you can remove most of the elements in the Rcon array, because they are unused.
  *
  * From Wikipedia's article on the Rijndael key schedule @ https://en.wikipedia.org/wiki/Rijndael_key_schedule#Rcon
- * 
- * "Only the first some of these constants are actually used – up to rcon[10] for AES-128 (as 11 round keys are needed), 
+ *
+ * "Only the first some of these constants are actually used – up to rcon[10] for AES-128 (as 11 round keys are needed),
  *  up to rcon[8] for AES-192, up to rcon[7] for AES-256. rcon[0] is not used in AES algorithm."
  */
 
@@ -170,14 +170,14 @@ static void ShiftRows(state_t* state)
 {
   uint8_t temp;
 
-  // Rotate first row 1 columns to left  
+  // Rotate first row 1 columns to left
   temp           = (*state)[0][1];
   (*state)[0][1] = (*state)[1][1];
   (*state)[1][1] = (*state)[2][1];
   (*state)[2][1] = (*state)[3][1];
   (*state)[3][1] = temp;
 
-  // Rotate second row 2 columns to left  
+  // Rotate second row 2 columns to left
   temp           = (*state)[0][2];
   (*state)[0][2] = (*state)[2][2];
   (*state)[2][2] = temp;
@@ -194,7 +194,7 @@ static void ShiftRows(state_t* state)
   (*state)[1][3] = temp;
 }
 
-static uint8_t xtime(uint8_t x)
+static uint8_t aes_xtime(uint8_t x)
 {
   return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
 }
@@ -205,13 +205,13 @@ static void MixColumns(state_t* state)
   uint8_t i;
   uint8_t Tmp, Tm, t;
   for (i = 0; i < 4; ++i)
-  {  
+  {
     t   = (*state)[i][0];
     Tmp = (*state)[i][0] ^ (*state)[i][1] ^ (*state)[i][2] ^ (*state)[i][3] ;
-    Tm  = (*state)[i][0] ^ (*state)[i][1] ; Tm = xtime(Tm);  (*state)[i][0] ^= Tm ^ Tmp ;
-    Tm  = (*state)[i][1] ^ (*state)[i][2] ; Tm = xtime(Tm);  (*state)[i][1] ^= Tm ^ Tmp ;
-    Tm  = (*state)[i][2] ^ (*state)[i][3] ; Tm = xtime(Tm);  (*state)[i][2] ^= Tm ^ Tmp ;
-    Tm  = (*state)[i][3] ^ t ;              Tm = xtime(Tm);  (*state)[i][3] ^= Tm ^ Tmp ;
+    Tm  = (*state)[i][0] ^ (*state)[i][1] ; Tm = aes_xtime(Tm);  (*state)[i][0] ^= Tm ^ Tmp ;
+    Tm  = (*state)[i][1] ^ (*state)[i][2] ; Tm = aes_xtime(Tm);  (*state)[i][1] ^= Tm ^ Tmp ;
+    Tm  = (*state)[i][2] ^ (*state)[i][3] ; Tm = aes_xtime(Tm);  (*state)[i][2] ^= Tm ^ Tmp ;
+    Tm  = (*state)[i][3] ^ t ;              Tm = aes_xtime(Tm);  (*state)[i][3] ^= Tm ^ Tmp ;
   }
 }
 
@@ -232,7 +232,7 @@ static void KeyExpansion(uint8_t* RoundKey, const uint8_t* Key, int keyNr, int k
 {
   int i, j, k;
   uint8_t tempa[4]; // Used for the column/row operations
-  
+
   // The first round key is the key itself.
   for (i = 0; i < keyNk; ++i)
   {
@@ -306,7 +306,7 @@ static void KeyExpansion(uint8_t* RoundKey, const uint8_t* Key, int keyNr, int k
  * Loads an AES key. Can either be a 16 byte or 32 byte bytearray.
  */
 void aes_load_key(uint8_t *enc_key, int keylen) {
-    
+
 #ifndef DISABLE_AESNI
     if(!bCheckedAES)
     {
@@ -323,7 +323,7 @@ void aes_load_key(uint8_t *enc_key, int keylen) {
 #endif
          bCheckedAES=true;
     }
-            
+
     if(bHasAES)
         return ni_aes_load_key(enc_key, keylen);
 #endif // DISABLE_AESNI
@@ -351,16 +351,16 @@ static inline void xor128(const uint8_t *in1, const uint8_t *in2, uint8_t *out) 
  * Encrypts a plaintext using AES256.
  */
 static inline void aes256_enc(const uint8_t *in, uint8_t *out) {
-    
+
 #ifndef DISABLE_AESNI
     if(bHasAES)
         return ni_aes256_enc(in, out);
 #endif // DISABLE_AESNI
-    
+
     memcpy(out,in,16);
-    
+
     state_t *state=(state_t*)out;
-    
+
     uint8_t round = 0;
 
     // Add the First round key to the state before starting the rounds.
@@ -383,26 +383,26 @@ static inline void aes256_enc(const uint8_t *in, uint8_t *out) {
     ShiftRows(state);
     AddRoundKey(ENCRYPTNR256, state, RoundKey256);
 }
-    
+
 /*
  * Encrypts an integer using AES128 with 2 rounds.
  */
 static inline void aes128_enc(uint8_t *in, uint8_t *out) {
-    
+
 #ifndef DISABLE_AESNI
     if(bHasAES)
         return ni_aes128_enc(in, out);
 #endif // DISABLE_AESNI
-    
+
     memcpy(out,in,16);
-    
+
     state_t *state=(state_t*)out;
 
     uint8_t round = 0;
 
     // Add the First round key to the state before starting the rounds.
     AddRoundKey(0, state, RoundKey128);
-    
+
     // There will be Nr rounds.
     // The first Nr-1 rounds are identical.
     // These Nr-1 rounds are executed in the loop below.
@@ -414,17 +414,17 @@ static inline void aes128_enc(uint8_t *in, uint8_t *out) {
       AddRoundKey(round, state, RoundKey128);
     }
 }
-    
+
 /*
  * Uses AES cache mode to map a 2 block ciphertext into 128 bit result.
  */
 static inline void aes128_2b(uint8_t *block1, uint8_t *block2, uint8_t *res) {
-    
+
 #ifndef DISABLE_AESNI
     if(bHasAES)
         return ni_aes128_2b(block1, block2, res);
 #endif // DISABLE_AESNI
-   
+
     uint8_t m1[16];
     uint8_t m2[16];
     uint8_t m3[16];
@@ -432,24 +432,24 @@ static inline void aes128_2b(uint8_t *block1, uint8_t *block2, uint8_t *res) {
 
     memcpy(m1,block1,16);
     memcpy(m2,block2,16);
-    
+
     aes128_enc(m1,m3);
     xor128(m3, m2, intermediate);
     aes128_enc(intermediate,m3);
-    
+
     memcpy(res,m3,16);
 }
-    
+
 /*
  * Uses AES cache mode to map a 3 block ciphertext into 128 bit result.
  */
 static inline void aes128_3b(uint8_t *block1, uint8_t* block2, uint8_t *block3, uint8_t* res) {
-    
+
 #ifndef DISABLE_AESNI
     if(bHasAES)
         return ni_aes128_3b(block1, block2, block3, res);
 #endif // DISABLE_AESNI
- 
+
     uint8_t m1[16];
     uint8_t m2[16];
     uint8_t m3[16];
@@ -459,10 +459,10 @@ static inline void aes128_3b(uint8_t *block1, uint8_t* block2, uint8_t *block3, 
 
     aes128_enc(m1,m1); // E(La)
     aes128_enc(m2,m2); // E(Ra)
-    
+
     xor128(m1, m2, m1);
     memcpy(m2,block3,16);
-    
+
     aes128_enc(m2,m2);
     xor128(m1, m2, m1);
     aes128_enc(m1,m3);
@@ -473,7 +473,7 @@ static inline void aes128_3b(uint8_t *block1, uint8_t* block2, uint8_t *block3, 
  * Uses AES cache mode to map a 4 block ciphertext into 128 bit result.
  */
 static inline void aes128_4b(uint8_t *block1, uint8_t* block2, uint8_t *block3, uint8_t* block4, uint8_t* res) {
-   
+
 #ifndef DISABLE_AESNI
     if(bHasAES)
         return ni_aes128_4b(block1, block2, block3, block4, res);
@@ -493,10 +493,10 @@ static inline void aes128_4b(uint8_t *block1, uint8_t* block2, uint8_t *block3, 
     xor128(m1, m3, m1);
     aes128_enc(m1,m1); // E(E(La) ^ Lb)
     aes128_enc(m2,m2); // E(Ra)
-    
+
     xor128(m1, m2, m1); // xor e(Ra)
     xor128(m1, m4, m1); // xor Rb
-    
+
     aes128_enc(m1,m3); // E(La)
     memcpy(res,m3,16);
 }

@@ -74,7 +74,9 @@ PYBIND11_MODULE(chiapos, m) {
             }
             std::string challenge_str(challenge);
             const uint8_t* challenge_ptr = reinterpret_cast<const uint8_t*>(challenge_str.data());
+            py::gil_scoped_release release;
             std::vector<LargeBits> qualities = dp.GetQualitiesForChallenge(challenge_ptr);
+            py::gil_scoped_acquire acquire;
             std::vector<py::bytes> ret;
             uint8_t* quality_buf = new uint8_t[32];
             for (LargeBits quality : qualities) {
@@ -88,7 +90,9 @@ PYBIND11_MODULE(chiapos, m) {
         .def("get_full_proof", [](DiskProver &dp, const py::bytes &challenge, uint32_t index) {
             std::string challenge_str(challenge);
             const uint8_t* challenge_ptr = reinterpret_cast<const uint8_t*>(challenge_str.data());
+            py::gil_scoped_release release;
             LargeBits proof = dp.GetFullProof(challenge_ptr, index);
+            py::gil_scoped_acquire acquire;
             uint8_t* proof_buf = new uint8_t[Util::ByteAlign(64 * dp.GetSize()) / 8];
             proof.ToBytes(proof_buf);
             py::bytes ret = py::bytes(reinterpret_cast<char*>(proof_buf),
