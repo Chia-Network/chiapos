@@ -94,10 +94,6 @@ class FileDisk : public Disk {
         Initialize(filename);
     }
 
-    inline ~FileDisk() {
-        delete buf_;
-    }
-
     inline void Close() {
         f_.close();
     }
@@ -141,11 +137,6 @@ class FileDisk : public Disk {
         f << std::flush;
         f.close();
 
-        buf_=new char[1024*1024];
-
-        // Sets the buffer for batched reading and writing
-        f_.rdbuf()->pubsetbuf(buf_, sizeof(buf_));
-
         // Opens the file for reading and writing
         f_.open(filename, std::fstream::out | std::fstream::in | std::fstream::binary);
 
@@ -160,7 +151,6 @@ class FileDisk : public Disk {
     bool bReading=true;
 
     std::string filename_;
-    char *buf_;
     std::fstream f_;
 };
 
