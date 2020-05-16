@@ -176,24 +176,14 @@ class FakeDisk : public Disk {
         f_ = std::stringstream(s, std::ios_base::in | std::ios_base::out);
     }
 
-    void Read(uint64_t begin, uint8_t* memcache, uint32_t length) {
+    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) {
         f_.seekg(begin);
         f_.read(reinterpret_cast<char*>(memcache), length);
     }
 
-    void Write(uint64_t begin, uint8_t* memcache, uint32_t length) {
+    void Write(uint64_t begin, uint8_t* memcache, uint64_t length) {
         f_.seekp(begin);
         f_.write(reinterpret_cast<char*>(memcache), length);
-    }
-
-    std::iostream* ReadHandle(uint64_t begin) {
-        f_.seekg(begin);
-        return &f_;
-    }
-
-    std::iostream* WriteHandle(uint64_t begin) {
-        f_.seekp(begin);
-        return &f_;
     }
 
  private:
