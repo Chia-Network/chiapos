@@ -170,6 +170,10 @@ class DiskPlotter {
 
         delete[] memory;
 
+        tmp1_disk.Close();
+        tmp2_disk.Close();
+        final_disk.Close();
+
         bool removed_1 = fs::remove(tmp_1_filename);
         fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
 
@@ -560,8 +564,7 @@ class DiskPlotter {
                       << (matches / num_buckets) << std::endl;
 
             // Writes the 0 entry (EOT)
-            memset(right_buf, 0, right_entry_size_bytes);
-            Bits(0, right_entry_size_bytes * 8).ToBytes(right_buf);
+            memset(right_buf, 0x00, right_entry_size_bytes);
 
             memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_buf,right_entry_size_bytes);
             right_writer_count++;
@@ -935,7 +938,8 @@ class DiskPlotter {
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Total backpropagation time::");
 
-            Bits(0, right_entry_size_bytes * 8).ToBytes(right_entry_buf);
+            memset(right_entry_buf, 0x00, right_entry_size_bytes);
+
 	    memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
             right_writer_count++;
 
@@ -944,7 +948,8 @@ class DiskPlotter {
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
 
-            Bits(0, new_left_entry_size_bytes * 8).ToBytes(new_left_entry_buf);
+            memset(new_left_entry_buf,0x00,new_left_entry_size_bytes);
+            
             memcpy(left_writer_buf+(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes,new_left_entry_buf,new_left_entry_size_bytes);
             left_writer_count++;
 	   
@@ -1238,6 +1243,7 @@ class DiskPlotter {
                 current_pos += 1;
             }
             memset(right_entry_buf, 0, right_entry_size_bytes);
+
             memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
             right_writer_count++; 
 
