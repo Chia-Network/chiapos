@@ -967,8 +967,8 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 	   
 	    std::cout << "Final left_writer_count " << left_writer_count << std::endl; 
             tmp1_disk.Write(left_writer, left_writer_buf,
-                (left_writer_count%left_buf_entries)*left_entry_size_bytes);
-            left_writer+=(left_writer_count%left_buf_entries)*left_entry_size_bytes;
+                (left_writer_count%left_buf_entries)*new_left_entry_size_bytes);
+            left_writer+=(left_writer_count%left_buf_entries)*new_left_entry_size_bytes;
 	    
             bucket_sizes_pos = new_bucket_sizes_pos;
 
