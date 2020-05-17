@@ -446,6 +446,8 @@ class Sorting {
     inline static void SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
+std::cout << "SortOnDisk disk_begin " << disk_begin << " spare_begin " << spare_begin << " entry_len " << entry_len << " bits_begin " << bits_begin << " quicksort " << quicksort << std::endl;
+
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
@@ -463,7 +465,7 @@ class Sorting {
 
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
-
+//quicksort=1;
         // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform quicksort if it
         // fits in the memory (SortInMemory algorithm won't always perform well).
         if (quicksort > 0 && total_size <= length) {
@@ -747,28 +749,17 @@ class Sorting {
     inline static void CheckSortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, bool quicksort = false) {
-return;
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         for (auto& n : bucket_sizes) total_size += n;
 
         cout << "CheckSortOnDisk entry_len: " << entry_len << " length: " << length << " total size: " << total_size << endl;
-        for(uint64_t chunkindex=0;chunkindex<(total_size+length-1)/length;chunkindex++)
-        {
-            disk.Read(disk_begin+(chunkindex*length*entry_len), mem, length * entry_len);
-            uint64_t i=1;
-            while(((chunkindex*length+i)<total_size)&&(i<length))
-            {
-                if((chunkindex*length+i)%1000000==0)
-                    cout << (chunkindex*length+i) << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
-                if(SortOnDiskUtils::MemCmpBits(mem + (i - 1) * entry_len, mem + i * entry_len, entry_len, 0) >= 0)
-                {
-                    cout << "Bad sort!" << endl;
-                }
-                i++;
-            }
+               disk.Read(disk_begin, mem, 20 * entry_len);
+  
+for(uint64_t i=0;i<20;i++)
+{ 
+                 cout << i << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
         }
-        cout << "CheckSortOnDisk OK" << endl;
     }
 
  private:
