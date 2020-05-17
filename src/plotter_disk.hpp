@@ -834,7 +834,11 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                          std::cout << "Backpropagate left_reader_count " << left_reader_count << std::endl;
 
 if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]<left_reader_count*left_entry_size_bytes)
+{
+  std::cout << "!end_of_right_table " << (!end_of_right_table) << " (current_pos - end_of_table_pos <= kReadMinusWrite) " << (current_pos - end_of_table_pos <= kReadMinusWrite) << std::endl;
+  std::cout << "current_pos " << current_pos << " greatest_pos " << greatest_pos << std::endl;
   exit(0);
+}
 
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]-left_reader_count*left_entry_size_bytes);
