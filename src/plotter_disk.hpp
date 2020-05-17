@@ -675,9 +675,9 @@ class DiskPlotter {
 	    uint8_t *left_writer_buf=&(memory[kMemorySize/4]);
             uint8_t *right_reader_buf=&(memory[kMemorySize/2]);
             uint8_t *right_writer_buf=&(memory[3*kMemorySize/4]);
-            uint64_t left_buf_entries=kMemorySize/2/left_entry_size_bytes;
-	    uint64_t new_left_buf_entries=kMemorySize/2/new_left_entry_size_bytes;
-            uint64_t right_buf_entries=kMemorySize/2/right_entry_size_bytes;
+            uint64_t left_buf_entries=kMemorySize/4/left_entry_size_bytes;
+	    uint64_t new_left_buf_entries=kMemorySize/4/new_left_entry_size_bytes;
+            uint64_t right_buf_entries=kMemorySize/4/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
             uint64_t left_writer_count=0;
@@ -753,7 +753,11 @@ class DiskPlotter {
                         if (should_read_entry) {
                             // Need to read another entry at the current position
 			    if(right_reader_count%right_buf_entries==0) {
-				    std::cout << "right_reader_count " << right_reader_count << std::endl;
+                                    std::cout << "Backpropagate right_reader_count " << right_reader_count << std::endl;
+
+if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]<right_reader_count*right_entry_size_bytes)
+   exit(0);
+
 				    uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
 				       plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]-right_reader_count*right_entry_size_bytes);
 
@@ -827,7 +831,11 @@ class DiskPlotter {
                     }
                     // ***Reads a left entry
                     if(left_reader_count%left_buf_entries==0) {
-                         std::cout << "left_reader_count " << left_reader_count << std::endl;
+                         std::cout << "Backpropagate left_reader_count " << left_reader_count << std::endl;
+
+if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]<left_reader_count*left_entry_size_bytes)
+  exit(0);
+
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]-left_reader_count*left_entry_size_bytes);
                          tmp1_disk.Read(left_reader, left_reader_buf,
@@ -1125,7 +1133,11 @@ class DiskPlotter {
                         if (should_read_entry) {
                             // The right entries are in the format from backprop, (sort_key, pos, offset)
                             if(right_reader_count%right_buf_entries==0) {
-                                    std::cout << "right_reader_count " << right_reader_count << std::endl;
+                                    std::cout << "CompressTables right_reader_count " << right_reader_count << std::endl;
+
+if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]<right_reader_count*right_entry_size_bytes)
+   exit(0);
+
                                     uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
                                        plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]-right_reader_count*right_entry_size_bytes);
 
@@ -1175,7 +1187,11 @@ class DiskPlotter {
                     }
                     // The left entries are in the new format: (sort_key, new_pos), except for table 1: (y, x).
                     if(left_reader_count%left_buf_entries==0) {
-                         std::cout << "left_reader_count " << left_reader_count << std::endl;
+                         std::cout << "CompressTables left_reader_count " << left_reader_count << std::endl;
+
+if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]<left_reader_count*left_entry_size_bytes)
+   exit(0);
+
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]-left_reader_count*left_entry_size_bytes);
 
@@ -1289,7 +1305,11 @@ class DiskPlotter {
             Bits right_entry_bits;
             for (uint64_t index = 0; index < total_r_entries; index++) {
                 if(right_reader_count%right_buf_entries==0) {
-                      std::cout << "right_reader_count " << right_reader_count << std::endl;
+                      std::cout << "CompressTables right_reader_count " << right_reader_count << std::endl;
+
+if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]<right_reader_count*right_entry_size_bytes)
+  exit(0);
+
                       uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
                       plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]-right_reader_count*right_entry_size_bytes);
 
