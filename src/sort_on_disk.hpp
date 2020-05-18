@@ -468,7 +468,7 @@ std::cout << "SortOnDisk disk_begin " << disk_begin << " spare_begin " << spare_
 
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
-quicksort=1;
+//quicksort=1;
         // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform quicksort if it
         // fits in the memory (SortInMemory algorithm won't always perform well).
         if (quicksort > 0 && total_size <= length) {
