@@ -126,7 +126,6 @@ class DiskPlotter {
 
 	FileDisk tmp1_disk(tmp_1_filename);
 	FileDisk tmp2_disk(tmp_2_filename);
-	FileDisk final_disk(final_filename);
 
         // These variables are used in the WriteParkToFile method. They are preallocatted here
         // to save time.
@@ -172,16 +171,21 @@ class DiskPlotter {
 
         tmp1_disk.Close();
         tmp2_disk.Close();
-        final_disk.Close();
 
         bool removed_1 = fs::remove(tmp_1_filename);
-        fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
-
-        bool removed_2 = fs::remove(tmp_2_filename);
-
         std::cout << "Removed " << tmp_1_filename << "? " << removed_1 << std::endl;
-        std::cout << "Removed " << tmp_2_filename << "? " << removed_2 << std::endl;
-        std::cout << "Copied final file to " << final_filename << std::endl;
+
+        if(tmp_2_filename.parent_path() == final_filename.parent_path()) {
+            fs::rename(tmp_2_filename, final_filename);
+            std::cout << "Moved final file to " << final_filename << std::endl;
+        }
+        else {
+            fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
+            bool removed_2 = fs::remove(tmp_2_filename);
+            std::cout << "Copied final file to " << final_filename << std::endl;
+            std::cout << "Removed " << tmp_2_filename << "? " << removed_2 << std::endl;
+
+        }
 
         delete[] first_line_point_bytes;
         delete[] park_stubs_bytes;
