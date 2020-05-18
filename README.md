@@ -22,6 +22,7 @@ format, move to chacha8, and otherwise improve plotting performance.
 ### Compile
 
 ```bash
+# Optional as CMake will install pybind11 src
 git submodule update --init --recursive
 
 mkdir -p build && cd build
@@ -86,11 +87,11 @@ py.test ./tests -s -v
 ## ci Building
 The primary build process for this repository is to use GitHub Actions to
 build binary wheels for MacOS, Linux, and Windows and publish them with
-a source wheel on PyPi. See `.github/workflows/build.yml`. setup.py adds
-a dependency on [pybind11](https://github.com/pybind/pybind11) by invoking git
-to check out the pybind submodules. Building is then managed by
-[cibuildwheel](https://github.com/joerick/cibuildwheel). Further installation
-is then available via `pip install chiapos` e.g.
+a source wheel on PyPi. See `.github/workflows/build.yml`. CMake uses
+[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+to download [pybind11](https://github.com/pybind/pybind11). Building is then
+managed by [cibuildwheel](https://github.com/joerick/cibuildwheel). Further
+installation is then available via `pip install chiapos` e.g.
 
 ## Contributing and workflow
 Contributions are welcome and more details are available in chia-blockchain's
