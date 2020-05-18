@@ -721,9 +721,9 @@ class DiskPlotter {
             uint64_t greatest_pos = 0;  // This is the greatest position we have seen in R table
 
             // Buffers for reading and writing to disk
-            uint8_t* left_entry_buf = new uint8_t[left_entry_size_bytes];
-            uint8_t* new_left_entry_buf = new uint8_t[new_left_entry_size_bytes];
-            uint8_t* right_entry_buf = new uint8_t[right_entry_size_bytes];
+            uint8_t* left_entry_buf;
+            uint8_t* new_left_entry_buf;
+            uint8_t* right_entry_buf;
 
             // Go through all right entries, and keep going since write pointer is behind read pointer
             while (!end_of_right_table || (current_pos - end_of_table_pos <= kReadMinusWrite)) {
@@ -765,7 +765,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                                               readAmt);
 				    right_reader+=readAmt;
                             }
-                            memcpy(right_entry_buf,right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes,right_entry_size_bytes);
+                            right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                             right_reader_count++;
 
 			    if (table_index == 7) {
@@ -846,7 +846,7 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
                                 readAmt);
                          left_reader+=readAmt;
                     }
-                    memcpy(left_entry_buf,left_reader_buf+(left_reader_count%left_buf_entries)*left_entry_size_bytes,left_entry_size_bytes);
+                    left_entry_buf=left_reader_buf+(left_reader_count%left_buf_entries)*left_entry_size_bytes;
                     left_reader_count++;
 
                     // If this left entry is used, we rewrite it. If it's not used, we ignore it.
@@ -866,6 +866,10 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
                             entry_metadata = Util::SliceInt128FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                         k + kExtraBits, left_metadata_size);
                         }
+
+                        new_left_entry_buf=left_writer_buf+(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes;
+                        left_writer_count++;
+
                         Bits new_left_entry;
                         if (table_index > 2) {
                             // The new left entry is slightly different. Metadata is dropped, to save space,
@@ -886,10 +890,6 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
                             // std::cout << "Writing X:" << entry_metadata.GetValue() << std::endl;
                         }
                         new_left_entry.ToBytes(new_left_entry_buf);
-
-                        // *** Writes a left entry
-			memcpy(left_writer_buf+(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes,new_left_entry_buf,new_left_entry_size_bytes);
-                        left_writer_count++;
 
                         if(left_writer_count%new_left_buf_entries==0) {
                             std::cout << "left_writer_count " << left_writer_count << std::endl;
@@ -925,15 +925,17 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
                         new_right_entry += new_pos_bin;
                         //match_positions.push_back(std::make_pair(new_pos, new_offset_pos));
                         new_right_entry.AppendValue(new_offset_pos - new_pos, kOffsetSize);
+
+                        // Calculate right entry pointer for output
+                        right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+                        right_writer_count++;
+
                         if (Util::ByteAlign(new_right_entry.GetSize()) < right_entry_size_bytes * 8) {
                             memset(right_entry_buf, 0, right_entry_size_bytes);
                         }
                         new_right_entry.ToBytes(right_entry_buf);
 
-                        // *** Writes a right entry
-                        memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
-                        right_writer_count++;
-
+                        // Check for write out to disk
                         if(right_writer_count%right_buf_entries==0) {
 			   std::cout << "right_writer_count " << right_writer_count << std::endl;
                            tmp1_disk.Write(right_writer, right_writer_buf,
@@ -950,21 +952,21 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Total backpropagation time::");
 
-            memset(right_entry_buf, 0x00, right_entry_size_bytes);
-
-	    memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
+            right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
             right_writer_count++;
+
+            memset(right_entry_buf, 0x00, right_entry_size_bytes);
 
             std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
 
+            new_left_entry_buf=left_writer_buf+(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes;
+            left_writer_count++;
+
             memset(new_left_entry_buf,0x00,new_left_entry_size_bytes);
             
-            memcpy(left_writer_buf+(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes,new_left_entry_buf,new_left_entry_size_bytes);
-            left_writer_count++;
-	   
 	    std::cout << "Final left_writer_count " << left_writer_count << std::endl; 
             tmp1_disk.Write(left_writer, left_writer_buf,
                 (left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes);
@@ -972,9 +974,6 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 	    
             bucket_sizes_pos = new_bucket_sizes_pos;
 
-            delete[] left_entry_buf;
-            delete[] new_left_entry_buf;
-            delete[] right_entry_buf;
         }
     }
 
