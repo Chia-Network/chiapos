@@ -429,7 +429,7 @@ class DiskPlotter {
 
             // Buffers for storing a left or a right entry, used for disk IO
             uint8_t* left_buf = new uint8_t[entry_size_bytes];
-            uint8_t* right_buf = new uint8_t[right_entry_size_bytes];
+            uint8_t* right_buf;
             Bits zero_bits(0, metadata_size);
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
@@ -523,12 +523,13 @@ class DiskPlotter {
                             new_entry += std::get<1>(f_output);
                             // Fill with 0s if entry is not long enough
                             new_entry.AppendValue(0, right_entry_size_bytes * 8 - new_entry.GetSize());
+
+                            right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+                            right_writer_count++;
+
                             new_entry.ToBytes(right_buf);
                             // Writes the new entry into the right table
 			   
-                        memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_buf,right_entry_size_bytes);
-                        right_writer_count++;
-
                         if(right_writer_count%right_buf_entries==0) {
                            std::cout << "right_writer_count " << right_writer_count << std::endl;
                            tmp1_disk.Write(right_writer, right_writer_buf,
@@ -563,11 +564,11 @@ class DiskPlotter {
             std::cout << "\tTotal matches: " << matches << ". Per bucket: "
                       << (matches / num_buckets) << std::endl;
 
+            right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+            right_writer_count++;
+
             // Writes the 0 entry (EOT)
             memset(right_buf, 0x00, right_entry_size_bytes);
-
-            memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_buf,right_entry_size_bytes);
-            right_writer_count++;
 
             std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
@@ -590,7 +591,6 @@ class DiskPlotter {
             right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
 
             delete[] left_buf;
-            delete[] right_buf;
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
@@ -1120,8 +1120,9 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
             uint64_t end_of_table_pos = 0;
             uint64_t greatest_pos = 0;
 
-            uint8_t* right_entry_buf = new uint8_t[right_entry_size_bytes];
-            uint8_t* left_entry_disk_buf = new uint8_t[left_entry_size_bytes];
+            uint8_t* right_entry_buf;
+            uint8_t* right_entry_buf_out = new uint8_t[right_entry_size_bytes];
+            uint8_t* left_entry_disk_buf;
             uint64_t entry_sort_key, entry_pos, entry_offset;
             uint64_t cached_entry_sort_key = 0;
             uint64_t cached_entry_pos = 0;
@@ -1148,7 +1149,7 @@ if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_inde
                                               readAmt);
                                     right_reader+=readAmt;
                             }
-                            memcpy(right_entry_buf,right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes,right_entry_size_bytes);
+                            right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                             right_reader_count++;
 
                             entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
@@ -1202,7 +1203,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                                 readAmt);
                          left_reader+=readAmt;
                     }
-                    memcpy(left_entry_disk_buf,left_reader_buf+(left_reader_count%left_buf_entries)*left_entry_size_bytes,left_entry_size_bytes);
+                    left_entry_disk_buf=left_reader_buf+(left_reader_count%left_buf_entries)*left_entry_size_bytes;
                     left_reader_count++;
 
 		    // We read the "new_pos" from the L table, which for table 1 is just x. For other tables,
@@ -1243,10 +1244,10 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                         Bits to_write = Bits(line_point, 2*k);
                         to_write += Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], right_sort_key_size);
 
-                        to_write.ToBytes(right_entry_buf);
-
-                        memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
+                        right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
                         right_writer_count++;
+
+                        to_write.ToBytes(right_entry_buf);
 
                         if(right_writer_count%right_buf_entries==0) {
                            std::cout << "right_writer_count " << right_writer_count << std::endl;
@@ -1261,10 +1262,10 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 }
                 current_pos += 1;
             }
-            memset(right_entry_buf, 0, right_entry_size_bytes);
+            right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+            right_writer_count++;
 
-            memcpy(right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes,right_entry_buf,right_entry_size_bytes);
-            right_writer_count++; 
+            memset(right_entry_buf, 0, right_entry_size_bytes);
 
             std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
@@ -1317,7 +1318,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                             readAmt);
                       right_reader+=readAmt;
                 }
-                memcpy(right_entry_buf,right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes,right_entry_size_bytes);
+                right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                 right_reader_count++;
                 
 		// Right entry is read as (line_point, sort_key)
@@ -1329,12 +1330,12 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 // Write the new position (index) and the sort key
                 Bits to_write = Bits(sort_key, right_sort_key_size);
                 to_write += Bits(index, k + 1);
-                memset(right_entry_buf, 0, right_entry_size_bytes);
-                to_write.ToBytes(right_entry_buf);
-                tmp1_disk.Write(right_writer, (right_entry_buf), right_entry_size_bytes);
+                memset(right_entry_buf_out, 0, right_entry_size_bytes);
+                to_write.ToBytes(right_entry_buf_out);
+                tmp1_disk.Write(right_writer, right_entry_buf_out, right_entry_size_bytes);
                 right_writer+=right_entry_size_bytes;
 
-                new_bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf, right_entry_size_bytes, 0,
+                new_bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf_out, right_entry_size_bytes, 0,
                                                              kLogNumSortBuckets)] += 1;
                 // Every EPP entries, writes a park
                 if (index % kEntriesPerPark == 0) {
@@ -1406,8 +1407,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
 
             sort_timer_2.PrintElapsed("\tSort time:");
 
-            delete[] right_entry_buf;
-            delete[] left_entry_disk_buf;
+            delete[] right_entry_buf_out;
 
             table_timer.PrintElapsed("Total compress table time:");
         }
