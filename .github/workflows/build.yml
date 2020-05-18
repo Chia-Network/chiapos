@@ -17,9 +17,6 @@ jobs:
         fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
 
-    - name: Checkout submodules
-      uses: snickerbockers/submodules-init@v4
-
     - uses: actions/setup-python@v1
       name: Install Python
       with:
@@ -51,17 +48,13 @@ jobs:
       run: |
         python -m cibuildwheel --output-dir dist
       env:
-        # See https://www.jessesquires.com/blog/selecting-an-xcode-version-on-github-ci/
-        # xcode set to 11.3.1 at 2020-04-14
-        # See https://github.com/actions/virtual-environments/blob/master/images/macos/macos-10.15-Readme.md
-        # DEVELOPER_DIR: /Applications/Xcode_11.2.1.app/Contents/Developer
         # build python 3.7 and 3.8
         CIBW_BUILD: cp37-* cp38-*
         # don't build i686 targets, can't seem to find cmake for these
         CIBW_SKIP: '*-manylinux_i686 *-win32'
         # we need boost
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2010
-        CIBW_BEFORE_BUILD_LINUX: curl -L https://github.com/Kitware/CMake/releases/download/v3.17.0/cmake-3.17.0-Linux-`uname -m`.sh > cmake.sh && yes | sh cmake.sh | cat && rm -f /usr/bin/cmake && yum -y install boost-devel gmp-devel && python -m pip install --upgrade pip && which cmake && cmake --version
+        CIBW_BEFORE_BUILD_LINUX: curl -L https://github.com/Kitware/CMake/releases/download/v3.17.0/cmake-3.17.0-Linux-`uname -m`.sh > cmake.sh && yes | sh cmake.sh | cat && rm -f /usr/bin/cmake && sudo apt get -y install boost-devel gmp-devel && python -m pip install --upgrade pip && which cmake && cmake --version
         CIBW_BEFORE_BUILD_MACOS: brew install boost && python -m pip install --upgrade pip
         CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.14
         CIBW_BUILD_VERBOSITY_MACOS: 0

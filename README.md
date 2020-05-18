@@ -78,8 +78,7 @@ pip3 install .
 
 ### Run python tests
 
-Testings uses pytest. Type checking uses pyright (currenlty disabled), and
-linting uses flake8 and mypy.
+Testings uses pytest. Linting uses flake8 and mypy.
 
 ```bash
 py.test ./tests -s -v
@@ -89,9 +88,10 @@ py.test ./tests -s -v
 The primary build process for this repository is to use GitHub Actions to
 build binary wheels for MacOS, Linux, and Windows and publish them with
 a source wheel on PyPi. See `.github/workflows/build.yml`. setup.py adds
-a dependency on [pybind11](https://github.com/pybind/pybind11) that is then
-managed by [cibuildwheel](https://github.com/joerick/cibuildwheel). Further
-installation is then available via `pip install chiapos` e.g.
+a dependency on [pybind11](https://github.com/pybind/pybind11) by invoking git
+to check out the pybind submodules. Building is then managed by
+[cibuildwheel](https://github.com/joerick/cibuildwheel). Further installation
+is then available via `pip install chiapos` e.g.
 
 ## Contributing and workflow
 Contributions are welcome and more details are available in chia-blockchain's

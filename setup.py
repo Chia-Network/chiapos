@@ -25,6 +25,12 @@ class CMakeBuild(build_ext):
                                + " the following extensions: "
                                + ", ".join(e.name for e in self.extensions))
 
+        """
+        Work around pybind11's need to be on the filesystem
+        """
+        if os.path.exists('.gitmodules'):
+            out = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+
         if platform.system() == "Windows":
             cmake_version = LooseVersion(
                     re.search(r'version\s*([\d.]+)', out.decode()).group(1))
