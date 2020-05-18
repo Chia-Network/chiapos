@@ -1311,11 +1311,8 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 if(right_reader_count%right_buf_entries==0) {
                       std::cout << "CompressTables right_reader_count " << right_reader_count << std::endl;
 
-if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]<right_reader_count*right_entry_size_bytes)
-  exit(0);
-
                       uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
-                      plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]-right_reader_count*right_entry_size_bytes);
+                           (total_r_entries-right_reader_count)*right_entry_size_bytes);
 
                       tmp1_disk.Read(right_reader, right_reader_buf,
                             readAmt);

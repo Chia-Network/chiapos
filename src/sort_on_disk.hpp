@@ -102,24 +102,26 @@ class FileDisk : public Disk {
         // Seek, read, and replace into memcache
         if((!bReading)||(begin!=readPos))
         {
-		std::cout << &f_ << ": Read seek " << begin << " for " << length << std::endl;
+//		std::cout << &f_ << ": Read " << numOps << ": seek " << begin << " for " << length << std::endl;
 		f_.seekg(begin);
 		bReading=true;
 	}
         f_.read(reinterpret_cast<char*>(memcache), length);
 	readPos=begin+length;
+        numOps++;
     }
 
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         // Seek and write from memcache
 	if((bReading)||(begin!=writePos))
 	{
-		std::cout << &f_ << ": Write seek " << begin << " for " << length << std::endl;
+//		std::cout << &f_ << ": Write " << numOps << ": seek " << begin << " for " << length << std::endl;
 		f_.seekp(begin);
 		bReading=false;
         }
         f_.write(reinterpret_cast<const char*>(memcache), length);
 	writePos=begin+length;
+        numOps++;
     }
 
     inline std::string GetFileName() const noexcept {
@@ -146,6 +148,7 @@ class FileDisk : public Disk {
         }
     }
 
+    uint64_t numOps=0;
     uint64_t readPos=0;
     uint64_t writePos=0;
     bool bReading=true;
@@ -465,7 +468,7 @@ std::cout << "SortOnDisk disk_begin " << disk_begin << " spare_begin " << spare_
 
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
-//quicksort=1;
+quicksort=1;
         // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform quicksort if it
         // fits in the memory (SortInMemory algorithm won't always perform well).
         if (quicksort > 0 && total_size <= length) {
