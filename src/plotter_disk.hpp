@@ -1125,7 +1125,7 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
             uint64_t greatest_pos = 0;
 
             uint8_t* right_entry_buf;
-            uint8_t* right_entry_buf_out = new uint8_t[right_entry_size_bytes];
+            uint8_t* right_entry_buf_out;
             uint8_t* left_entry_disk_buf;
             uint64_t entry_sort_key, entry_pos, entry_offset;
             uint64_t cached_entry_sort_key = 0;
@@ -1289,9 +1289,12 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
             Timer computation_pass_2_timer;
 
             right_reader=plot_table_begin_pointers[table_index + 1];
-	    right_buf_entries=kMemorySize/right_entry_size_bytes;
-            right_reader_count=0;
             right_writer=plot_table_begin_pointers[table_index + 1];
+            right_reader_buf=memory;
+            right_writer_buf=&(memory[kMemorySize/2]);
+            right_buf_entries=kMemorySize/2/right_entry_size_bytes;
+            right_reader_count=0;
+            right_writer_count=0;
             uint64_t final_table_writer=final_table_begin_pointers[table_index];
 
             final_entries_written = 0;
@@ -1334,10 +1337,21 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 // Write the new position (index) and the sort key
                 Bits to_write = Bits(sort_key, right_sort_key_size);
                 to_write += Bits(index, k + 1);
+
+                        // Calculate right entry pointer for output
+                        right_entry_buf_out=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+                        right_writer_count++;
+
                 memset(right_entry_buf_out, 0, right_entry_size_bytes);
                 to_write.ToBytes(right_entry_buf_out);
-                tmp1_disk.Write(right_writer, right_entry_buf_out, right_entry_size_bytes);
-                right_writer+=right_entry_size_bytes;
+
+                        // Check for write out to disk
+                        if(right_writer_count%right_buf_entries==0) {
+                           std::cout << "right_writer_count " << right_writer_count << std::endl;
+                           tmp1_disk.Write(right_writer, right_writer_buf,
+                                right_buf_entries*right_entry_size_bytes);
+                           right_writer+=right_buf_entries*right_entry_size_bytes;
+                        }
 
                 new_bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf_out, right_entry_size_bytes, 0,
                                                              kLogNumSortBuckets)] += 1;
@@ -1379,6 +1393,12 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 last_line_point = line_point;
             }
 
+            std::cout << "Final right_writer_count " << right_writer_count << std::endl;
+            tmp1_disk.Write(right_writer, right_writer_buf,
+                (right_writer_count%right_buf_entries)*right_entry_size_bytes);
+            right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+
+
             if (park_deltas.size() > 0) {
                 // Since we don't have a perfect multiple of EPP entries, this writes the last ones
                 WriteParkToFile(tmp2_disk, final_table_begin_pointers[table_index],
@@ -1410,8 +1430,6 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                                 right_entry_size_bytes, 0, new_bucket_sizes, memory, kMemorySize);
 
             sort_timer_2.PrintElapsed("\tSort time:");
-
-            delete[] right_entry_buf_out;
 
             table_timer.PrintElapsed("Total compress table time:");
         }
