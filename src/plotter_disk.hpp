@@ -124,6 +124,9 @@ class DiskPlotter {
 	remove(tmp_2_filename);
 	remove(final_filename);
 
+        std::ios_base::sync_with_stdio(false);
+        std::ostream *prevstr = std::cin.tie(NULL);
+
 	FileDisk tmp1_disk(tmp_1_filename);
 	FileDisk tmp2_disk(tmp_2_filename);
 
@@ -171,6 +174,9 @@ class DiskPlotter {
 
         tmp1_disk.Close();
         tmp2_disk.Close();
+
+        std::cin.tie (prevstr);
+        std::ios_base::sync_with_stdio(true);
 
         bool removed_1 = fs::remove(tmp_1_filename);
         std::cout << "Removed " << tmp_1_filename << "? " << removed_1 << std::endl;
