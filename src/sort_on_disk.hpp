@@ -95,7 +95,7 @@ class FileDisk : public Disk {
     }
 
     inline void Close() {
-        f_.close();
+        fclose(f_);
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
@@ -103,10 +103,10 @@ class FileDisk : public Disk {
         if((!bReading)||(begin!=readPos))
         {
 //		std::cout << &f_ << ": Read " << numOps << ": seek " << begin << " for " << length << std::endl;
-		f_.seekg(begin);
+		fseek(f_,begin,SEEK_SET);
 		bReading=true;
 	}
-        f_.read(reinterpret_cast<char*>(memcache), length);
+        fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
 	readPos=begin+length;
         numOps++;
     }
@@ -116,10 +116,10 @@ class FileDisk : public Disk {
 	if((bReading)||(begin!=writePos))
 	{
 //		std::cout << &f_ << ": Write " << numOps << ": seek " << begin << " for " << length << std::endl;
-		f_.seekp(begin);
+		fseek(f_,begin,SEEK_SET);
 		bReading=false;
         }
-        f_.write(reinterpret_cast<const char*>(memcache), length);
+        fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
 	writePos=begin+length;
         numOps++;
     }
@@ -132,18 +132,11 @@ class FileDisk : public Disk {
     void Initialize(const std::string& filename) {
         filename_ = filename;
 
-        // Creates the file if it does not exist
-        std::fstream f;
-
-        f.open(filename, std::fstream::out | std::fstream::app);
-        f << std::flush;
-        f.close();
-
         // Opens the file for reading and writing
-        f_.open(filename, std::fstream::out | std::fstream::in | std::fstream::binary);
+        f_=fopen(filename.c_str(), "w+b");
 
-        if (!f_.is_open()) {
-            std::cout << "Fialed to open" << std::endl;
+        if (f_==NULL) {
+            std::cout << "Failed to open" << std::endl;
             throw std::string("File not opened correct");
         }
     }
@@ -154,7 +147,7 @@ class FileDisk : public Disk {
     bool bReading=true;
 
     std::string filename_;
-    std::fstream f_;
+    FILE *f_;
 };
 
 // Store values bucketed by their leading bits into an array-like memcache.
