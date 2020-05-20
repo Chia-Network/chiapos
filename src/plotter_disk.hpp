@@ -132,9 +132,7 @@ class DiskPlotter {
 
         // These variables are used in the WriteParkToFile method. They are preallocatted here
         // to save time.
-        first_line_point_bytes = new uint8_t[CalculateLinePointSize(k)];
-        park_stubs_bytes = new uint8_t[CalculateStubsSize(k)];
-        park_deltas_bytes = new uint8_t[CalculateMaxDeltasSize(k, 1)];
+        parkToFileBytes = new uint8_t[CalculateLinePointSize(k)+CalculateStubsSize(k)+2+CalculateMaxDeltasSize(k, 1)];
 
         assert(id_len == kIdLen);
 
@@ -193,9 +191,6 @@ class DiskPlotter {
 
         }
 
-        delete[] first_line_point_bytes;
-        delete[] park_stubs_bytes;
-        delete[] park_deltas_bytes;
     }
 
     static uint32_t GetMaxEntrySize(uint8_t k, uint8_t table_index, bool phase_1_size) {
@@ -260,9 +255,7 @@ class DiskPlotter {
     }
 
  private:
-    uint8_t* first_line_point_bytes;
-    uint8_t* park_stubs_bytes;
-    uint8_t* park_deltas_bytes;
+    uint8_t* parkToFileBytes;
 
     // Writes the plot file header to a file
     uint32_t WriteHeader(FileDisk& plot_Disk, uint8_t k, const uint8_t* id, const uint8_t* memo,
@@ -999,11 +992,12 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
         // Parks are fixed size, so we know where to start writing. The deltas will not go over
         // into the next park.
         uint64_t writer=table_start + park_index * park_size_bytes;
+        uint8_t *index = parkToFileBytes;
+
         Bits first_line_point_bits(first_line_point, 2*k);
-        memset(first_line_point_bytes, 0, CalculateLinePointSize(k));
-        first_line_point_bits.ToBytes(first_line_point_bytes);
-        final_disk.Write(writer, first_line_point_bytes, CalculateLinePointSize(k));
-	writer+=CalculateLinePointSize(k);
+        memset(parkToFileBytes, 0, CalculateLinePointSize(k));
+        first_line_point_bits.ToBytes(index);
+        index+=CalculateLinePointSize(k);
 
         // We use ParkBits insted of Bits since it allows storing more data
         ParkBits park_stubs_bits;
@@ -1011,10 +1005,9 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
             park_stubs_bits.AppendValue(stub, (k - kStubMinusBits));
         }
         uint32_t stubs_size = CalculateStubsSize(k);
-        memset(park_stubs_bytes, 0, stubs_size);
-        park_stubs_bits.ToBytes(park_stubs_bytes);
-        final_disk.Write(writer, park_stubs_bytes, stubs_size);
-	writer+=stubs_size;
+        memset(index, 0, stubs_size);
+        park_stubs_bits.ToBytes(index);
+        index+=stubs_size;
 
         // The stubs are random so they don't need encoding. But deltas are more likely to
         // be small, so we can compress them
@@ -1025,24 +1018,29 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
         {
              // Uncompressed
              uint16_t unencoded_size=0x8000|park_deltas.size();
-             final_disk.Write(writer, (uint8_t *)&unencoded_size, 2);
-	     writer+=2;
-             final_disk.Write(writer, (uint8_t *)park_deltas.data(), park_deltas.size());
-	     writer+=park_deltas.size();
+
+             index[0]=unencoded_size&0xff;
+             index[1]=unencoded_size>>8;
+	     index+=2;
+
+             memcpy(index,park_deltas.data(),park_deltas.size());
+             index+=park_deltas.size();
         }
         else
         {
              // Compressed
-             deltas_bits.ToBytes(park_deltas_bytes);
-
              uint16_t encoded_size = deltas_bits.GetSize() / 8;
 
-             assert((uint32_t)(encoded_size + 2) < CalculateMaxDeltasSize(k, table_index));
-             final_disk.Write(writer, (uint8_t *)&encoded_size, 2);
-	     writer+=2;
-             final_disk.Write(writer, (uint8_t *)park_deltas_bytes, encoded_size);
-	     writer+=encoded_size;
+             index[0]=encoded_size&0xff;
+             index[1]=encoded_size>>8;
+             index+=2;
+
+             deltas_bits.ToBytes(index);
+             index+=encoded_size;
         }
+        
+        assert((uint32_t)(index-parkToFileBytes) < parkToFileBytes.size());
+        final_disk.Write(writer, (uint8_t *)parkToFileBytes, index-parkToFileBytes);
     }
 
     // Compresses the plot file tables into the final file. In order to do this, entries must be
