@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
             }
             memo = Strip0x(memo);
             id = Strip0x(id);
-            uint8_t *memo_bytes = new uint8_t(memo.size() / 2);
+            uint8_t *memo_bytes = new uint8_t[memo.size() / 2];
             uint8_t id_bytes[32];
 
             HexToBytes(memo, memo_bytes);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 
             DiskPlotter plotter = DiskPlotter();
             plotter.CreatePlotDisk(tempdir, tempdir2, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32);
-            delete(memo_bytes);
+            delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {
                 HelpAndQuit(options);
@@ -127,11 +127,11 @@ int main(int argc, char *argv[]) {
             vector<LargeBits> qualities = prover.GetQualitiesForChallenge(challenge_bytes);
             for (uint32_t i = 0; i < qualities.size(); i++) {
                 k = prover.GetSize() / 2;
-                uint8_t *proof_data = new uint8_t(8 * k);
+                uint8_t *proof_data = new uint8_t[8 * k];
                 LargeBits proof = prover.GetFullProof(challenge_bytes, i);
                 proof.ToBytes(proof_data);
                 cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
-                delete proof_data;
+                delete[] proof_data;
             }
             if (qualities.empty()) {
                 cout << "No proofs found." << endl;
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
                  << static_cast<int>(k) << endl << endl;
             uint8_t id_bytes[32];
             uint8_t challenge_bytes[32];
-            uint8_t *proof_bytes = new uint8_t(proof.size() / 2);
+            uint8_t *proof_bytes = new uint8_t[proof.size() / 2];
             HexToBytes(id, id_bytes);
             HexToBytes(challenge, challenge_bytes);
             HexToBytes(proof, proof_bytes);
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
                 cout << "Proof verification failed." << endl;
                 exit(1);
             }
-            delete proof_bytes;
+            delete[] proof_bytes;
         } else if (operation == "check") {
             uint32_t iterations = 1000;
             if (argc == 3) {
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
                 vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
                 for (uint32_t i = 0; i < qualities.size(); i++) {
                     LargeBits proof = prover.GetFullProof(hash.data(), i);
-                    uint8_t *proof_data = new uint8_t(proof.GetSize() / 8);
+                    uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
                     cout << "i: " << num << std::endl;
                     cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
                         cout << "Proof verification failed." << endl;
                         exit(1);
                     }
-                    delete proof_data;
+                    delete[] proof_data;
                 }
             }
             std::cout << "Total success: " << success << "/" << iterations << ", " <<
