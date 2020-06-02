@@ -1281,8 +1281,6 @@ class DiskPlotter {
             Bits right_entry_bits;
             for (uint64_t index = 0; index < total_r_entries; index++) {
                 if(right_reader_count%right_buf_entries==0) {
-                      std::cout << "CompressTables right_reader_count " << right_reader_count << std::endl;
-
                       uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
                            (total_r_entries-right_reader_count)*right_entry_size_bytes);
 
