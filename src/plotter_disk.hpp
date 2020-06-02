@@ -171,6 +171,7 @@ class DiskPlotter {
             all_phases.PrintElapsed("Total time =");
 
             delete[] memory;
+            delete[] parkToFileBytes;
         }
 
         std::cin.tie (prevstr);
