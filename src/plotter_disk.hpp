@@ -1355,7 +1355,6 @@ class DiskPlotter {
                 last_line_point = line_point;
             }
 
-            std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
