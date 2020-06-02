@@ -130,6 +130,7 @@ class FileDisk : public Disk {
         return filename_;
     }
 
+ private:
     uint64_t readPos=0;
     uint64_t writePos=0;
     bool bReading=true;
