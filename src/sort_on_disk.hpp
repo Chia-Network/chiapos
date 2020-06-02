@@ -91,10 +91,18 @@ class Disk {
 class FileDisk : public Disk {
  public:
     inline explicit FileDisk(const std::string& filename) {
-        Initialize(filename);
+        filename_ = filename;
+
+        // Opens the file for reading and writing
+        f_=fopen(filename.c_str(), "w+b");
+
+        if (f_==NULL) {
+            std::cout << "Failed to open" << std::endl;
+            throw std::string("File not opened correct");
+        }
     }
 
-    inline void Close() {
+    ~FileDisk() {
         fclose(f_);
     }
 
@@ -120,19 +128,6 @@ class FileDisk : public Disk {
 
     inline std::string GetFileName() const noexcept {
         return filename_;
-    }
-
- private:
-    void Initialize(const std::string& filename) {
-        filename_ = filename;
-
-        // Opens the file for reading and writing
-        f_=fopen(filename.c_str(), "w+b");
-
-        if (f_==NULL) {
-            std::cout << "Failed to open" << std::endl;
-            throw std::string("File not opened correct");
-        }
     }
 
     uint64_t readPos=0;

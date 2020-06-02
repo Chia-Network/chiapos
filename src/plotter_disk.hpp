@@ -127,51 +127,51 @@ class DiskPlotter {
         std::ios_base::sync_with_stdio(false);
         std::ostream *prevstr = std::cin.tie(NULL);
 
-        FileDisk tmp1_disk(tmp_1_filename);
-        FileDisk tmp2_disk(tmp_2_filename);
+        {
+            // Scope for FileDisk
+            FileDisk tmp1_disk(tmp_1_filename);
+            FileDisk tmp2_disk(tmp_2_filename);
 
-        // These variables are used in the WriteParkToFile method. They are preallocatted here
-        // to save time.
-        parkToFileBytes = new uint8_t[CalculateLinePointSize(k)+CalculateStubsSize(k)+2+CalculateMaxDeltasSize(k, 1)];
+            // These variables are used in the WriteParkToFile method. They are preallocatted here
+            // to save time.
+            parkToFileBytes = new uint8_t[CalculateLinePointSize(k)+CalculateStubsSize(k)+2+CalculateMaxDeltasSize(k, 1)];
 
-        assert(id_len == kIdLen);
+            assert(id_len == kIdLen);
 
-        // Memory to be used for sorting and buffers
-        uint8_t* memory = new uint8_t[kMemorySize];
+            // Memory to be used for sorting and buffers
+            uint8_t* memory = new uint8_t[kMemorySize];
 
-        std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
 
-        Timer p1;
-        Timer all_phases;
-        std::vector<uint64_t> results = WritePlotFile(memory, tmp1_disk, k, id, memo, memo_len);
-        p1.PrintElapsed("Time for phase 1 =");
+            Timer p1;
+            Timer all_phases;
+            std::vector<uint64_t> results = WritePlotFile(memory, tmp1_disk, k, id, memo, memo_len);
+            p1.PrintElapsed("Time for phase 1 =");
 
-        std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " and " << tmp_2_filename << " ..." << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " and " << tmp_2_filename << " ..." << Timer::GetNow();
 
-        Timer p2;
-        Backpropagate(memory, tmp1_disk, k, id, memo, memo_len, results);
-        p2.PrintElapsed("Time for phase 2 =");
+            Timer p2;
+            Backpropagate(memory, tmp1_disk, k, id, memo, memo_len, results);
+            p2.PrintElapsed("Time for phase 2 =");
 
-        std::cout << std::endl << "Starting phase 3/4: Compression... " << Timer::GetNow();
-        Timer p3;
-        Phase3Results res = CompressTables(memory, k, results, tmp2_disk, tmp1_disk, id, memo, memo_len);
-        p3.PrintElapsed("Time for phase 3 =");
+            std::cout << std::endl << "Starting phase 3/4: Compression... " << Timer::GetNow();
+            Timer p3;
+            Phase3Results res = CompressTables(memory, k, results, tmp2_disk, tmp1_disk, id, memo, memo_len);
+            p3.PrintElapsed("Time for phase 3 =");
 
-        std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables... " << Timer::GetNow();
-        Timer p4;
-        WriteCTables(k, k + 1, tmp2_disk, tmp1_disk, res);
-        p4.PrintElapsed("Time for phase 4 =");
+            std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables... " << Timer::GetNow();
+            Timer p4;
+            WriteCTables(k, k + 1, tmp2_disk, tmp1_disk, res);
+            p4.PrintElapsed("Time for phase 4 =");
 
-        std::cout << "Approximate working space used: " <<
+            std::cout << "Approximate working space used: " <<
                      static_cast<double>(res.plot_table_begin_pointers[8])/(1024*1024*1024) << " GB" << std::endl;
-        std::cout << "Final File size: " <<
+            std::cout << "Final File size: " <<
                      static_cast<double>(res.final_table_begin_pointers[11])/(1024*1024*1024) << " GB" << std::endl;
-        all_phases.PrintElapsed("Total time =");
+            all_phases.PrintElapsed("Total time =");
 
-        delete[] memory;
-
-        tmp1_disk.Close();
-        tmp2_disk.Close();
+            delete[] memory;
+        }
 
         std::cin.tie (prevstr);
         std::ios_base::sync_with_stdio(true);
