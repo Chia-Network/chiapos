@@ -120,15 +120,15 @@ class DiskPlotter {
             throw err_string;
         }
 
-	remove(tmp_1_filename);
-	remove(tmp_2_filename);
-	remove(final_filename);
+        remove(tmp_1_filename);
+        remove(tmp_2_filename);
+        remove(final_filename);
 
         std::ios_base::sync_with_stdio(false);
         std::ostream *prevstr = std::cin.tie(NULL);
 
-	FileDisk tmp1_disk(tmp_1_filename);
-	FileDisk tmp2_disk(tmp_2_filename);
+        FileDisk tmp1_disk(tmp_1_filename);
+        FileDisk tmp2_disk(tmp_2_filename);
 
         // These variables are used in the WriteParkToFile method. They are preallocatted here
         // to save time.
@@ -269,7 +269,7 @@ class DiskPlotter {
         // x bytes   - memo
 
         std::string header_text = "Proof of Space Plot";
-	uint64_t write_pos=0;
+        uint64_t write_pos=0;
         plot_Disk.Write(write_pos,(uint8_t *)header_text.data(), header_text.size());
         write_pos+=header_text.size();
         plot_Disk.Write(write_pos, (id), kIdLen);
@@ -278,19 +278,19 @@ class DiskPlotter {
         uint8_t k_buffer[1];
         k_buffer[0] = k;
         plot_Disk.Write(write_pos, (k_buffer), 1);
-	write_pos+=1;
+        write_pos+=1;
 
         uint8_t size_buffer[2];
         Bits(kFormatDescription.size(), 16).ToBytes(size_buffer);
         plot_Disk.Write(write_pos, (size_buffer), 2);
         write_pos+=2;
-	plot_Disk.Write(write_pos,(uint8_t *)kFormatDescription.data(), kFormatDescription.size());
+        plot_Disk.Write(write_pos,(uint8_t *)kFormatDescription.data(), kFormatDescription.size());
         write_pos+=kFormatDescription.size();
 
         Bits(memo_len, 16).ToBytes(size_buffer);
         plot_Disk.Write(write_pos, (size_buffer), 2);
         write_pos+=2;
-	plot_Disk.Write(write_pos, (memo), memo_len);
+        plot_Disk.Write(write_pos, (memo), memo_len);
         write_pos+=memo_len;
 
         uint8_t pointers[10*8];
@@ -314,7 +314,7 @@ class DiskPlotter {
                                         const uint8_t* memo, uint8_t memo_len) {
         uint32_t header_size = WriteHeader(tmp1_disk, k, id, memo, memo_len);
 
-	uint64_t plot_file=header_size;
+        uint64_t plot_file=header_size;
 
         std::cout << "Computing table 1" << std::endl;
         Timer f1_start_time;
@@ -358,7 +358,7 @@ class DiskPlotter {
         // A zero entry is the end of table symbol.
         memset(buf, 0x00, entry_size_bytes);
         tmp1_disk.Write(plot_file, (buf), entry_size_bytes);
-	plot_file+=entry_size_bytes;
+        plot_file+=entry_size_bytes;
         delete[] buf;
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
@@ -403,8 +403,6 @@ class DiskPlotter {
             Timer sort_timer;
             Sorting::SortOnDisk(tmp1_disk, begin_byte, begin_byte_next, entry_size_bytes,
                                 0, bucket_sizes, memory, kMemorySize);
-            Sorting::CheckSortOnDisk(tmp1_disk, begin_byte, begin_byte_next, entry_size_bytes,
-                                0, bucket_sizes, memory, kMemorySize);
             sort_timer.PrintElapsed("\tSort time:");
 
             Timer computation_pass_timer;
@@ -441,8 +439,8 @@ class DiskPlotter {
                 PlotEntry left_entry;
                 left_entry.right_metadata = 0;
                 // Reads a left entry from disk
-		tmp1_disk.Read(left_reader, left_buf, entry_size_bytes);
-		left_reader+=entry_size_bytes;
+                tmp1_disk.Read(left_reader, left_buf, entry_size_bytes);
+                left_reader+=entry_size_bytes;
 
                 if (table_index == 1) {
                     // For table 1, we only have y and metadata
@@ -532,13 +530,12 @@ class DiskPlotter {
 
                             new_entry.ToBytes(right_buf);
                             // Writes the new entry into the right table
-			   
-                        if(right_writer_count%right_buf_entries==0) {
-                           std::cout << "right_writer_count " << right_writer_count << std::endl;
-                           tmp1_disk.Write(right_writer, right_writer_buf,
-                                right_buf_entries*right_entry_size_bytes);
-                           right_writer+=right_buf_entries*right_entry_size_bytes;
-                        }
+               
+                            if(right_writer_count%right_buf_entries==0) {
+                                tmp1_disk.Write(right_writer, right_writer_buf,
+                                    right_buf_entries*right_entry_size_bytes);
+                                right_writer+=right_buf_entries*right_entry_size_bytes;
+                            }
 
                             // Computes sort bucket, so we can sort the table by y later, more easily
                             right_bucket_sizes[SortOnDiskUtils::ExtractNum(right_buf, right_entry_size_bytes, 0,
@@ -573,7 +570,6 @@ class DiskPlotter {
             // Writes the 0 entry (EOT)
             memset(right_buf, 0x00, right_entry_size_bytes);
 
-            std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
@@ -585,7 +581,7 @@ class DiskPlotter {
             uint8_t pointer_buf[8];
             Bits(begin_byte_next, 8*8).ToBytes(pointer_buf);
             tmp1_disk.Write(right_writer, (pointer_buf), 8);
-	    right_writer+=8;
+            right_writer+=8;
 
             // Resets variables
             plot_table_begin_pointers[table_index + 1] = begin_byte_next;
@@ -662,9 +658,6 @@ class DiskPlotter {
                 Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index], spare_pointer,
                                     right_entry_size_bytes,
                                     0, bucket_sizes_pos, memory, kMemorySize);
-                Sorting::CheckSortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index], spare_pointer,
-                                    right_entry_size_bytes,
-                                    0, bucket_sizes_pos, memory, kMemorySize);
 
                 sort_timer.PrintElapsed("\tSort time:");
             }
@@ -675,11 +668,11 @@ class DiskPlotter {
             uint64_t right_reader=plot_table_begin_pointers[table_index];
             uint64_t right_writer=plot_table_begin_pointers[table_index];
             uint8_t *left_reader_buf=&(memory[0]);
-	    uint8_t *left_writer_buf=&(memory[kMemorySize/4]);
+            uint8_t *left_writer_buf=&(memory[kMemorySize/4]);
             uint8_t *right_reader_buf=&(memory[kMemorySize/2]);
             uint8_t *right_writer_buf=&(memory[3*kMemorySize/4]);
             uint64_t left_buf_entries=kMemorySize/4/left_entry_size_bytes;
-	    uint64_t new_left_buf_entries=kMemorySize/4/new_left_entry_size_bytes;
+            uint64_t new_left_buf_entries=kMemorySize/4/new_left_entry_size_bytes;
             uint64_t right_buf_entries=kMemorySize/4/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
@@ -755,23 +748,18 @@ class DiskPlotter {
                     while (!end_of_right_table) {
                         if (should_read_entry) {
                             // Need to read another entry at the current position
-			    if(right_reader_count%right_buf_entries==0) {
-                                    std::cout << "Backpropagate right_reader_count " << right_reader_count << std::endl;
+                           if(right_reader_count%right_buf_entries==0) {
+                               uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
+                                   plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]-right_reader_count*right_entry_size_bytes);
 
-if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]<right_reader_count*right_entry_size_bytes)
-   exit(0);
-
-				    uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
-				       plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]-right_reader_count*right_entry_size_bytes);
-
-				    tmp1_disk.Read(right_reader, right_reader_buf,
+                               tmp1_disk.Read(right_reader, right_reader_buf,
                                               readAmt);
-				    right_reader+=readAmt;
+                               right_reader+=readAmt;
                             }
                             right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                             right_reader_count++;
 
-			    if (table_index == 7) {
+                            if (table_index == 7) {
                                 // This is actually y for table 7
                                 entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
                                                                            0, k);
@@ -834,15 +822,6 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                     }
                     // ***Reads a left entry
                     if(left_reader_count%left_buf_entries==0) {
-                         std::cout << "Backpropagate left_reader_count " << left_reader_count << std::endl;
-
-if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]<left_reader_count*left_entry_size_bytes)
-{
-  std::cout << "!end_of_right_table " << (!end_of_right_table) << " (current_pos - end_of_table_pos <= kReadMinusWrite) " << (current_pos - end_of_table_pos <= kReadMinusWrite) << std::endl;
-  std::cout << "current_pos " << current_pos << " greatest_pos " << greatest_pos << std::endl;
-  exit(0);
-}
-
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-1]-left_reader_count*left_entry_size_bytes);
                          tmp1_disk.Read(left_reader, left_reader_buf,
@@ -940,10 +919,9 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 
                         // Check for write out to disk
                         if(right_writer_count%right_buf_entries==0) {
-			   std::cout << "right_writer_count " << right_writer_count << std::endl;
-                           tmp1_disk.Write(right_writer, right_writer_buf,
+                            tmp1_disk.Write(right_writer, right_writer_buf,
                                 right_buf_entries*right_entry_size_bytes);
-                           right_writer+=right_buf_entries*right_entry_size_bytes;
+                            right_writer+=right_buf_entries*right_entry_size_bytes;
                         }
 
                     }
@@ -960,7 +938,6 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 
             memset(right_entry_buf, 0x00, right_entry_size_bytes);
 
-            std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
@@ -970,11 +947,10 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 
             memset(new_left_entry_buf,0x00,new_left_entry_size_bytes);
             
-	    std::cout << "Final left_writer_count " << left_writer_count << std::endl; 
             tmp1_disk.Write(left_writer, left_writer_buf,
                 (left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes);
             left_writer+=(left_writer_count%new_left_buf_entries)*new_left_entry_size_bytes;
-	    
+        
             bucket_sizes_pos = new_bucket_sizes_pos;
 
         }
@@ -1021,7 +997,7 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
 
              index[0]=unencoded_size&0xff;
              index[1]=unencoded_size>>8;
-	     index+=2;
+             index+=2;
 
              memcpy(index,park_deltas.data(),park_deltas.size());
              index+=park_deltas.size();
@@ -1039,7 +1015,7 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
              index+=encoded_size;
         }
         
-        assert((uint32_t)(index-parkToFileBytes) < parkToFileBytes.size());
+        assert((uint32_t)(index-parkToFileBytes) <= parkToFileBytes.size());
         final_disk.Write(writer, (uint8_t *)parkToFileBytes, index-parkToFileBytes);
     }
 
@@ -1145,17 +1121,12 @@ if(plot_table_begin_pointers[table_index]-plot_table_begin_pointers[table_index-
                         if (should_read_entry) {
                             // The right entries are in the format from backprop, (sort_key, pos, offset)
                             if(right_reader_count%right_buf_entries==0) {
-                                    std::cout << "CompressTables right_reader_count " << right_reader_count << std::endl;
+                                uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
+                                    plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]-right_reader_count*right_entry_size_bytes);
 
-if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]<right_reader_count*right_entry_size_bytes)
-   exit(0);
-
-                                    uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
-                                       plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_index+1]-right_reader_count*right_entry_size_bytes);
-
-                                    tmp1_disk.Read(right_reader, right_reader_buf,
-                                              readAmt);
-                                    right_reader+=readAmt;
+                                tmp1_disk.Read(right_reader, right_reader_buf,
+                                    readAmt);
+                                right_reader+=readAmt;
                             }
                             right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                             right_reader_count++;
@@ -1199,11 +1170,6 @@ if(plot_table_begin_pointers[table_index+2]-plot_table_begin_pointers[table_inde
                     }
                     // The left entries are in the new format: (sort_key, new_pos), except for table 1: (y, x).
                     if(left_reader_count%left_buf_entries==0) {
-                         std::cout << "CompressTables left_reader_count " << left_reader_count << std::endl;
-
-if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]<left_reader_count*left_entry_size_bytes)
-   exit(0);
-
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_index]-left_reader_count*left_entry_size_bytes);
 
@@ -1214,7 +1180,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                     left_entry_disk_buf=left_reader_buf+(left_reader_count%left_buf_entries)*left_entry_size_bytes;
                     left_reader_count++;
 
-		    // We read the "new_pos" from the L table, which for table 1 is just x. For other tables,
+                    // We read the "new_pos" from the L table, which for table 1 is just x. For other tables,
                     // the new_pos
                     if (table_index == 1) {
                         // Only k bits, since this is x
@@ -1258,10 +1224,9 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                         to_write.ToBytes(right_entry_buf);
 
                         if(right_writer_count%right_buf_entries==0) {
-                           std::cout << "right_writer_count " << right_writer_count << std::endl;
-                           tmp1_disk.Write(right_writer, right_writer_buf,
+                            tmp1_disk.Write(right_writer, right_writer_buf,
                                 right_buf_entries*right_entry_size_bytes);
-                           right_writer+=right_buf_entries*right_entry_size_bytes;
+                            right_writer+=right_buf_entries*right_entry_size_bytes;
                         }
 
                         bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf, right_entry_size_bytes, 0,
@@ -1275,18 +1240,15 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
 
             memset(right_entry_buf, 0, right_entry_size_bytes);
 
-            std::cout << "Final right_writer_count " << right_writer_count << std::endl;
             tmp1_disk.Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-	    
+        
             computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
             Timer sort_timer;
             std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
 
             Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
-                                right_entry_size_bytes, 0, bucket_sizes, memory, kMemorySize, /*quicksort=*/1);
-	    Sorting::CheckSortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
                                 right_entry_size_bytes, 0, bucket_sizes, memory, kMemorySize, /*quicksort=*/1);
 
             sort_timer.PrintElapsed("\tSort time:");
@@ -1332,7 +1294,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                 right_reader_count++;
                 
-		// Right entry is read as (line_point, sort_key)
+                // Right entry is read as (line_point, sort_key)
                 uint128_t line_point = Util::SliceInt128FromBytes(right_entry_buf, right_entry_size_bytes,
                                                                   0, 2*k);
                 uint64_t sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
@@ -1342,20 +1304,19 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 Bits to_write = Bits(sort_key, right_sort_key_size);
                 to_write += Bits(index, k + 1);
 
-                        // Calculate right entry pointer for output
-                        right_entry_buf_out=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-                        right_writer_count++;
+                // Calculate right entry pointer for output
+                right_entry_buf_out=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+                right_writer_count++;
 
                 memset(right_entry_buf_out, 0, right_entry_size_bytes);
                 to_write.ToBytes(right_entry_buf_out);
 
-                        // Check for write out to disk
-                        if(right_writer_count%right_buf_entries==0) {
-                           std::cout << "right_writer_count " << right_writer_count << std::endl;
-                           tmp1_disk.Write(right_writer, right_writer_buf,
-                                right_buf_entries*right_entry_size_bytes);
-                           right_writer+=right_buf_entries*right_entry_size_bytes;
-                        }
+                // Check for write out to disk
+                if(right_writer_count%right_buf_entries==0) {
+                    tmp1_disk.Write(right_writer, right_writer_buf,
+                        right_buf_entries*right_entry_size_bytes);
+                    right_writer+=right_buf_entries*right_entry_size_bytes;
+                }
 
                 new_bucket_sizes[SortOnDiskUtils::ExtractNum(right_entry_buf_out, right_entry_size_bytes, 0,
                                                              kLogNumSortBuckets)] += 1;
@@ -1429,8 +1390,6 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
             // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates from
             // forward/backprop represent positions in y ordered tables.
             Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
-                                right_entry_size_bytes, 0, new_bucket_sizes, memory, kMemorySize);
-            Sorting::CheckSortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
                                 right_entry_size_bytes, 0, new_bucket_sizes, memory, kMemorySize);
 
             sort_timer_2.PrintElapsed("\tSort time:");
@@ -1506,7 +1465,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
         for (uint64_t f7_position = 0; f7_position < res.final_entries_written; f7_position++) {
             tmp1_disk.Read(plot_file_reader, (right_entry_buf),
                                   right_entry_size_bytes);
-	    plot_file_reader+=right_entry_size_bytes;
+            plot_file_reader+=right_entry_size_bytes;
             uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes, 0, k);
             uint64_t entry_new_pos = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes, k, pos_size);
 
@@ -1516,7 +1475,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 memset(P7_entry_buf, 0, P7_park_size);
                 to_write_p7.ToBytes(P7_entry_buf);
                 tmp2_disk.Write(final_file_writer_3, (P7_entry_buf), P7_park_size);
-		final_file_writer_3+=P7_park_size;
+                final_file_writer_3+=P7_park_size;
                 to_write_p7 = ParkBits();
             }
 
@@ -1526,7 +1485,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                 entry_y_bits.ToBytes(C1_entry_buf);
                 tmp2_disk.Write(final_file_writer_1, (C1_entry_buf),
                                           Util::ByteAlign(k) / 8);
-		final_file_writer_1+= Util::ByteAlign(k) / 8;
+                final_file_writer_1+= Util::ByteAlign(k) / 8;
                 if (num_C1_entries > 0) {
                     final_file_writer_2=begin_byte_C3 + (num_C1_entries - 1) * size_C3;
                     ParkBits to_write = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R);
@@ -1540,7 +1499,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
                     to_write.ToBytes(C3_entry_buf + 2);
 
                     tmp2_disk.Write(final_file_writer_2, (C3_entry_buf), num_bytes);
-		    final_file_writer_2+=num_bytes;
+                    final_file_writer_2+=num_bytes;
                 }
                 prev_y = entry_y;
                 if (f7_position % (kCheckpoint1Interval * kCheckpoint2Interval) == 0) {
@@ -1563,7 +1522,7 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
         to_write_p7.ToBytes(P7_entry_buf);
 
         tmp2_disk.Write(final_file_writer_3, (P7_entry_buf), P7_park_size);
-	final_file_writer_3+=P7_park_size;
+        final_file_writer_3+=P7_park_size;
 
         if (deltas_to_write.size() != 0) {
             ParkBits to_write = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R);
@@ -1576,13 +1535,13 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
 
 
             tmp2_disk.Write(final_file_writer_2, (C3_entry_buf), size_C3);
-	    final_file_writer_2+=size_C3;
+            final_file_writer_2+=size_C3;
         }
 
         Bits(0, Util::ByteAlign(k)).ToBytes(C1_entry_buf);
         tmp2_disk.Write(final_file_writer_1, (C1_entry_buf),
                                   Util::ByteAlign(k)/8);
-	final_file_writer_1+=Util::ByteAlign(k)/8;
+        final_file_writer_1+=Util::ByteAlign(k)/8;
         std::cout << "\tFinished writing C1 and C3 tables" << std::endl;
         std::cout << "\tWriting C2 table" << std::endl;
 
@@ -1590,12 +1549,12 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
             C2_entry.ToBytes(C1_entry_buf);
             tmp2_disk.Write(final_file_writer_1, (C1_entry_buf),
                                       Util::ByteAlign(k)/8);
-	    final_file_writer_1+=Util::ByteAlign(k)/8;
+        final_file_writer_1+=Util::ByteAlign(k)/8;
         }
         Bits(0, Util::ByteAlign(k)).ToBytes(C1_entry_buf);
         tmp2_disk.Write(final_file_writer_1, (C1_entry_buf),
                                   Util::ByteAlign(k)/8);
-	final_file_writer_1+=Util::ByteAlign(k)/8;
+        final_file_writer_1+=Util::ByteAlign(k)/8;
         std::cout << "\tFinished writing C2 table" << std::endl;
 
         delete[] C3_entry_buf;
@@ -1609,10 +1568,10 @@ if(plot_table_begin_pointers[table_index+1]-plot_table_begin_pointers[table_inde
         // Writes the pointers to the start of the tables, for proving
         Bits(res.final_table_begin_pointers[8], 8*8).ToBytes(table_pointer_bytes);
         tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
-	final_file_writer_1+=8;
+        final_file_writer_1+=8;
         Bits(res.final_table_begin_pointers[9], 8*8).ToBytes(table_pointer_bytes);
         tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
-	final_file_writer_1+=8;
+        final_file_writer_1+=8;
         Bits(res.final_table_begin_pointers[10], 8*8).ToBytes(table_pointer_bytes);
         tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
         final_file_writer_1+=8;
