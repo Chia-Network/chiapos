@@ -8,8 +8,9 @@
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:cpp)
 # Chia Proof of Space
 
-Chia's proof of space, written in C++. Includes a plotter, prover, and verifier.
-Only runs on 64 bit architectures with AES-NI support. Read the
+Chia's proof of space is written in C++. Includes a plotter, prover, and
+verifier. It exclusively runs on 64 bit architectures and is best on CPUs with
+AES-NI support. Read the
 [Proof of Space document](https://www.chia.net/assets/proof_of_space.pdf) to
 learn about what proof of space is and how it works.
 
@@ -21,6 +22,7 @@ format, move to chacha8, and otherwise improve plotting performance.
 ### Compile
 
 ```bash
+# Optional as CMake will install pybind11 src
 git submodule update --init --recursive
 
 mkdir -p build && cd build
@@ -69,8 +71,6 @@ Finally, python bindings are provided in the python-bindings directory.
 ### Install
 
 ```bash
-git submodule update --init --recursive
-
 python3 -m venv .venv
 . .venv/bin/activate
 pip3 install .
@@ -78,8 +78,7 @@ pip3 install .
 
 ### Run python tests
 
-Testings uses pytest. Type checking uses pyright (currenlty disabled), and
-linting uses flake8 and mypy.
+Testings uses pytest. Linting uses flake8 and mypy.
 
 ```bash
 py.test ./tests -s -v
@@ -88,8 +87,9 @@ py.test ./tests -s -v
 ## ci Building
 The primary build process for this repository is to use GitHub Actions to
 build binary wheels for MacOS, Linux, and Windows and publish them with
-a source wheel on PyPi. See `.github/workflows/build.yml`. setup.py adds
-a dependency on [pybind11](https://github.com/pybind/pybind11) that is then
+a source wheel on PyPi. See `.github/workflows/build.yml`. CMake uses
+[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+to download [pybind11](https://github.com/pybind/pybind11). Building is then
 managed by [cibuildwheel](https://github.com/joerick/cibuildwheel). Further
 installation is then available via `pip install chiapos` e.g.
 
@@ -97,11 +97,12 @@ installation is then available via `pip install chiapos` e.g.
 Contributions are welcome and more details are available in chia-blockchain's
 [CONTRIBUTING.md](https://github.com/Chia-Network/chia-blockchain/blob/master/CONTRIBUTING.md).
 
-The master branch is the currently released latest version on PyPI. Note that
-at times chiapos will be ahead of the release version that chia-blockchain
-requires in it's master/release version in preparation for a new chia-blockchain
-release. Please branch or fork master and then create a pull request to the
-master branch. Linear merging is enforced on master and merging requires a
-completed review. PRs will kick off a ci build and analysis of chiapos at
+The master branch is usually the currently released latest version on PyPI.
+Note that at times chiapos will be ahead of the release version that
+chia-blockchain requires in it's master/release version in preparation for a
+new chia-blockchain release. Please branch or fork master and then create a
+pull request to the master branch. Linear merging is enforced on master and
+merging requires a completed review. PRs will kick off a GitHub actions ci build
+and analysis of chiapos at
 [lgtm.com](https://lgtm.com/projects/g/Chia-Network/chiapos/?mode=list). Please
 make sure your build is passing and that it does not increase alerts at lgtm.

@@ -715,7 +715,7 @@ class Sorting {
         }
         // We still have some entries left in the write buffer, write them as well.
         if (buf_size > 0) {
-            disk.Write(write_pos, buffer, buf_size);
+            disk.Write(write_pos, buffer, buf_size)
             write_pos+=buf_size;
             entries_written += buf_size / entry_len;
         }
