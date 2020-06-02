@@ -874,7 +874,6 @@ class DiskPlotter {
                         new_left_entry.ToBytes(new_left_entry_buf);
 
                         if(left_writer_count%new_left_buf_entries==0) {
-                            std::cout << "left_writer_count " << left_writer_count << std::endl;
                             tmp1_disk.Write(left_writer, left_writer_buf,
                                 new_left_buf_entries*new_left_entry_size_bytes);
                             left_writer+=new_left_buf_entries*new_left_entry_size_bytes;
