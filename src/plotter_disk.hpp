@@ -44,7 +44,6 @@ namespace fs = ghc::filesystem;
 
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
-const uint64_t kMemorySize = 2147483648;  // 2^31, or 2GB
 
 // Number of buckets to use for SortOnDisk.
 const uint32_t kNumSortBuckets = 16;
@@ -84,17 +83,20 @@ class DiskPlotter {
     // the process.
     void CreatePlotDisk(std::string tmp_dirname, std::string tmp2_dirname, std::string final_dirname, std::string filename,
                         uint8_t k, const uint8_t* memo,
-                        uint32_t memo_len, const uint8_t* id, uint32_t id_len) {
+                        uint32_t memo_len, const uint8_t* id, uint32_t id_len, uint32_t buffmegabytes = 2*1024) {
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             std::string err_string = "Plot size k=" + std::to_string(k) + " is invalid";
             std::cerr << err_string << std::endl;
             throw err_string;
         }
 
+        memorySize=((uint64_t)buffmegabytes)*1024*1024;
+
         std::cout << std::endl << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and " << tmp2_dirname << std::endl;
         std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
+        std::cout << "Buffer size is: " << memorySize << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         fs::path tmp_1_filename = fs::path(tmp_dirname) / fs::path(filename + ".tmp");
@@ -139,7 +141,7 @@ class DiskPlotter {
             assert(id_len == kIdLen);
 
             // Memory to be used for sorting and buffers
-            uint8_t* memory = new uint8_t[kMemorySize];
+            uint8_t* memory = new uint8_t[memorySize];
 
             std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
 
@@ -256,6 +258,7 @@ class DiskPlotter {
     }
 
  private:
+    uint64_t memorySize;
     uint8_t* parkToFileBytes;
 
     // Writes the plot file header to a file
@@ -403,7 +406,7 @@ class DiskPlotter {
             // Performs a sort on the left table,
             Timer sort_timer;
             Sorting::SortOnDisk(tmp1_disk, begin_byte, begin_byte_next, entry_size_bytes,
-                                0, bucket_sizes, memory, kMemorySize);
+                                0, bucket_sizes, memory, memorySize);
             sort_timer.PrintElapsed("\tSort time:");
 
             Timer computation_pass_timer;
@@ -414,7 +417,7 @@ class DiskPlotter {
             uint64_t left_reader=begin_byte;
             uint64_t right_writer=begin_byte_next;
             uint8_t *right_writer_buf=memory;
-            uint64_t right_buf_entries=kMemorySize/right_entry_size_bytes;
+            uint64_t right_buf_entries=memorySize/right_entry_size_bytes;
             uint64_t right_writer_count=0;
 
             FxCalculator f(k, table_index + 1, id);
@@ -658,7 +661,7 @@ class DiskPlotter {
                 Timer sort_timer;
                 Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index], spare_pointer,
                                     right_entry_size_bytes,
-                                    0, bucket_sizes_pos, memory, kMemorySize);
+                                    0, bucket_sizes_pos, memory, memorySize);
 
                 sort_timer.PrintElapsed("\tSort time:");
             }
@@ -669,12 +672,12 @@ class DiskPlotter {
             uint64_t right_reader=plot_table_begin_pointers[table_index];
             uint64_t right_writer=plot_table_begin_pointers[table_index];
             uint8_t *left_reader_buf=&(memory[0]);
-            uint8_t *left_writer_buf=&(memory[kMemorySize/4]);
-            uint8_t *right_reader_buf=&(memory[kMemorySize/2]);
-            uint8_t *right_writer_buf=&(memory[3*kMemorySize/4]);
-            uint64_t left_buf_entries=kMemorySize/4/left_entry_size_bytes;
-            uint64_t new_left_buf_entries=kMemorySize/4/new_left_entry_size_bytes;
-            uint64_t right_buf_entries=kMemorySize/4/right_entry_size_bytes;
+            uint8_t *left_writer_buf=&(memory[memorySize/4]);
+            uint8_t *right_reader_buf=&(memory[memorySize/2]);
+            uint8_t *right_writer_buf=&(memory[3*memorySize/4]);
+            uint64_t left_buf_entries=memorySize/4/left_entry_size_bytes;
+            uint64_t new_left_buf_entries=memorySize/4/new_left_entry_size_bytes;
+            uint64_t right_buf_entries=memorySize/4/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
             uint64_t left_writer_count=0;
@@ -1082,10 +1085,10 @@ class DiskPlotter {
             uint64_t right_reader=plot_table_begin_pointers[table_index + 1];
             uint64_t right_writer=plot_table_begin_pointers[table_index + 1];
             uint8_t *left_reader_buf=&(memory[0]);
-            uint8_t *right_reader_buf=&(memory[kMemorySize/3]);
-            uint8_t *right_writer_buf=&(memory[2*kMemorySize/3]);
-            uint64_t left_buf_entries=kMemorySize/3/left_entry_size_bytes;
-            uint64_t right_buf_entries=kMemorySize/3/right_entry_size_bytes;
+            uint8_t *right_reader_buf=&(memory[memorySize/3]);
+            uint8_t *right_writer_buf=&(memory[2*memorySize/3]);
+            uint64_t left_buf_entries=memorySize/3/left_entry_size_bytes;
+            uint64_t right_buf_entries=memorySize/3/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
             uint64_t right_writer_count=0;
@@ -1249,7 +1252,7 @@ class DiskPlotter {
             std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
 
             Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
-                                right_entry_size_bytes, 0, bucket_sizes, memory, kMemorySize, /*quicksort=*/1);
+                                right_entry_size_bytes, 0, bucket_sizes, memory, memorySize, /*quicksort=*/1);
 
             sort_timer.PrintElapsed("\tSort time:");
             Timer computation_pass_2_timer;
@@ -1257,8 +1260,8 @@ class DiskPlotter {
             right_reader=plot_table_begin_pointers[table_index + 1];
             right_writer=plot_table_begin_pointers[table_index + 1];
             right_reader_buf=memory;
-            right_writer_buf=&(memory[kMemorySize/2]);
-            right_buf_entries=kMemorySize/2/right_entry_size_bytes;
+            right_writer_buf=&(memory[memorySize/2]);
+            right_buf_entries=memorySize/2/right_entry_size_bytes;
             right_reader_count=0;
             right_writer_count=0;
             uint64_t final_table_writer=final_table_begin_pointers[table_index];
@@ -1387,7 +1390,7 @@ class DiskPlotter {
             // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates from
             // forward/backprop represent positions in y ordered tables.
             Sorting::SortOnDisk(tmp1_disk, plot_table_begin_pointers[table_index + 1], spare_pointer,
-                                right_entry_size_bytes, 0, new_bucket_sizes, memory, kMemorySize);
+                                right_entry_size_bytes, 0, new_bucket_sizes, memory, memorySize);
 
             sort_timer_2.PrintElapsed("\tSort time:");
 
