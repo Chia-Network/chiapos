@@ -143,25 +143,25 @@ class DiskPlotter {
             // Memory to be used for sorting and buffers
             uint8_t* memory = new uint8_t[memorySize];
 
-            std::cout << std::endl << "Starting phase 1/4: Forward Propagation... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 1/4: Forward Propagation into " << tmp_1_filename << " ... " << Timer::GetNow();
 
             Timer p1;
             Timer all_phases;
             std::vector<uint64_t> results = WritePlotFile(memory, tmp1_disk, k, id, memo, memo_len);
             p1.PrintElapsed("Time for phase 1 =");
 
-            std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " and " << tmp_2_filename << " ..." << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 2/4: Backpropagation into " << tmp_1_filename << " ... " << Timer::GetNow();
 
             Timer p2;
             Backpropagate(memory, tmp1_disk, k, id, memo, memo_len, results);
             p2.PrintElapsed("Time for phase 2 =");
 
-            std::cout << std::endl << "Starting phase 3/4: Compression... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 3/4: Compression from " << tmp_1_filename << " into " << tmp_2_filename << " ... " << Timer::GetNow();
             Timer p3;
             Phase3Results res = CompressTables(memory, k, results, tmp2_disk, tmp1_disk, id, memo, memo_len);
             p3.PrintElapsed("Time for phase 3 =");
 
-            std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables from " << tmp_1_filename << " into " << tmp_2_filename << " ... " << Timer::GetNow();
             Timer p4;
             WriteCTables(k, k + 1, tmp2_disk, tmp1_disk, res);
             p4.PrintElapsed("Time for phase 4 =");
