@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
         string operation = "help";
         string memo  = "0102030405";
         string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
+        uint32_t buffmegabytes = 2*1024; // 2 gigabytes
 
         options.allow_unrecognised_options()
                .add_options()
@@ -80,6 +81,7 @@ int main(int argc, char *argv[]) {
                 ("f, file", "Filename", cxxopts::value<string>(filename))
                 ("m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))
                 ("i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))
+                ("b, buffer", "Megabytes to be used as buffer for sorting and plotting", cxxopts::value<uint32_t>(buffmegabytes))
                 ("help", "Print help");
 
         auto result = options.parse(argc, argv);
@@ -108,7 +110,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(id, id_bytes);
 
             DiskPlotter plotter = DiskPlotter();
-            plotter.CreatePlotDisk(tempdir, tempdir2, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32);
+            plotter.CreatePlotDisk(tempdir, tempdir2, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32, buffmegabytes);
             delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {

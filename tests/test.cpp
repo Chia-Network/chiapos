@@ -181,9 +181,9 @@ class FakeDisk : public Disk {
         f_.read(reinterpret_cast<char*>(memcache), length);
     }
 
-    void Write(uint64_t begin, uint8_t* memcache, uint64_t length) {
+    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) {
         f_.seekp(begin);
-        f_.write(reinterpret_cast<char*>(memcache), length);
+        f_.write(reinterpret_cast<const char*>(memcache), length);
     }
 
  private:

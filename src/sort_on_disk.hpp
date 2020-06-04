@@ -85,41 +85,45 @@ class SortOnDiskUtils {
 class Disk {
  public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
-    virtual void Write(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
+    virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
 };
 
 class FileDisk : public Disk {
  public:
     inline explicit FileDisk(const std::string& filename) {
-        Initialize(filename);
+        filename_ = filename;
+
+        // Opens the file for reading and writing
+        f_=fopen(filename.c_str(), "w+b");
+
+        if (f_==NULL) {
+            std::cout << "Failed to open" << std::endl;
+            throw std::string("File not opened correct");
+        }
     }
 
-    inline void Close() {
-        f_.close();
+    ~FileDisk() {
+        fclose(f_);
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
         // Seek, read, and replace into memcache
-        if((!bReading)||(begin!=readPos))
-        {
-		// std::cout << &f_ << ": Read seek " << begin << " for " << length << std::endl;
-		f_.seekg(begin);
-		bReading=true;
-	}
-        f_.read(reinterpret_cast<char*>(memcache), length);
-	readPos=begin+length;
+        if((!bReading)||(begin!=readPos)) {
+            fseek(f_,begin,SEEK_SET);
+            bReading=true;
+        }
+        fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
+        readPos=begin+length;
     }
 
-    inline void Write(uint64_t begin, uint8_t* memcache, uint64_t length) override {
+    inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         // Seek and write from memcache
-	if((bReading)||(begin!=writePos))
-	{
-		// std::cout << &f_ << ": Write seek " << begin << " for " << length << std::endl;
-		f_.seekp(begin);
-		bReading=false;
+        if((bReading)||(begin!=writePos)) {
+            fseek(f_,begin,SEEK_SET);
+            bReading=false;
         }
-        f_.write(reinterpret_cast<char*>(memcache), length);
-	writePos=begin+length;
+        fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
+        writePos=begin+length;
     }
 
     inline std::string GetFileName() const noexcept {
@@ -127,31 +131,12 @@ class FileDisk : public Disk {
     }
 
  private:
-    void Initialize(const std::string& filename) {
-        filename_ = filename;
-
-        // Creates the file if it does not exist
-        std::fstream f;
-
-        f.open(filename, std::fstream::out | std::fstream::app);
-        f << std::flush;
-        f.close();
-
-        // Opens the file for reading and writing
-        f_.open(filename, std::fstream::out | std::fstream::in | std::fstream::binary);
-
-        if (!f_.is_open()) {
-            std::cout << "Fialed to open" << std::endl;
-            throw std::string("File not opened correct");
-        }
-    }
-
     uint64_t readPos=0;
     uint64_t writePos=0;
     bool bReading=true;
 
     std::string filename_;
-    std::fstream f_;
+    FILE *f_;
 };
 
 // Store values bucketed by their leading bits into an array-like memcache.
@@ -446,6 +431,7 @@ class Sorting {
     inline static void SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
                                   uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                   uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
+
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
@@ -508,9 +494,9 @@ class Sorting {
             while (to_consume > 0) {
                 uint64_t next_amount = std::min(length, to_consume);
                 disk.Read(disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len,
-                          mem, next_amount * entry_len);
+                    mem, next_amount * entry_len);
                 disk.Write(spare_begin + spare_written * entry_len,
-                           mem, next_amount * entry_len);
+                    mem, next_amount * entry_len);
                 to_consume -= next_amount;
                 spare_written += next_amount;
                 consumed_per_bucket[i] += next_amount;
@@ -526,7 +512,7 @@ class Sorting {
         // Populate BucketStore from spare.
         while (!bstore.IsFull() && spare_consumed < spare_written) {
             disk.Read(read_pos, buf, entry_len);
-	    read_pos+=entry_len;
+            read_pos+=entry_len;
             bstore.Store(buf, entry_len);
             spare_consumed += 1;
         }
@@ -549,7 +535,7 @@ class Sorting {
                 }
                 // Write the content of the bucket in the right spot (beginning of the bucket + number of entries already written
                 // in that bucket).
-		uint64_t write_pos=disk_begin + (bucket_begins[b] + written_per_bucket[b]) * entry_len;
+                uint64_t write_pos=disk_begin + (bucket_begins[b] + written_per_bucket[b]) * entry_len;
                 uint64_t size;
                 // Don't extract from the bucket more entries than the difference between read and written entries (this avoids
                 // overwritting entries that were not read yet).
@@ -563,8 +549,8 @@ class Sorting {
                 for (uint64_t i = 0; i < size; i += entry_size) {
                     EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
                     disk.Write(write_pos, buf, entry_len);
-		    write_pos+=entry_len;
-		    written_per_bucket[b] += 1;
+                    write_pos+=entry_len;
+                    written_per_bucket[b] += 1;
                     subbucket_sizes[b][SortOnDiskUtils::ExtractNum(buf, entry_len, bits_begin +
                                                                    bucket_log, bucket_log)] += 1;
                 }
@@ -590,7 +576,7 @@ class Sorting {
                 uint64_t read_pos=disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len;
                 while (!bstore.IsFull() && consumed_per_bucket[i] < bucket_sizes[i]) {
                     disk.Read(read_pos, buf, entry_len);
-		    read_pos+=entry_len;
+                    read_pos+=entry_len;
                     bstore.Store(buf, entry_len);
                     consumed_per_bucket[i] += 1;
                 }
@@ -602,10 +588,10 @@ class Sorting {
 
             // If BucketStore still isn't full and we've read all entries from buckets, start populating from the spare space.
             if (!broke) {
-		uint64_t read_pos=spare_begin + spare_consumed * entry_len;
+                uint64_t read_pos=spare_begin + spare_consumed * entry_len;
                 while (!bstore.IsFull() && spare_consumed < spare_written) {
                     disk.Read(read_pos, buf, entry_len);
-		    read_pos+=entry_len;
+                    read_pos+=entry_len;
                     bstore.Store(buf, entry_len);
                     spare_consumed += 1;
                 }
@@ -673,7 +659,7 @@ class Sorting {
                 buf_size = std::min((uint64_t) BUF_SIZE / entry_len, num_entries - i);
                 buf_ptr = 0;
                 disk.Read(read_pos, buffer, buf_size * entry_len);
-		read_pos+=buf_size * entry_len;
+                read_pos+=buf_size * entry_len;
                 if (set_prefix == false) {
                     // We don't store the common prefix of all entries in memory, instead just append it every time
                     // in write buffer.
@@ -712,8 +698,8 @@ class Sorting {
                 if (buf_size + entry_len >= BUF_SIZE) {
                     // Write buffer is full, write it and clean it.
                     disk.Write(write_pos, buffer, buf_size);
-		    write_pos+=buf_size;
-		    entries_written += buf_size / entry_len;
+                    write_pos+=buf_size;
+                    entries_written += buf_size / entry_len;
                     buf_size = 0;
                 }
                 // Write first the common prefix of all entries.
@@ -726,8 +712,8 @@ class Sorting {
         // We still have some entries left in the write buffer, write them as well.
         if (buf_size > 0) {
             disk.Write(write_pos, buffer, buf_size);
-	    write_pos+=buf_size;
-	    entries_written += buf_size / entry_len;
+            write_pos+=buf_size;
+            entries_written += buf_size / entry_len;
         }
 
         assert(entries_written == num_entries);
@@ -752,22 +738,11 @@ class Sorting {
         for (auto& n : bucket_sizes) total_size += n;
 
         cout << "CheckSortOnDisk entry_len: " << entry_len << " length: " << length << " total size: " << total_size << endl;
-        for(uint64_t chunkindex=0;chunkindex<(total_size+length-1)/length;chunkindex++)
-        {
-            disk.Read(disk_begin+(chunkindex*length*entry_len), mem, length * entry_len);
-            uint64_t i=1;
-            while(((chunkindex*length+i)<total_size)&&(i<length))
-            {
-                if((chunkindex*length+i)%1000000==0)
-                    cout << (chunkindex*length+i) << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
-                if(SortOnDiskUtils::MemCmpBits(mem + (i - 1) * entry_len, mem + i * entry_len, entry_len, 0) >= 0)
-                {
-                    cout << "Bad sort!" << endl;
-                }
-                i++;
-            }
+               disk.Read(disk_begin, mem, 20 * entry_len);
+  
+        for(uint64_t i=0;i<20;i++) {
+            cout << i << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
         }
-        cout << "CheckSortOnDisk OK" << endl;
     }
 
  private:
