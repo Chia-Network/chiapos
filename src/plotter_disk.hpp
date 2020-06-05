@@ -136,7 +136,8 @@ class DiskPlotter {
 
             // These variables are used in the WriteParkToFile method. They are preallocatted here
             // to save time.
-            parkToFileBytes = new uint8_t[CalculateLinePointSize(k)+CalculateStubsSize(k)+2+CalculateMaxDeltasSize(k, 1)];
+            parkToFileBytesSize = CalculateLinePointSize(k)+CalculateStubsSize(k)+2+CalculateMaxDeltasSize(k, 1);
+            parkToFileBytes = new uint8_t[parkToFileBytesSize];
 
             assert(id_len == kIdLen);
 
@@ -260,6 +261,7 @@ class DiskPlotter {
  private:
     uint64_t memorySize;
     uint8_t* parkToFileBytes;
+    uint32_t parkToFileBytesSize;
 
     // Writes the plot file header to a file
     uint32_t WriteHeader(FileDisk& plot_Disk, uint8_t k, const uint8_t* id, const uint8_t* memo,
@@ -1018,7 +1020,9 @@ class DiskPlotter {
              index+=encoded_size;
         }
         
-        assert((uint32_t)(index-parkToFileBytes) <= parkToFileBytes.size());
+        if((uint32_t)(index-parkToFileBytes) > parkToFileBytesSize)
+            std::cout << "index-parkToFileBytes " << index-parkToFileBytes << " parkToFileBytesSize " << parkToFileBytesSize << std::endl;
+
         final_disk.Write(writer, (uint8_t *)parkToFileBytes, index-parkToFileBytes);
     }
 

@@ -109,7 +109,11 @@ class FileDisk : public Disk {
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
         // Seek, read, and replace into memcache
         if((!bReading)||(begin!=readPos)) {
-            fseek(f_,begin,SEEK_SET);
+#ifdef WIN32
+            _fseeki64(f_,begin,SEEK_SET);
+#else
+            fseek(f_, begin, SEEK_SET);
+#endif
             bReading=true;
         }
         fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
@@ -119,7 +123,11 @@ class FileDisk : public Disk {
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         // Seek and write from memcache
         if((bReading)||(begin!=writePos)) {
-            fseek(f_,begin,SEEK_SET);
+#ifdef WIN32
+            _fseeki64(f_,begin,SEEK_SET);
+#else
+            fseek(f_, begin, SEEK_SET);
+#endif
             bReading=false;
         }
         fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
