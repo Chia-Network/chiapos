@@ -121,6 +121,10 @@ class Util {
 #endif
     }
 
+    static uint16_t TwoBytesToInt(const uint8_t *bytes) {
+        return (bytes[0] << 8) | bytes[1];
+    }
+
     /*
      * Converts a 32 bit int to bytes.
      */

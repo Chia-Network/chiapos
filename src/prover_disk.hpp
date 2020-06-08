@@ -33,6 +33,14 @@
 #include "plotter_disk.hpp"
 #include "../lib/include/picosha2.hpp"
 
+struct plot_header {
+    uint8_t magic[19];
+    uint8_t id[32];
+    uint8_t k;
+    uint8_t fmt_desc_len[2];
+    uint8_t fmt_desc[50];
+};
+
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
 class DiskProver {
@@ -40,6 +48,7 @@ class DiskProver {
     // The costructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
     explicit DiskProver(std::string filename) {
+        struct plot_header header;
         this->filename = filename;
 
         ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -55,31 +64,31 @@ class DiskProver {
         // 2 bytes   - memo length
         // x bytes   - memo
 
-        // Skip the top of file text "Proof of Space Plot"
-        disk_file.seekg(19);
+        disk_file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)))
+            throw std::invalid_argument("Invalid plot header magic");
 
-        disk_file.read(reinterpret_cast<char*>(this->id), kIdLen);
+        uint16_t fmt_desc_len = Util::TwoBytesToInt(header.fmt_desc_len);
 
-        uint8_t kbuf[1];
-        disk_file.read(reinterpret_cast<char*>(kbuf), 1);
-        this->k = kbuf[0];
+        if (fmt_desc_len == kFormatDescription.size() &&
+            !memcmp(header.fmt_desc, kFormatDescription.c_str(),
+                    fmt_desc_len)) {
+            use_aes = false;
+        } else if (fmt_desc_len == kAESFormatDescription.size() &&
+                   !memcmp(header.fmt_desc, kAESFormatDescription.c_str(),
+                           fmt_desc_len)) {
+            use_aes = true;
+        } else {
+            throw std::invalid_argument("Invalid plot file format");
+        }
+
+        memcpy(this->id, header.id, sizeof(header.id));
+        this->k = header.k;
+        disk_file.seekg(offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
 
         uint8_t size_buf[2];
         disk_file.read(reinterpret_cast<char*>(size_buf), 2);
-        uint32_t format_description_size = Bits(size_buf, 2, 16).GetValue();
-        uint8_t* format_description_read = new uint8_t[format_description_size + 1];
-        disk_file.read(reinterpret_cast<char*>(format_description_read), format_description_size);
-        format_description_read[format_description_size] = '\0';
-        std::string format_str(reinterpret_cast<char*>(format_description_read));
-
-        // We cannot read a plot with a different format version
-        if (format_description_size != kFormatDescription.size() ||
-            memcmp(format_description_read, kFormatDescription.data(), format_description_size) !=0) {
-            throw std::invalid_argument("Invalid plot file format: " + format_str);
-        }
-
-        disk_file.read(reinterpret_cast<char*>(size_buf), 2);
-        this->memo_size = Bits(size_buf, 2, 16).GetValue();
+        this->memo_size = Util::TwoBytesToInt(size_buf);
         this->memo = new uint8_t[this->memo_size];
         disk_file.read(reinterpret_cast<char*>(this->memo), this->memo_size);
 
@@ -98,7 +107,6 @@ class DiskProver {
         uint32_t c2_entries = (table_begin_pointers[10] -
                                table_begin_pointers[9]) / c2_size;
         if (c2_entries == 0 || c2_entries == 1) {
-            delete[] format_description_read;
             throw std::invalid_argument("Invalid C2 table size");
         }
 
@@ -111,7 +119,6 @@ class DiskProver {
         }
 
         delete[] c2_buf;
-        delete[] format_description_read;
     }
 
     ~DiskProver() {
@@ -231,6 +238,7 @@ class DiskProver {
     }
 
  private:
+    bool use_aes;
     mutable std::mutex _mtx;
     std::string filename;
     uint32_t memo_size;
@@ -520,7 +528,7 @@ class DiskProver {
     //     For all comparisons up to f7
     //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of k bit elements
     std::vector<LargeBits> ReorderProof(const std::vector<Bits>& xs_input) const {
-        F1Calculator f1(k, id);
+        F1Calculator f1(k, id, use_aes);
         std::vector<std::pair<Bits, Bits> > results;
         LargeBits xs;
 
@@ -537,7 +545,7 @@ class DiskProver {
             // New results will be a list of pairs of (y, metadata), it will decrease in size by 2x
             // at each iteration of the outer loop.
             std::vector<pair<Bits, Bits> > new_results;
-            FxCalculator f(k, table_index, id);
+            FxCalculator f(k, table_index, id, use_aes);
             // Iterates through pairs of things, starts with 64 things, then 32, etc, up to 2.
             for (uint8_t i = 0; i < results.size(); i += 2) {
                 std::pair<Bits, Bits> new_output;
