@@ -108,30 +108,44 @@ class FileDisk : public Disk {
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
         // Seek, read, and replace into memcache
-        if((!bReading)||(begin!=readPos)) {
+        uint64_t amtread;
+        do {
+            if((!bReading)||(begin!=readPos)) {
 #ifdef WIN32
-            _fseeki64(f_,begin,SEEK_SET);
+                _fseeki64(f_,begin,SEEK_SET);
 #else
-            fseek(f_, begin, SEEK_SET);
+                fseek(f_, begin, SEEK_SET);
 #endif
-            bReading=true;
-        }
-        fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
-        readPos=begin+length;
+                bReading=true;
+            }
+            amtread = fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
+            readPos=begin + amtread;
+            if(amtread != length) {
+                std::cout << "Only read " << amtread << " of " << length << " bytes. Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                sleep(5 * 60);
+            }
+        } while (amtread != length);
     }
 
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         // Seek and write from memcache
-        if((bReading)||(begin!=writePos)) {
+        uint64_t amtwritten;
+        do {
+            if((bReading)||(begin!=writePos)) {
 #ifdef WIN32
-            _fseeki64(f_,begin,SEEK_SET);
+                _fseeki64(f_,begin,SEEK_SET);
 #else
-            fseek(f_, begin, SEEK_SET);
+                fseek(f_, begin, SEEK_SET);
 #endif
-            bReading=false;
-        }
-        fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
-        writePos=begin+length;
+                bReading=false;
+            }
+            amtwritten = fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
+            writePos=begin+amtwritten;
+            if(amtwritten != length) {
+                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes. Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                sleep(5 * 60);
+            }
+        } while (amtwritten != length);
     }
 
     inline std::string GetFileName() const noexcept {
