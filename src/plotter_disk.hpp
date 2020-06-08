@@ -322,7 +322,7 @@ class DiskPlotter {
 
         std::cout << "Computing table 1" << std::endl;
         Timer f1_start_time;
-        F1Calculator f1(k, id);
+        F1Calculator f1(k, id, false);
         uint64_t x = 0;
 
         uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
@@ -420,7 +420,7 @@ class DiskPlotter {
             uint64_t right_buf_entries=memorySize/right_entry_size_bytes;
             uint64_t right_writer_count=0;
 
-            FxCalculator f(k, table_index + 1, id);
+            FxCalculator f(k, table_index + 1, id, false);
 
             // This is a sliding window of entries, since things in bucket i can match with things in bucket
             // i + 1. At the end of each bucket, we find matches between the two previous buckets.
