@@ -122,7 +122,11 @@ class FileDisk : public Disk {
             readPos=begin + amtread;
             if(amtread != length) {
                 std::cout << "Only read " << amtread << " of " << length << " bytes. Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+#ifdef WIN32                
+                Sleep(5 * 60000);                
+#else                
                 sleep(5 * 60);
+#endif
             }
         } while (amtread != length);
     }
@@ -143,7 +147,11 @@ class FileDisk : public Disk {
             writePos=begin+amtwritten;
             if(amtwritten != length) {
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes. Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+#ifdef WIN32
+                Sleep(5 * 60000);
+#else
                 sleep(5 * 60);
+#endif
             }
         } while (amtwritten != length);
     }
