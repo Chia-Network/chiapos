@@ -236,7 +236,10 @@ bool CheckMatch(int64_t yl, int64_t yr) {
     if (bl + 1 != br) return false;  // Buckets don't match
     for (int64_t m = 0; m < kExtraBitsPow; m++) {
         if ((((yr % kBC) / kC - ((yl % kBC) / kC)) - m) % kB == 0) {
-            if ((((yr % kBC) % kC - ((yl % kBC) % kC)) - (int64_t)(pow((double)(2*m + (bl%2)), (double)2))) % kC == 0) {
+            int64_t c_diff = 2 * m + bl % 2;
+            c_diff *= c_diff;
+
+            if ((((yr % kBC) % kC - ((yl % kBC) % kC)) - c_diff) % kC == 0) {
                 return true;
             }
         }
@@ -300,23 +303,23 @@ TEST_CASE("F functions") {
         map<uint64_t, vector<pair<Bits, Bits>>> buckets;
 
         uint8_t k = 12;
-        uint64_t num_buckets = pow(2, k + kExtraBits) / kBC + 1;
+        uint64_t num_buckets = (1ULL << (k + kExtraBits)) / kBC + 1;
         Bits x = Bits(0, k);
 
         F1Calculator f1(k, test_key_2, false);
-        for (uint32_t j=0; j < pow(2, k-4) + 1; j++) {
-            for (auto pair : f1.CalculateBuckets(x, pow(2, 4))) {
+        for (uint32_t j=0; j < (1ULL << (k-4)) + 1; j++) {
+            for (auto pair : f1.CalculateBuckets(x, 1U << 4)) {
                 uint64_t bucket = std::get<0>(pair).GetValue() / kBC;
                 if (buckets.find(bucket) == buckets.end()) {
                     buckets[bucket] = vector<std::pair<Bits, Bits>>();
                 }
                 buckets[bucket].push_back(pair);
-                if (x.GetValue() + 1 > pow(2, k) - 1) {
+                if (x.GetValue() + 1 > (1ULL << k) - 1) {
                     break;
                 }
                 ++x;
             }
-            if (x.GetValue() + 1 > pow(2, k) - 1) {
+            if (x.GetValue() + 1 > (1ULL << k) - 1) {
                 break;
             }
         }
