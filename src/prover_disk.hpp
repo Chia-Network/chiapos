@@ -39,11 +39,14 @@ class DiskProver {
  public:
     // The costructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
-    explicit DiskProver(std::string filename) : disk_file(filename, std::ios::in | std::ios::binary) {
+    explicit DiskProver(std::string filename) {
+        this->filename = filename;
+
+        ifstream disk_file(filename, std::ios::in | std::ios::binary);
+
         if (!disk_file.is_open()) {
             throw std::invalid_argument("Invalid file " + filename);
         }
-        this->filename = filename;
         // 19 bytes  - "Proof of Space Plot" (utf-8)
         // 32 bytes  - unique plot id
         // 1 byte    - k
@@ -113,7 +116,6 @@ class DiskProver {
 
     ~DiskProver() {
         std::lock_guard<std::mutex> l(_mtx);
-        this->disk_file.close();
         delete[] this->memo;
     }
 
@@ -141,18 +143,25 @@ class DiskProver {
     // from the 64 value proof. Note that this is more efficient than fetching all
     // 64 x values, which are in different parts of the disk.
     std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t* challenge) {
+        std::vector<LargeBits> qualities;
+
         std::lock_guard<std::mutex> l(_mtx);
+
+        {
+        ifstream disk_file(filename, std::ios::in | std::ios::binary);
+
+        if (!disk_file.is_open()) {
+            throw std::invalid_argument("Invalid file " + filename);
+        }
+
         // This tells us how many f7 outputs (and therefore proofs) we have for this
         // challenge. The expected value is one proof.
-        std::vector<uint64_t> p7_entries = GetP7Entries(challenge);
+        std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
 
         if (p7_entries.size() == 0) {
-            disk_file.clear();
-            disk_file.sync();
             return std::vector<LargeBits>();
         }
 
-        std::vector<LargeBits> qualities;
         // The last 5 bits of the challenge determine which route we take to get to
         // our two x values in the leaves.
         LargeBits last_5_bits = LargeBits(challenge, 256/8, 256).Slice(256 - 5);
@@ -162,7 +171,7 @@ class DiskProver {
             // This inner loop goes from table 6 to table 1, getting the two backpointers,
             // and following one of them.
             for (uint8_t table_index = 6; table_index > 1; table_index--) {
-                uint128_t line_point = ReadLinePoint(table_index, position);
+                uint128_t line_point = ReadLinePoint(disk_file, table_index, position);
 
                 auto xy = Encoding::LinePointToSquare(line_point);
                 assert(xy.first >= xy.second);
@@ -173,7 +182,7 @@ class DiskProver {
                     position = xy.first;
                 }
             }
-            uint128_t new_line_point = ReadLinePoint(1, position);
+            uint128_t new_line_point = ReadLinePoint(disk_file, 1, position);
             auto x1x2 = Encoding::LinePointToSquare(new_line_point);
 
             // The final two x values (which are stored in the same location) are hashed
@@ -184,8 +193,7 @@ class DiskProver {
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
             qualities.push_back(LargeBits(hash.data(), 32, 256));
         }
-        disk_file.clear();
-        disk_file.sync();
+        } // Scope for disk_file
         return qualities;
     }
 
@@ -193,33 +201,37 @@ class DiskProver {
     // called, and there are actually proofs present. The index represents which proof to fetch,
     // if there are multiple.
     LargeBits GetFullProof(const uint8_t* challenge, uint32_t index) {
+        LargeBits full_proof;
+
         std::lock_guard<std::mutex> l(_mtx);
-        std::vector<uint64_t> p7_entries = GetP7Entries(challenge);
+        {
+        ifstream disk_file(filename, std::ios::in | std::ios::binary);
+
+        if (!disk_file.is_open()) {
+            throw std::invalid_argument("Invalid file " + filename);
+        }
+
+        std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
         if (p7_entries.size() == 0 || index >= p7_entries.size()) {
-            disk_file.clear();
-            disk_file.sync();
             throw std::logic_error("No proof of space for this challenge");
         }
 
         // Gets the 64 leaf x values, concatenated together into a k*64 bit string.
-        std::vector<Bits> xs = GetInputs(p7_entries[index], 6);
+        std::vector<Bits> xs = GetInputs(disk_file, p7_entries[index], 6);
 
         // Sorts them according to proof ordering, where
         // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not stored in
         // proof ordering, they're stored in plot ordering, due to the sorting in the Compress phase.
         std::vector<LargeBits> xs_sorted = ReorderProof(xs);
-        LargeBits full_proof;
         for (auto x : xs_sorted) {
             full_proof += x;
         }
-        disk_file.clear();
-        disk_file.sync();
+        } // Scope for disk_file
         return full_proof;
     }
 
  private:
     mutable std::mutex _mtx;
-    ifstream disk_file;
     std::string filename;
     uint32_t memo_size;
     uint8_t *memo;
@@ -232,7 +244,7 @@ class DiskProver {
     // The entry at index "position" is read. First, the park index is calculated, then
     // the park is read, and finally, entry deltas are added up to the position that we
     // are looking for.
-    uint128_t ReadLinePoint(uint8_t table_index, uint64_t position) {
+    uint128_t ReadLinePoint(ifstream &disk_file, uint8_t table_index, uint64_t position) {
         uint64_t park_index = position / kEntriesPerPark;
         uint32_t park_size_bits = DiskPlotter::CalculateParkSize(k, table_index) * 8;
         disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
@@ -335,7 +347,7 @@ class DiskProver {
     }
 
     // Returns P7 table entries (which are positions into table P6), for a given challenge
-    std::vector<uint64_t> GetP7Entries(const uint8_t* challenge) {
+    std::vector<uint64_t> GetP7Entries(ifstream &disk_file, const uint8_t* challenge) {
         if (C2.size() == 0) {
             return std::vector<uint64_t>();
         }
@@ -566,8 +578,8 @@ class DiskProver {
     // all of the leaves (x values). For example, for depth=5, it fetches the positionth
     // entry in table 5, reading the two backpointers from the line point, and then
     // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(uint64_t position, uint8_t depth) {
-        uint128_t line_point = ReadLinePoint(depth, position);
+    std::vector<Bits> GetInputs(ifstream &disk_file, uint64_t position, uint8_t depth) {
+        uint128_t line_point = ReadLinePoint(disk_file, depth, position);
         std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
 
         if (depth == 1) {
@@ -577,8 +589,8 @@ class DiskProver {
             ret.push_back(Bits(xy.first, k));  // x
             return ret;
         } else {
-            std::vector<Bits> left = GetInputs(xy.second, depth - 1);  // y
-            std::vector<Bits> right = GetInputs(xy.first, depth - 1);  // x
+            std::vector<Bits> left = GetInputs(disk_file, xy.second, depth - 1);  // y
+            std::vector<Bits> right = GetInputs(disk_file, xy.first, depth - 1);  // x
             left.insert(left.end(), right.begin(), right.end());
             return left;
         }
