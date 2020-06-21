@@ -247,6 +247,71 @@ bool CheckMatch(int64_t yl, int64_t yr) {
     return false;
 }
 
+// Get next set in the Cartesian product of k ranges of [0, n - 1], similar to
+// k nested 'for' loops from 0 to n - 1
+static int CartProdNext(uint8_t *items, uint8_t n, uint8_t k, bool init) {
+    uint8_t i;
+
+    if (init) {
+        memset(items, 0, k);
+        return 0;
+    }
+
+    items[0]++;
+    for (i = 0; i < k; i++) {
+        if (items[i] == n) {
+            items[i] = 0;
+            if (i == k - 1) {
+                return -1;
+            }
+            items[i + 1]++;
+        } else {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static int sq(int n) {
+    return n * n;
+}
+
+static bool Have4Cycles(uint32_t extraBits, int B, int C) {
+    uint8_t m[4];
+    bool init = true;
+
+    while (!CartProdNext(m, 1 << extraBits, 4, init)) {
+        uint8_t r1 = m[0], r2 = m[1], s1 = m[2], s2 = m[3];
+
+        init = false;
+        if (r1 != s1 && (r1 << extraBits) + r2 != (s2 << extraBits) + s1 &&
+            (r1 - s1 + r2 - s2) % B == 0) {
+            uint8_t p[2];
+            bool initp = true;
+
+            while(!CartProdNext(p, 2, 2, initp)) {
+                uint8_t p1 = p[0], p2 = p[1];
+                int lhs = sq(2*r1 + p1) - sq(2*s1 + p1) + sq(2*r2 + p2) - sq(2*s2 + p2);
+
+                initp = false;
+                if (lhs % C == 0) {
+                    fprintf(stderr, "%d %d %d %d %d %d\n", r1, r2, s1, s2, p1, p2);
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+TEST_CASE("Matching function") {
+    SECTION("Cycles") {
+        REQUIRE(!Have4Cycles(kExtraBits, kB, kC));
+    }
+}
+
 void VerifyF(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y)
 {
     uint8_t aes_key[16] = {0};
