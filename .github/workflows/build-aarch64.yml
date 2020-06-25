@@ -61,17 +61,18 @@ jobs:
       env:
         # build python 3.7 and 3.8
         CIBW_BUILD: cp38-*
-        # don't build i686 targets, can't seem to find cmake for these
-        CIBW_SKIP: '*-manylinux_i686 *-win32'
-        # we need boost
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+        # we need boost
         CIBW_BEFORE_BUILD_LINUX: >
           yum -y install boost-devel gmp-devel
           && python -m pip install --upgrade pip
           && pip install cmake
           && which cmake
           && cmake --version
+          && cmake --help
           && uname -m
+          && echo "Path is"
+          && echo "$PATH"
         CIBW_BUILD_VERBOSITY_LINUX: 0
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
