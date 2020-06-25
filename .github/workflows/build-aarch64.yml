@@ -55,7 +55,7 @@ jobs:
         pip wheel --wheel-dir=dist .
         pip install --no-index --find-links=dist chiapos
         py.test -v tests -s
-        source venv/bin/deactivate
+        deactivate
         rm -rf venv
 
 
