@@ -32,14 +32,18 @@ jobs:
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
 
+    - name: Prepare Python environment
+      run: |
+        sudo apt-get install python3-venv python3-pip -y
+
     - name: Lint source with flake8
       run: |
-        pip install flake8
+        pip3 install flake8
         flake8 tests setup.py
 
     - name: Lint source with mypy
       run: |
-        pip install mypy
+        pip3 install mypy
         mypy --config-file mypi.ini setup.py tests
 
     - name: Build wheel and test
@@ -47,7 +51,6 @@ jobs:
         sudo apt-get install libgmp-dev -y
         sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
         sudo apt-get install cmake libffi-dev libssl-dev -y
-        sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
