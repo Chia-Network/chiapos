@@ -6,7 +6,7 @@ IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE "RELEASE")
 ENDIF()
 
-project(chiapos)
+project(chiapos C CXX ASM)
 
 set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
 set(FSE_FILES
@@ -36,8 +36,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c)
-
 set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z -maes")
 set (CMAKE_C_FLAGS "-g -O3 -Wall")
 try_run(CMAKE_AESNI_TEST_RUN_RESULT
@@ -55,15 +53,28 @@ ELSE()
     set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++11")
 ENDIF()
 
+set(BLAKE3_SRC
+    src/b3/blake3.c
+    src/b3/blake3_portable.c
+    src/b3/blake3_dispatch.c
+    src/b3/blake3_avx2_x86-64_unix.S
+    src/b3/blake3_avx512_x86-64_unix.S
+    src/b3/blake3_sse41_x86-64_unix.S
+)
+
+pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
+
 add_executable(ProofOfSpace
     src/cli.cpp
     src/chacha8.c
+    ${BLAKE3_SRC}
 )
 
 add_executable(RunTests
     tests/test-main.cpp
     tests/test.cpp
     src/chacha8.c
+    ${BLAKE3_SRC}
 )
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

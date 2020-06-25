@@ -188,7 +188,6 @@ template <class T> class BitsGeneric {
     BitsGeneric<T>(const uint8_t* big_endian_bytes, uint32_t num_bytes, uint32_t size_bits)  {
         this->last_size_ = 0;
         uint32_t extra_space = size_bits - num_bytes * 8;
-        // Add the extra 0 bits at the beginning.
         while (extra_space >= 64) {
             AppendValue(0, 64);
             extra_space -= 64;
