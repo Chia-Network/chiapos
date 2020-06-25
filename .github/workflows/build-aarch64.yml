@@ -35,6 +35,7 @@ jobs:
 
     - name: Prepare cibuildwheel
       run: |
+        if [ ! -f "venv" ]; then rm -rf venv; fi
         sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
@@ -93,7 +94,9 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
         TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+      run: |
+        source venv/bin/activate
+        twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Publish distribution to PyPI
       if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
@@ -101,7 +104,9 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
         TWINE_PASSWORD: ${{ secrets.pypi_password }}
-      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+      run: |
+        source venv/bin/activate
+        twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Clean up venv
       run: |
