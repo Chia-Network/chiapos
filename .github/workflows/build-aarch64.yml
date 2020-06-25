@@ -39,6 +39,8 @@ jobs:
         source venv/bin/activate
         python -m pip install --upgrade pip
         pip install wheel
+        pip install cibuildwheel==1.5.0
+
 
     - name: Lint source with flake8
       run: |
@@ -54,17 +56,28 @@ jobs:
 
     - name: Build wheel and test
       run: |
-        sudo apt-get install libgmp-dev -y
-        sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
-        sudo apt-get install cmake libffi-dev libssl-dev -y
         source venv/bin/activate
-        pip install pytest
-        pip wheel --wheel-dir=dist .
-        pip install --no-index --find-links=dist chiapos
-        py.test -v tests -s
-        deactivate
-        rm -rf venv
+        python -m cibuildwheel --output-dir dist
+      env:
+        # build python 3.7 and 3.8
+        CIBW_BUILD: cp38-*
+        # don't build i686 targets, can't seem to find cmake for these
+        CIBW_SKIP: '*-manylinux_i686 *-win32'
+        # we need boost
+        CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+        CIBW_BEFORE_BUILD_LINUX: >
+          pip install cmake
+          && yum -y install boost-devel gmp-devel
+          && python -m pip install --upgrade pip
+          && which cmake
+          && cmake --version
+        CIBW_BUILD_VERBOSITY_LINUX: 1
+        CIBW_TEST_REQUIRES: pytest
+        CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
+    - name: Clean up venv
+      run: |
+        rm -rf venv
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v1
