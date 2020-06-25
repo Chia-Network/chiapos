@@ -30,6 +30,8 @@
 #include "chacha8.h"
 #include "pos_constants.hpp"
 
+#include "b3/blake3.h"
+
 
 // AES block size
 const uint8_t kBlockSizeBits = 128;
@@ -366,6 +368,7 @@ class FxCalculator {
         }
     }
 
+#if 0
     Bits Aplus(Bits a, Bits b) const {
         int shift = k_ + kExtraBits, rlen = length_;
         uint64_t res = 0;
@@ -395,9 +398,41 @@ class FxCalculator {
         res &= (1ULL << shift) - 1;
         return Bits(res, shift);
     }
+#endif
 
     // Performs one evaluation of the f function.
-    inline Bits CalculateF(const Bits& L, const Bits& R, const Bits& y1) const {
+    inline std::pair<Bits, Bits> CalculateFC(const Bits& L, const Bits& R, const Bits& y1) const {
+        Bits input = y1 + L + R;
+        uint8_t input_bytes[64];
+        uint8_t hash_bytes[32];
+        blake3_hasher hasher;
+        uint64_t f;
+        Bits c;
+
+        input.ToBytes(input_bytes);
+
+        blake3_hasher_init(&hasher);
+        blake3_hasher_update(&hasher, input_bytes, CDIV(input.GetSize(), 8));
+        blake3_hasher_finalize(&hasher, hash_bytes, sizeof(hash_bytes));
+
+        f = Util::EightBytesToInt(hash_bytes) >> (64 - (k_ + kExtraBits));
+
+        if (table_index_ < 4) {
+            c = L + R;
+        } else if (table_index_ < 7) {
+            uint8_t len = kVectorLens[table_index_ + 1];
+            uint8_t start_byte = (k_ + kExtraBits) / 8;
+            uint8_t end_bit = k_ + kExtraBits + k_ * len;
+            uint8_t end_byte = CDIV(end_bit, 8);
+
+            // TODO: proper support for partial bytes in Bits ctor
+            c = Bits(hash_bytes + start_byte, end_byte - start_byte, (end_byte - start_byte) * 8);
+
+            c = c.Slice((k_ + kExtraBits) % 8, end_bit - start_byte * 8);
+        }
+
+        return std::make_pair(Bits(f, k_ + kExtraBits), c);
+#if 0
         if (table_index_ == 2) {
             uint64_t x1 = L.GetValue(), v = R.Rotl(12).GetValue(), a, b;
 
@@ -416,6 +451,7 @@ class FxCalculator {
                 return Aplus(L, R2).Add(y1);
             }
         }
+#endif
     }
 
     // Composes two metadatas L and R, into a metadata for the next table.
@@ -453,11 +489,14 @@ class FxCalculator {
                                       AESCompose(L, R));
             }
         }
+#if 0
         // y1 is xored or added into the result. This ensures that we have some
         // cryptographic "randomness" encoded into each f function, since f1
         // output y is the result of a ChaCha8 encryption. All other f
         // functions apart from f1 don't use ChaCha8.
         return std::make_pair(CalculateF(L, R, y1), Compose(L, R));
+#endif
+        return CalculateFC(L, R, y1);
     }
 
     // Given two buckets with entries (y values), computes which y values match, and returns a list

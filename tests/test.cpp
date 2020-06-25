@@ -312,15 +312,18 @@ TEST_CASE("Matching function") {
     }
 }
 
-void VerifyF(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y)
+void VerifyFC(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y, uint64_t c)
 {
     uint8_t aes_key[16] = {0};
     uint8_t sizes[] = { 1, 2, 4, 4, 3, 2 };
     uint8_t size = sizes[t - 2];
-    FxCalculator f(k, t, aes_key, false);
+    FxCalculator fcalc(k, t, aes_key, false);
 
-    Bits res = f.CalculateF(Bits(L, k * size), Bits(R, k * size), Bits(y1, k + kExtraBits));
-    REQUIRE((uint64_t)res.GetValue() == y);
+    std::pair<Bits, Bits> res = fcalc.CalculateBucket(Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
+    REQUIRE((uint64_t)res.first.GetValue() == y);
+    if (c) {
+        REQUIRE((uint64_t)res.second.GetValue() == c);
+    }
 }
 
 TEST_CASE("F functions") {
@@ -427,6 +430,19 @@ TEST_CASE("F functions") {
     }
 
     SECTION("Fx") {
+        VerifyFC(2, 16, 0x44cb, 0x204f, 0x10530d, 0x1e0a94, 0x44cb204f);
+        VerifyFC(2, 16, 0x3c5f, 0xfda9, 0x1cc476, 0xa1857, 0x3c5ffda9);
+        VerifyFC(3, 16, 0x35bf992d, 0x7ce42c82, 0x18f2a0, 0xaa2df, 0x35bf992d7ce42c82);
+        VerifyFC(3, 16, 0x7204e52d, 0xf1fd42a2, 0x1450c4, 0x73d83, 0x7204e52df1fd42a2);
+        VerifyFC(4, 16, 0x5b6e6e307d4bedc, 0x8a9a021ea648a7dd, 0x1865a6, 0x46e0e, 0x9ad34669308448d6);
+        VerifyFC(4, 16, 0xb9d179e06c0fd4f5, 0xf06d3fef701966a0, 0xeeadb, 0x131f38, 0xe9dfe9d693700172);
+        VerifyFC(5, 16, 0xc2cd789a380208a9, 0x19999e3fa46d6753, 0x12f80f, 0x17ab90, 0x82536e9aef56);
+        VerifyFC(5, 16, 0xbe3edc0a1ef2a4f0, 0x4da98f1d3099fdf5, 0x1ff58c, 0x14b939, 0xd36ffa262e48);
+        VerifyFC(6, 16, 0xc965815a47c5, 0xf5e008d6af57, 0xf890d, 0x85e73, 0x5f4c3ce8);
+        VerifyFC(6, 16, 0xd420677f6cbd, 0x5894aa2ca1af, 0x177ef4, 0x1493b2, 0x31768e28);
+        VerifyFC(7, 16, 0x5fec898f, 0x82283d15, 0xa7a08, 0x16e516, 0x0);
+        VerifyFC(7, 16, 0x64ac5db9, 0x7923986, 0x2c87e, 0x199b11, 0x0);
+#if 0
         VerifyF(2, 16, 0x44cb, 0x204f, 0x10530d, 0x168ae6);
         VerifyF(2, 16, 0x3c5f, 0xfda9, 0x1cc476, 0x74347);
         VerifyF(3, 16, 0x35bf992d, 0x7ce42c82, 0x18f2a0, 0x51432);
@@ -439,6 +455,7 @@ TEST_CASE("F functions") {
         VerifyF(6, 16, 0xd420677f6cbd, 0x5894aa2ca1af, 0x177ef4, 0x19eaab);
         VerifyF(7, 16, 0x5fec898f, 0x82283d15, 0xa7a08, 0x168c89);
         VerifyF(7, 16, 0x64ac5db9, 0x7923986, 0x2c87e, 0xafa6f);
+#endif
     }
 }
 
