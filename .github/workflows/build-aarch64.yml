@@ -32,8 +32,9 @@ jobs:
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
 
-    - name: Prepare Python environment
+    - name: Prepare cibuildwheel
       run: |
+        sudo apt-get install docker.io -y
         sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
