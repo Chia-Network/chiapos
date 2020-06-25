@@ -46,12 +46,12 @@ jobs:
       run: |
         sudo apt-get install libgmp-dev -y
         sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
-        sudo apt-get install cmake -y
+        sudo apt-get install cmake libffi-dev libssl-dev -y
         sudo apt-get install python3-venv python3-pip -y
-        sudo apt-get install libffi-dev openssl-dev -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
+        pip install wheel
         pip wheel --wheel-dir=dist .
 
 
