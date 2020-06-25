@@ -32,13 +32,23 @@ jobs:
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
 
+    - name: Prepare Python environment
+      run: |
+        sudo apt-get install python3-venv python3-pip -y
+        python3 -m venv venv
+        source venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install wheel
+
     - name: Lint source with flake8
       run: |
+        source venv/bin/activate
         pip install flake8
         flake8 tests setup.py
 
     - name: Lint source with mypy
       run: |
+        source venv/bin/activate
         pip install mypy
         mypy --config-file mypi.ini setup.py tests
 
@@ -47,11 +57,8 @@ jobs:
         sudo apt-get install libgmp-dev -y
         sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
         sudo apt-get install cmake libffi-dev libssl-dev -y
-        sudo apt-get install python3-venv python3-pip -y
-        python3 -m venv venv
         source venv/bin/activate
-        python -m pip install --upgrade pip
-        pip install wheel pytest
+        pip install pytest
         pip wheel --wheel-dir=dist .
         pip install --no-index --find-links=dist chiapos
         py.test -v tests -s
