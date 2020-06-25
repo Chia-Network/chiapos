@@ -42,11 +42,6 @@ jobs:
         pip install wheel
         pip install cibuildwheel>=1.5.1
 
-    - name: Install CMake
-      run: |
-        curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3.tar.gz
-        tar -zxvf cmake-3.17.3.tar.gz && cd cmake-3.17.3
-
     - name: Lint source with flake8
       run: |
         source venv/bin/activate
