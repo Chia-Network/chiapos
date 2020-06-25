@@ -69,19 +69,11 @@ jobs:
           && yum -y install cmake3
           && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
           && python -m pip install --upgrade pip
-          && which cmake
           && cmake --version
           && uname -a
-          && echo "Path is"
-          && echo "$PATH"
         CIBW_BUILD_VERBOSITY_LINUX: 0
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
-        CIBW_ENVIRONMENT_LINUX: "PATH=/opt/python/cp38-cp38/bin/:$PATH"
-
-    - name: Clean up venv
-      run: |
-        rm -rf venv
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v1
@@ -89,22 +81,28 @@ jobs:
         name: wheels
         path: ./dist
 
-#    - name: Install twine
-#      run: pip install twine
+    - name: Install twine
+      run: |
+        source venv/bin/activate
+        pip install twine
 
-#    - name: Publish distribution to Test PyPI
-#      if: steps.check_secrets.outputs.HAS_SECRET
-#      env:
-#        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
-#        TWINE_USERNAME: __token__
-#        TWINE_NON_INTERACTIVE: 1
-#        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-#      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+    - name: Publish distribution to Test PyPI
+      if: steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
-#    - name: Publish distribution to PyPI
-#      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
-#      env:
-#        TWINE_USERNAME: __token__
-#        TWINE_NON_INTERACTIVE: 1
-#        TWINE_PASSWORD: ${{ secrets.pypi_password }}
-#      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+    - name: Publish distribution to PyPI
+      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.pypi_password }}
+      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+
+    - name: Clean up venv
+      run: |
+        rm -rf venv
