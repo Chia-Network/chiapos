@@ -1,0 +1,81 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build_wheels:
+    name: Build wheel on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ARM64]
+
+    steps:
+    - name: Cancel previous runs on the same branch
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - uses: actions/checkout@v1
+      with:
+        fetch-depth: 0
+        # we need fetch-depth 0 so setuptools_scm can resolve tags
+
+    - name: Test for secrets access
+      id: check_secrets
+      shell: bash
+      run: |
+        unset HAS_SECRET
+        if [ -n "$SECRET" ]; then HAS_SECRET='true' ; fi
+        echo ::set-output name=HAS_SECRET::${HAS_SECRET}
+      env:
+        SECRET: "${{ secrets.test_pypi_password }}"
+
+    - name: Lint source with flake8
+      run: |
+        pip install flake8
+        flake8 tests setup.py
+
+    - name: Lint source with mypy
+      run: |
+        pip install mypy
+        mypy --config-file mypi.ini setup.py tests
+
+    - name: Build wheel and test
+      run: |
+        sudo apt-get install libgmp-dev -y
+        sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
+        sudo apt-get install cmake
+        sudo apt-get python3-venv python3-pip -y
+        python3 -m venv venv
+        source venv/bin/activate
+        python -m pip install --upgrade pip
+        pip wheel --wheel-dir=dist . 
+
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: wheels
+        path: ./dist
+
+    - name: Install twine
+      run: pip install twine
+
+    - name: Publish distribution to Test PyPI
+      if: steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+
+    - name: Publish distribution to PyPI
+      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.pypi_password }}
+      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
