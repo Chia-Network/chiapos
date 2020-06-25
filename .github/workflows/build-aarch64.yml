@@ -67,7 +67,7 @@ jobs:
           yum -y install boost-devel gmp-devel
           && yum -y install epel-release
           && yum -y install cmake3
-          && ln -s /usr/local/bin/cmake /usr/bin/cmake3
+          && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
           && python -m pip install --upgrade pip
           && which cmake
           && cmake --version
