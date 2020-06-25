@@ -1,4 +1,4 @@
-name: Build
+name: Build ARM64 wheel
 
 on: [push, pull_request]
 
@@ -48,6 +48,7 @@ jobs:
         sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
         sudo apt-get install cmake -y
         sudo apt-get install python3-venv python3-pip -y
+        sudo apt-get install libffi-dev openssl-dev -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
