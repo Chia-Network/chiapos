@@ -46,12 +46,12 @@ jobs:
       run: |
         sudo apt-get install libgmp-dev -y
         sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
-        sudo apt-get install cmake
-        sudo apt-get python3-venv python3-pip -y
+        sudo apt-get install cmake -y
+        sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
-        pip wheel --wheel-dir=dist . 
+        pip wheel --wheel-dir=dist .
 
 
     - name: Upload artifacts
