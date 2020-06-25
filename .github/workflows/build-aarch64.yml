@@ -17,7 +17,8 @@ jobs:
       with:
         access_token: ${{ github.token }}
 
-    - uses: actions/checkout@v1
+    - name: Checkout code
+      uses: actions/checkout@v1
       with:
         fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
@@ -34,14 +35,12 @@ jobs:
 
     - name: Prepare cibuildwheel
       run: |
-        sudo apt-get install docker.io -y
         sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
         pip install wheel
         pip install cibuildwheel==1.5.0
-
 
     - name: Lint source with flake8
       run: |
