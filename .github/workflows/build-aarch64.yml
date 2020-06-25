@@ -64,12 +64,14 @@ jobs:
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
         # we need boost
         CIBW_BEFORE_BUILD_LINUX: >
-          yum -y install boost-devel gmp-devel cmake
+          yum -y install boost-devel gmp-devel
+          && yum -y remove cmake
           && python -m pip install --upgrade pip
+          && pip install cmake
           && which cmake
           && cmake --version
           && cmake --help
-          && uname -m
+          && uname -a
           && echo "Path is"
           && echo "$PATH"
         CIBW_BUILD_VERBOSITY_LINUX: 0
