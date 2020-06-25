@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ARM64]
 
     steps:
     - name: Cancel previous runs on the same branch
