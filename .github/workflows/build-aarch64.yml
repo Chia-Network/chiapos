@@ -40,7 +40,12 @@ jobs:
         source venv/bin/activate
         python -m pip install --upgrade pip
         pip install wheel
-        pip install cibuildwheel==1.5.0
+        pip install cibuildwheel>=1.5.1
+
+    - name: Install CMake
+      run: |
+        curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3.tar.gz
+        tar -zxvf cmake-3.17.3.tar.gz && cd cmake-3.17.3
 
     - name: Lint source with flake8
       run: |
@@ -65,7 +70,8 @@ jobs:
         # we need boost
         CIBW_BEFORE_BUILD_LINUX: >
           yum -y install boost-devel gmp-devel
-          && yum -y remove cmake
+          && yum -y install epel-release
+          && yum -y install cmake3
           && python -m pip install --upgrade pip
           && pip install cmake
           && which cmake
