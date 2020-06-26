@@ -61,7 +61,7 @@ jobs:
         python -m cibuildwheel --output-dir dist
       env:
         # build python 3.7 and 3.8
-        CIBW_BUILD: cp38-*
+        CIBW_BUILD: cp37-* cp38-*
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
         # we need boost
         CIBW_BEFORE_BUILD_LINUX: >
