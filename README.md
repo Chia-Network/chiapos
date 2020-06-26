@@ -1,3 +1,4 @@
+# Chia Proof of Space
 ![Build](https://github.com/Chia-Network/chiapos/workflows/Build/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/chiapos?logo=pypi)
 ![PyPI - Format](https://img.shields.io/pypi/format/chiapos?logo=pypi)
@@ -6,7 +7,6 @@
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/alerts/)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:python)
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:cpp)
-# Chia Proof of Space
 
 Chia's proof of space is written in C++. Includes a plotter, prover, and
 verifier. It exclusively runs on 64 bit architectures and is best on CPUs with
@@ -14,7 +14,7 @@ AES-NI support. Read the
 [Proof of Space document](https://www.chia.net/assets/proof_of_space.pdf) to
 learn about what proof of space is and how it works.
 
-Expect significant changes by June 30, 2020 that will break the plot file
+Expect significant changes around June 30, 2020 that will break the plot file
 format, move to chacha8, and otherwise improve plotting performance.
 
 ## C++ Usage Instructions

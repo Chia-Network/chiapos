@@ -17,7 +17,8 @@ jobs:
       with:
         access_token: ${{ github.token }}
 
-    - uses: actions/checkout@v1
+    - name: Checkout code
+      uses: actions/checkout@v1
       with:
         fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
@@ -32,13 +33,15 @@ jobs:
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
 
-    - name: Prepare Python environment
+    - name: Prepare cibuildwheel
       run: |
+        if [ ! -f "venv" ]; then rm -rf venv; fi
         sudo apt-get install python3-venv python3-pip -y
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install --upgrade pip
         pip install wheel
+        pip install cibuildwheel==1.5.1
 
     - name: Lint source with flake8
       run: |
@@ -54,17 +57,24 @@ jobs:
 
     - name: Build wheel and test
       run: |
-        sudo apt-get install libgmp-dev -y
-        sudo apt-get install libboost-python-dev libpython3.8-dev libboost-system-dev -y
-        sudo apt-get install cmake libffi-dev libssl-dev -y
         source venv/bin/activate
-        pip install pytest
-        pip wheel --wheel-dir=dist .
-        pip install --no-index --find-links=dist chiapos
-        py.test -v tests -s
-        deactivate
-        rm -rf venv
-
+        python -m cibuildwheel --output-dir dist
+      env:
+        # build python 3.7 and 3.8
+        CIBW_BUILD: cp38-*
+        CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+        # we need boost
+        CIBW_BEFORE_BUILD_LINUX: >
+          yum -y install boost-devel gmp-devel
+          && yum -y install epel-release
+          && yum -y install cmake3
+          && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
+          && python -m pip install --upgrade pip
+          && cmake --version
+          && uname -a
+        CIBW_BUILD_VERBOSITY_LINUX: 0
+        CIBW_TEST_REQUIRES: pytest
+        CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v1
@@ -72,22 +82,32 @@ jobs:
         name: wheels
         path: ./dist
 
-#    - name: Install twine
-#      run: pip install twine
+    - name: Install twine
+      run: |
+        source venv/bin/activate
+        pip install twine
 
-#    - name: Publish distribution to Test PyPI
-#      if: steps.check_secrets.outputs.HAS_SECRET
-#      env:
-#        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
-#        TWINE_USERNAME: __token__
-#        TWINE_NON_INTERACTIVE: 1
-#        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
-#      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+    - name: Publish distribution to Test PyPI
+      if: steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.test_pypi_password }}
+      run: |
+        source venv/bin/activate
+        twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
-#    - name: Publish distribution to PyPI
-#      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
-#      env:
-#        TWINE_USERNAME: __token__
-#        TWINE_NON_INTERACTIVE: 1
-#        TWINE_PASSWORD: ${{ secrets.pypi_password }}
-#      run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
+    - name: Publish distribution to PyPI
+      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_NON_INTERACTIVE: 1
+        TWINE_PASSWORD: ${{ secrets.pypi_password }}
+      run: |
+        source venv/bin/activate
+        twine upload --non-interactive --skip-existing --verbose 'dist/*'
+
+    - name: Clean up venv
+      run: |
+        rm -rf venv
