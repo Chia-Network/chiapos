@@ -1,3 +1,4 @@
+#ifdef __x86_64__
 .intel_syntax noprefix
 .global blake3_hash_many_sse41
 .global _blake3_hash_many_sse41
@@ -2009,3 +2010,5 @@ BLAKE3_BLOCK_LEN:
 	.long  64, 64, 64, 64
 CMP_MSB_MASK:
 	.long  0x80000000, 0x80000000, 0x80000000, 0x80000000
+
+#endif // __x86_64__

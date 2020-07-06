@@ -1,3 +1,4 @@
+#ifdef __x86_64__
 .intel_syntax noprefix
 
 .global _blake3_hash_many_avx512
@@ -2567,3 +2568,5 @@ BLAKE3_IV_2:
         .long   0x3C6EF372
 BLAKE3_IV_3:
         .long   0xA54FF53A
+
+#endif // __x86_64__
