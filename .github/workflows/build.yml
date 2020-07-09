@@ -87,8 +87,8 @@ jobs:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v1
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
       with:
         name: wheels
         path: ./dist
