@@ -38,6 +38,14 @@ class TestPythonBindings(unittest.TestCase):
         assert total_proofs > 4000
         assert total_proofs < 6000
         pr = None
+        sha256_plot_hash = sha256()
+        with open("myplot.dat", "rb") as f:
+            # Read and update hash string value in blocks of 4K
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_plot_hash.update(byte_block)
+            plot_hash = str(sha256_plot_hash.hexdigest())
+        assert plot_hash == "f47f2958316b879a105c2b6801af55d6abe25888f0e2f0a59cf7e6b4cb119d41"
+        print(f"\nPlotfile asserted sha256: {plot_hash}\n")
         Path("myplot.dat").unlink()
 
 
