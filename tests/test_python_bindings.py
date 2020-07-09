@@ -46,7 +46,7 @@ class TestPythonBindings(unittest.TestCase):
             plot_hash = str(sha256_plot_hash.hexdigest())
         assert plot_hash == "f47f2958316b879a105c2b6801af55d6abe25888f0e2f0a59cf7e6b4cb119d41"
         print(f"\nPlotfile asserted sha256: {plot_hash}\n")
-        Path("myplot.dat").unlink()
+        # Path("myplot.dat").unlink()
 
 
 if __name__ == '__main__':
