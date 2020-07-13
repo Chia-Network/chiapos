@@ -44,7 +44,7 @@ class TestPythonBindings(unittest.TestCase):
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_plot_hash.update(byte_block)
             plot_hash = str(sha256_plot_hash.hexdigest())
-        assert plot_hash == "91b81a5af7dd9b70c369e7919f26e2a313e3cf682de3d8d6da93761701f622bb"
+        assert plot_hash == "80e32f560f3a4347760d6baae8d16fbaf484948088bff05c51bdcc24b7bc40d9"
         print(f"\nPlotfile asserted sha256: {plot_hash}\n")
         Path("myplot.dat").unlink()
 
