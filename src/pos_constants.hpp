@@ -58,7 +58,7 @@ const double kC3R = 1.0;
 // Plot format (no compatibility guarantees with other formats). If any of the
 // above contants are changed, or file format is changed, the version should
 // be incremented.
-const std::string kFormatDescription = "1.0beta7";
+const std::string kFormatDescription = "v1.0";
 const std::string kAESFormatDescription = "alpha-v0.4";
 
 struct PlotEntry {
