@@ -23,8 +23,8 @@ const uint32_t kIdLen = 32;
 // Must be set high enough to prevent attacks of fast plotting
 const uint32_t kMinPlotSize = 15;
 
-// Set at 59 to allow easy use of 64 bit integers
-const uint32_t kMaxPlotSize = 59;
+// Set to 50 since k + kExtraBits + k*4 must not exceed 256 (BLAKE3 output size)
+const uint32_t kMaxPlotSize = 50;
 
 // How many f7s per C1 entry, and how many C1 entries per C2 entry
 const uint32_t kCheckpoint1Interval = 10000;
