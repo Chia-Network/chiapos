@@ -43,17 +43,17 @@ namespace fs = ghc::filesystem;
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
 
+// Distance between matching entries is stored in the offset
+const uint32_t kOffsetSize = 9;
+
 // Number of buckets to use for SortOnDisk.
 const uint32_t kNumSortBuckets = 16;
 const uint32_t kLogNumSortBuckets = 4;
 
 // During backprop and compress, the write pointer is ahead of the read pointer
 // Note that the large the offset, the higher these values must be
-const uint32_t kReadMinusWrite = 2048;
-const uint32_t kCachedPositionsSize = 8192;
-
-// Distance between matching entries is stored in the offset
-const uint32_t kOffsetSize = 11;
+const uint32_t kReadMinusWrite = 1U << kOffsetSize;
+const uint32_t kCachedPositionsSize = kReadMinusWrite * 4;
 
 // Max matches a single entry can have, used for hardcoded memory allocation
 const uint32_t kMaxMatchesSingleEntry = 30;
@@ -520,7 +520,7 @@ class DiskPlotter {
                             // Position in the previous table
                             new_entry += Bits(L_entry.pos, pos_size);
                             // Offset for matching entry
-                            if (R_entry.pos - L_entry.pos > 2000) {
+                            if (R_entry.pos - L_entry.pos > (1U << kOffsetSize) * 97 / 100) {
                                 std::cout << "Offset: " <<  R_entry.pos - L_entry.pos << std::endl;
                             }
                             new_entry.AppendValue(R_entry.pos - L_entry.pos, kOffsetSize);
