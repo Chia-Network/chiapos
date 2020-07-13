@@ -68,7 +68,7 @@ std::map<uint8_t, uint8_t> kVectorLens = {
     {8, 0}
 };
 
-uint32_t L_targets[2][kBC][kExtraBitsPow];
+uint16_t L_targets[2][kBC][kExtraBitsPow];
 bool initialized = false;
 void load_tables()
 {
