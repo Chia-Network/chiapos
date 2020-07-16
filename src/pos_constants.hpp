@@ -59,7 +59,6 @@ const double kC3R = 1.0;
 // above contants are changed, or file format is changed, the version should
 // be incremented.
 const std::string kFormatDescription = "v1.0";
-const std::string kAESFormatDescription = "alpha-v0.4";
 
 struct PlotEntry {
     uint64_t y;
