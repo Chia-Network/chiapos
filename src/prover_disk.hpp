@@ -73,11 +73,7 @@ class DiskProver {
         if (fmt_desc_len == kFormatDescription.size() &&
             !memcmp(header.fmt_desc, kFormatDescription.c_str(),
                     fmt_desc_len)) {
-            use_aes = false;
-        } else if (fmt_desc_len == kAESFormatDescription.size() &&
-                   !memcmp(header.fmt_desc, kAESFormatDescription.c_str(),
-                           fmt_desc_len)) {
-            use_aes = true;
+            // OK
         } else {
             throw std::invalid_argument("Invalid plot file format");
         }
@@ -238,7 +234,6 @@ class DiskProver {
     }
 
  private:
-    bool use_aes;
     mutable std::mutex _mtx;
     std::string filename;
     uint32_t memo_size;
@@ -528,7 +523,7 @@ class DiskProver {
     //     For all comparisons up to f7
     //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of k bit elements
     std::vector<LargeBits> ReorderProof(const std::vector<Bits>& xs_input) const {
-        F1Calculator f1(k, id, use_aes);
+        F1Calculator f1(k, id);
         std::vector<std::pair<Bits, Bits> > results;
         LargeBits xs;
 
@@ -545,7 +540,7 @@ class DiskProver {
             // New results will be a list of pairs of (y, metadata), it will decrease in size by 2x
             // at each iteration of the outer loop.
             std::vector<pair<Bits, Bits> > new_results;
-            FxCalculator f(k, table_index, id, use_aes);
+            FxCalculator f(k, table_index);
             // Iterates through pairs of things, starts with 64 things, then 32, etc, up to 2.
             for (uint8_t i = 0; i < results.size(); i += 2) {
                 std::pair<Bits, Bits> new_output;

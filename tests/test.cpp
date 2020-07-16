@@ -314,10 +314,9 @@ TEST_CASE("Matching function") {
 
 void VerifyFC(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y, uint64_t c)
 {
-    uint8_t aes_key[16] = {0};
     uint8_t sizes[] = { 1, 2, 4, 4, 3, 2 };
     uint8_t size = sizes[t - 2];
-    FxCalculator fcalc(k, t, aes_key, false);
+    FxCalculator fcalc(k, t);
 
     std::pair<Bits, Bits> res = fcalc.CalculateBucket(Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
     REQUIRE((uint64_t)res.first.GetValue() == y);
@@ -332,7 +331,7 @@ TEST_CASE("F functions") {
         uint8_t test_key[] = {0, 2, 3, 4, 5, 5, 7, 8, 9, 10, 11, 12, 13,
                         14, 15, 16, 1, 2, 3, 41, 5, 6, 7, 8, 9, 10,
                         11, 12, 13, 11, 15, 16};
-        F1Calculator f1(test_k, test_key, false);
+        F1Calculator f1(test_k, test_key);
 
         Bits L = Bits(525, test_k);
         pair<Bits, Bits> result1 = f1.CalculateBucket(L);
@@ -347,7 +346,7 @@ TEST_CASE("F functions") {
         REQUIRE(result3 == results[100]);
 
         test_k = 32;
-        F1Calculator f1_2(test_k, test_key, false);
+        F1Calculator f1_2(test_k, test_key);
         L = Bits(192837491, test_k);
         result1 = f1_2.CalculateBucket(L);
         L2 = Bits(192837491 + 1, test_k);
@@ -374,7 +373,7 @@ TEST_CASE("F functions") {
         uint64_t num_buckets = (1ULL << (k + kExtraBits)) / kBC + 1;
         Bits x = Bits(0, k);
 
-        F1Calculator f1(k, test_key_2, false);
+        F1Calculator f1(k, test_key_2);
         for (uint32_t j=0; j < (1ULL << (k-4)) + 1; j++) {
             for (auto pair : f1.CalculateBuckets(x, 1U << 4)) {
                 uint64_t bucket = std::get<0>(pair).GetValue() / kBC;
@@ -392,7 +391,7 @@ TEST_CASE("F functions") {
             }
         }
 
-        FxCalculator f2(k, 2, test_key_2, false);
+        FxCalculator f2(k, 2);
         int total_matches = 0;
 
         for (auto kv : buckets) {

@@ -36,22 +36,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z -maes")
+set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z")
 set (CMAKE_C_FLAGS "-g -O3 -Wall")
-try_run(CMAKE_AESNI_TEST_RUN_RESULT
-    CMAKE_AESNI_TEST_COMPILE_RESULT
-    ${CMAKE_CURRENT_BINARY_DIR}/cmake_aesni_test
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cmake_aesni_test.cpp)
-
-# Did compilation succeed and process return 0 (success)?
-IF("${CMAKE_AESNI_TEST_COMPILE_RESULT}" AND ("${CMAKE_AESNI_TEST_RUN_RESULT}" EQUAL 0))
-    message(STATUS "AESNI Enabled")
-    set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++11 -maes")
-ELSE()
-    message(STATUS "AESNI Disabled")
-    add_compile_definitions (DISABLE_AESNI)
-    set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++11")
-ENDIF()
 
 set(BLAKE3_SRC
     src/b3/blake3.c

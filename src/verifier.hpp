@@ -57,7 +57,6 @@ class Verifier {
         if (k * 64 != proof_bits.GetSize()) {
             return LargeBits();
         }
-        bool use_aes = false;
         std::vector<Bits> proof;
         std::vector<Bits> ys;
         std::vector<Bits> metadata;
@@ -66,18 +65,7 @@ class Verifier {
         for (uint8_t i = 0; i < 64; i++)
             proof.push_back(Bits(proof_bits.SliceBitsToInt(k * i, k * (i + 1)), k));
 
-retry_aes:
-        if (ys.size()) {
-            if (use_aes) {
-                return LargeBits();
-            } else {
-                use_aes = true;
-                ys.resize(0);
-                metadata.resize(0);
-            }
-        }
-
-        f1 = F1Calculator(k, id, use_aes);
+        f1 = F1Calculator(k, id);
         // Calculates f1 for each of the given xs. Note that the proof is in proof order.
         for (uint8_t i = 0; i < 64; i++) {
             std::pair<Bits, Bits> results = f1.CalculateBucket(proof[i]);
@@ -87,7 +75,7 @@ retry_aes:
 
         // Calculates fx for each table from 2..7, making sure everything matches on the way.
         for (uint8_t depth = 2; depth < 8; depth++) {
-            FxCalculator f(k, depth, id, use_aes);
+            FxCalculator f(k, depth);
             std::vector<Bits> new_ys;
             std::vector<Bits> new_metadata;
             for (uint8_t i = 0; i < (1 << (8 - depth)); i += 2) {
@@ -101,9 +89,9 @@ retry_aes:
                 // If there is no match, fails.
                 uint64_t cdiff = r_plot_entry.y / kBC - l_plot_entry.y / kBC;
                 if (cdiff != 1) {
-                    goto retry_aes;
+                    return LargeBits();
                 } else if (f.FindMatches(bucket_L, bucket_R).size() != 1) {
-                    goto retry_aes;
+                    return LargeBits();
                 }
 
                 std::pair<Bits, Bits> results = f.CalculateBucket(ys[i], ys[i+1],
