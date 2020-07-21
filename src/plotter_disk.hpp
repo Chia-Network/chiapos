@@ -99,6 +99,7 @@ class DiskPlotter {
         // Cross platform way to concatenate paths, gulrak library.
         fs::path tmp_1_filename = fs::path(tmp_dirname) / fs::path(filename + ".tmp");
         fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
+        fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
         // Check if the paths exist
@@ -186,7 +187,8 @@ class DiskPlotter {
             std::cout << "Moved final file to " << final_filename << std::endl;
         }
         else {
-            fs::copy(tmp_2_filename, final_filename, fs::copy_options::overwrite_existing);
+            fs::copy(tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing);
+            fs::rename(final_2_filename, final_filename);
             bool removed_2 = fs::remove(tmp_2_filename);
             std::cout << "Copied final file to " << final_filename << std::endl;
             std::cout << "Removed " << tmp_2_filename << "? " << removed_2 << std::endl;
