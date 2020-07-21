@@ -31,8 +31,6 @@ class SortOnDiskUtils {
      * index, to the given index.
      */
     inline static uint64_t ExtractNum(uint8_t* bytes, uint32_t len_bytes, uint32_t begin_bits, uint32_t take_bits) {
-        uint32_t start_index = begin_bits / 8;
-        uint32_t end_index;
         if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
             take_bits = len_bytes * 8 - begin_bits;
         }
