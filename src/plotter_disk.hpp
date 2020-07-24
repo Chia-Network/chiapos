@@ -83,9 +83,8 @@ class DiskPlotter {
                         uint8_t k, const uint8_t* memo,
                         uint32_t memo_len, const uint8_t* id, uint32_t id_len, uint32_t buffmegabytes = 2*1024) {
         if (k < kMinPlotSize || k > kMaxPlotSize) {
-            std::string err_string = "Plot size k=" + std::to_string(k) + " is invalid";
-            std::cerr << err_string << std::endl;
-            throw err_string;
+            std::cout << "Plot size k=" << std::to_string(k) << " is invalid" << std::endl;
+            return; 
         }
 
         memorySize=((uint64_t)buffmegabytes)*1024*1024;
@@ -104,21 +103,18 @@ class DiskPlotter {
 
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
-            std::string err_string = "Directory " + tmp_dirname + " does not exist";
-            std::cerr << err_string << std::endl;
-            throw err_string;
+            std::cout << "Temp directory " << tmp_dirname << " does not exist" << std::endl;
+            return;
         }
 
         if (!fs::exists(tmp2_dirname)) {
-            std::string err_string = "Directory " + tmp2_dirname + " does not exist";
-            std::cerr << err_string << std::endl;
-            throw err_string;
+            std::cout << "Temp2 directory " << tmp2_dirname << " does not exist" << std::endl;
+            return;
         }
 
         if (!fs::exists(final_dirname)) {
-            std::string err_string = "Directory " + final_dirname + " does not exist";
-            std::cerr << err_string << std::endl;
-            throw err_string;
+            std::cout << "Final directory " << final_dirname << " does not exist" << std::endl;
+            return;
         }
 
         remove(tmp_1_filename);
@@ -131,7 +127,16 @@ class DiskPlotter {
         {
             // Scope for FileDisk
             FileDisk tmp1_disk(tmp_1_filename);
+            if(!tmp1_disk.isOpen()) {
+                std::cout << "Could not open " << tmp_1_filename << std::endl;
+                return;
+            }
+
             FileDisk tmp2_disk(tmp_2_filename);
+            if(!tmp2_disk.isOpen()) {
+                std::cout << "Could not open " << tmp_2_filename << std::endl;
+                return;
+            }
 
             // These variables are used in the WriteParkToFile method. They are preallocatted here
             // to save time.
@@ -180,21 +185,56 @@ class DiskPlotter {
         std::ios_base::sync_with_stdio(true);
 
         bool removed_1 = fs::remove(tmp_1_filename);
-        std::cout << "Removed " << tmp_1_filename << "? " << removed_1 << std::endl;
+        std::cout << "Removed temp file " << tmp_1_filename << "? " << removed_1 << std::endl;
 
-        if(tmp_2_filename.parent_path() == final_filename.parent_path()) {
-            fs::rename(tmp_2_filename, final_filename);
-            std::cout << "Moved final file to " << final_filename << std::endl;
-        }
-        else {
-            fs::copy(tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing);
-            fs::rename(final_2_filename, final_filename);
-            bool removed_2 = fs::remove(tmp_2_filename);
-            std::cout << "Copied final file to " << final_filename << std::endl;
-            std::cout << "Removed " << tmp_2_filename << "? " << removed_2 << std::endl;
+        bool bCopied=false;
+        bool bRenamed=false;
+        do {
+            std::error_code ec;
+            if(tmp_2_filename.parent_path() == final_filename.parent_path()) {
+                fs::rename(tmp_2_filename, final_filename, ec);
+                if(ec.value()!=0) {
+                    std::cout << "Could not rename " << tmp_2_filename << " to " << final_filename << ". Error " << ec.message() << ". Retrying in five minutes." << std::endl;
+                }
+                else {
+                    bRenamed=true;
+                    std::cout << "Renamed final file from " << tmp_2_filename << " to " << final_filename << std::endl;
+                }
+            }
+            else {
+                if(!bCopied) {
+                    fs::copy(tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
+                    if(ec.value()!=0) {
+                        std::cout << "Could not copy " << tmp_2_filename << " to " << final_2_filename << ". Error " << ec.message() << ". Retrying in five minutes." << std::endl;
+                    }
+                    else {
+                        std::cout << "Copied final file from " << tmp_2_filename << " to " << final_2_filename << std::endl;
+                        bCopied=true;
+                    }
+                }
+                if(bCopied && (!bRenamed)) {
+                    fs::rename(final_2_filename, final_filename, ec);
+                    if(ec.value()!=0) {
+                        std::cout << "Could not rename " << tmp_2_filename << " to " << final_filename << ". Error " << ec.message() << ". Retrying in five minutes." << std::endl;
+                    }
+                    else {
+                        std::cout << "Renamed final file from " << final_2_filename << " to " << final_filename << std::endl;
+                        bRenamed=true;
+                    }
+                }
+            }
 
-        }
+            if(!bRenamed) {
+#ifdef WIN32
+                Sleep(5 * 60000);
+#else
+                sleep(5 * 60);
+#endif
+            }
+        } while (!bRenamed);
 
+        bool removed_2 = fs::remove(tmp_2_filename); 
+        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2 << std::endl;
     }
 
     static uint32_t GetMaxEntrySize(uint8_t k, uint8_t table_index, bool phase_1_size) {

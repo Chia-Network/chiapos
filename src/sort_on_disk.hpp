@@ -84,15 +84,15 @@ class FileDisk : public Disk {
 
         // Opens the file for reading and writing
         f_=fopen(filename.c_str(), "w+b");
+    }
 
-        if (f_==NULL) {
-            std::cout << "Failed to open" << std::endl;
-            throw std::string("File not opened correct");
-        }
+    bool isOpen() {
+       return (f_!=NULL);
     }
 
     ~FileDisk() {
-        fclose(f_);
+        if(f_!=NULL)
+            fclose(f_);
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
