@@ -229,6 +229,11 @@ class F1Calculator {
     struct chacha8_ctx enc_ctx_;
 };
 
+struct rmap_item {
+    uint16_t count : 4;
+    uint16_t pos : 12;
+};
+
 // Class to evaluate F2 .. F7.
 class FxCalculator {
  public:
@@ -239,10 +244,7 @@ class FxCalculator {
         this->table_index_ = table_index;
         this->length_ = kVectorLens[table_index] * k;
 
-        for (uint16_t i = 0; i < kBC; i++) {
-            std::vector<uint16_t> new_vec;
-            this->rmap.push_back(new_vec);
-        }
+        this->rmap.resize(kBC);
         if(!initialized) {
             initialized = true;
             load_tables();
@@ -339,14 +341,18 @@ class FxCalculator {
 
         for (uint16_t i = 0; i < rmap_clean.size(); i++) {
             uint16_t yl = rmap_clean[i];
-            this->rmap[yl].clear();
+            this->rmap[yl].count = 0;
         }
         rmap_clean.clear();
 
         uint64_t remove = (bucket_R[0].y / kBC) * kBC;
         for (uint16_t pos_R = 0; pos_R < bucket_R.size(); pos_R++) {
             uint64_t r_y = bucket_R[pos_R].y - remove;
-            rmap[r_y].push_back(pos_R);
+
+            if (!rmap[r_y].count) {
+                rmap[r_y].pos = pos_R;
+            }
+            rmap[r_y].count++;
             rmap_clean.push_back(r_y);
         }
 
@@ -355,8 +361,8 @@ class FxCalculator {
             uint64_t r = bucket_L[pos_L].y - remove_y;
             for (uint8_t i = 0; i < kExtraBitsPow; i++) {
                 uint16_t r_target = L_targets[parity][r][i];
-                for (uint8_t j = 0; j < rmap[r_target].size(); j++) {
-                    matches.push_back(std::make_pair(pos_L, rmap[r_target][j]));
+                for (uint8_t j = 0; j < rmap[r_target].count; j++) {
+                    matches.push_back(std::make_pair(pos_L, rmap[r_target].pos + j));
                 }
             }
         }
@@ -368,7 +374,7 @@ class FxCalculator {
     uint8_t k_;
     uint8_t table_index_;
     uint8_t length_;
-    std::vector<std::vector<uint16_t>> rmap;
+    std::vector<struct rmap_item> rmap;
     std::vector<uint16_t> rmap_clean;
 };
 
