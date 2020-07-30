@@ -219,15 +219,15 @@ $$
 
 $$
 \begin{aligned}
-\mathcal{A'}(x) = (\text{ChaCha8}(0, plot\_seed) \mathbin{\|} \text{ChaCha8}(1, plot\_seed) \mathbin{\|} ... )[kx : kx + k] \mathbin{\|} (x\% \text{param\_M})& \\
+\mathcal{A'}(x) = (\text{ChaCha8}(0, plot\_seed) \mathbin{\|} \text{ChaCha8}(1, plot\_seed) \mathbin{\|} ... )[kx : kx + k] \mathbin{\|} x[:\text{param\_M}]& \\
 \end{aligned}
 $$
 $$
 \begin{aligned}
 \Rightarrow \mathcal{A}'(x) =
 \begin{cases}
-\text{ChaCha8}(q, plot\_seed)[r:r+k]  \mathbin{\|} (x\% \text{param\_M}) &\text{if } r+k \leq 512\\
-\text{ChaCha8}(q, plot\_seed)[r:] \mathbin{\|} \text{ChaCha8}(q+1)[:r+k-512]  \mathbin{\|} (x\% \text{param\_M})&\text{else}\\
+\text{ChaCha8}(q, plot\_seed)[r:r+k]  \mathbin{\|} x[:\text{param\_M}] &\text{if } r+k \leq 512\\
+\text{ChaCha8}(q, plot\_seed)[r:] \mathbin{\|} \text{ChaCha8}(q+1)[:r+k-512]  \mathbin{\|} x[:\text{param\_M}]&\text{else}\\
 \end{cases}
 \end{aligned}
 $$
