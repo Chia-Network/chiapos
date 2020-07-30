@@ -1131,7 +1131,7 @@ Multithreading can provide significant performance improvements. The CPU usage o
 with Applications to Proofs of Space (2017) https://eprint.iacr.org/2017/893.pdf
 
 [2] Philippe Oechslin: Making a Faster Cryptanalytic Time-Memory
-Trade-Of (2013) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
+Trade-Off (2003) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
 
 [3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019)
 
