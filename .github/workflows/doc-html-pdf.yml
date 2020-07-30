@@ -23,6 +23,11 @@ jobs:
         fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
 
+    - uses: actions/setup-python@v2
+      name: Install Python
+      with:
+        python-version: '3.7'
+
 #    - name: Test for secrets access
 #      id: check_secrets
 #      shell: bash
@@ -38,7 +43,7 @@ jobs:
       with:
         htmlFile: ./documents/proof_of_space.html
         outputFile: ./documents/proof_of_space.pdf
-        pdfOptions: '{"format": "Letter", "margin": {"top": "20mm", "left": "20mm", "right": "20mm", "bottom": "20mm"}}'
+        pdfOptions: '{"margin": {"top": "10mm", "left": "10mm", "right": "10mm", "bottom": "10mm"}}'
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
