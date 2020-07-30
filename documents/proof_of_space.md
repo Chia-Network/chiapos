@@ -1,5 +1,9 @@
 # Chia Proof of Space Construction
 
+Version: 1.1
+
+Updated: July 31, 2020
+
 ## Introduction
 
 In order to create a secure blockchain consensus algorithm using disk space, a Proof of Space is scheme is necessary.
