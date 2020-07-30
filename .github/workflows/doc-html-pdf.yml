@@ -38,7 +38,7 @@ jobs:
       with:
         htmlFile: ./documents/proof_of_space.html
         outputFile: ./documents/proof_of_space.pdf
-        pdfOptions: '{"format": "Letter", "margin": {"top": "10mm", "left": "10mm", "right": "10mm", "bottom": "10mm"}}'
+        pdfOptions: '{"format": "Letter", "margin": {"top": "20mm", "left": "20mm", "right": "20mm", "bottom": "20mm"}}'
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
