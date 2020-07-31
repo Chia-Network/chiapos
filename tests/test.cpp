@@ -153,21 +153,21 @@ TEST_CASE("Bits") {
         Bits b(to_uint128(b_hi, b_lo), ab_len);
 
         uint128_t sum = to_uint128(0x79cc4c34f038e7cULL, 0xf34f7c51548fda31ULL);
-        uint128_t sum_res = a.Add(b).GetValue();
+        uint128_t sum_res = a.Add(b).GetValue128();
         cout << "sum_res: " << sum_res << endl;
         REQUIRE(sum_res == sum);
 
         uint128_t xor_res = to_uint128(0x763333048fb697cULL, 0xe30f732ea36fa5cdULL);
-        REQUIRE((a ^ b).GetValue() == xor_res);
+        REQUIRE((a ^ b).GetValue128() == xor_res);
 
         uint128_t r1 = to_uint128(0x2fdf1d3179c3768ULL, 0xd2480d2af1b1357dULL);
         uint128_t r15 = to_uint128(0x5ece19ab9644515ULL, 0xbaddeddb9fb9f0eeULL);
         uint128_t r60 = to_uint128(0x8a2b75bbdbb73f7ULL, 0x3e1dcbd9c33572c8ULL);
         uint128_t r63 = to_uint128(0x515baddeddb9fb9ULL, 0xf0ee5ece19ab9644ULL);
-        uint128_t r1_res = a.Rotl(1).GetValue();
-        uint128_t r15_res = b.Rotl(15).GetValue();
-        uint128_t r60_res = b.Rotl(60).GetValue();
-        uint128_t r63_res = b.Rotl(63).GetValue();
+        uint128_t r1_res = a.Rotl(1).GetValue128();
+        uint128_t r15_res = b.Rotl(15).GetValue128();
+        uint128_t r60_res = b.Rotl(60).GetValue128();
+        uint128_t r63_res = b.Rotl(63).GetValue128();
         cout << "r1_res: " << r1_res << endl;
         REQUIRE(r1_res == r1);
         cout << "r15_res: " << r15_res << endl;
@@ -319,9 +319,9 @@ void VerifyFC(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_
     FxCalculator fcalc(k, t);
 
     std::pair<Bits, Bits> res = fcalc.CalculateBucket(Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
-    REQUIRE((uint64_t)res.first.GetValue() == y);
+    REQUIRE(res.first.GetValue() == y);
     if (c) {
-        REQUIRE((uint64_t)res.second.GetValue() == c);
+        REQUIRE(res.second.GetValue() == c);
     }
 }
 
