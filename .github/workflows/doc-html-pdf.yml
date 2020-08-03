@@ -53,7 +53,7 @@ jobs:
       with:
         htmlFile: ./documents/proof_of_space.html
         outputFile: ./documents/proof_of_space.pdf
-        pdfOptions: '{"margin": {"top": "1cm", "left": "1cm", "right": "1cm", "bottom": "1cm"}}'
+        pdfOptions: '{"margin": {"top": "100", "left": "100", "right": "100", "bottom": "100"}}'
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
