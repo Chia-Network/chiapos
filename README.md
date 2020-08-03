@@ -9,21 +9,16 @@
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:cpp)
 
 Chia's proof of space is written in C++. Includes a plotter, prover, and
-verifier. It exclusively runs on 64 bit architectures and is best on CPUs with
-AES-NI support. Read the
-[Proof of Space document](https://www.chia.net/assets/proof_of_space.pdf) to
+verifier. It exclusively runs on 64 bit architectures. Read the
+[Proof of Space document](https://www.chia.net/assets/Chia_Proof_of_Space_Construction_v1.1.pdf) to
 learn about what proof of space is and how it works.
-
-Expect significant changes around June 30, 2020 that will break the plot file
-format, move to chacha8, and otherwise improve plotting performance.
 
 ## C++ Usage Instructions
 
 ### Compile
 
 ```bash
-# Optional as CMake will install pybind11 src
-git submodule update --init --recursive
+# Requires cmake 3.14+
 
 mkdir -p build && cd build
 cmake ../

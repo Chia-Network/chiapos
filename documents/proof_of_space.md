@@ -1,5 +1,9 @@
 # Chia Proof of Space Construction
 
+Version: 1.1
+
+Updated: July 31, 2020
+
 ## Introduction
 
 In order to create a secure blockchain consensus algorithm using disk space, a Proof of Space is scheme is necessary.
@@ -21,7 +25,7 @@ The [Beyond Hellman](https://eprint.iacr.org/2017/893.pdf) paper can be read fir
         - [$f$ functions:](#f-functions)
         - [Matching function $\mathbf{M}$:](#Matching-function-mathbfM)
         - [$\large \mathcal{A'}$ function:](#large-mathcalA-function)
-        - [$\large \mathcal{A_t}$ function:](#large-mathcalAt-function)
+        - [$\large \mathcal{A}$ function:](#large-mathcalA-function-1)
         - [Collation function $\mathcal{C}$:](#Collation-function-mathcalC)
   - [How do we implement Proof of Space?](#How-do-we-implement-Proof-of-Space)
     - [Plotting](#Plotting)
@@ -59,8 +63,7 @@ The [Beyond Hellman](https://eprint.iacr.org/2017/893.pdf) paper can be read fir
     - [Matching Function Requirements](#Matching-Function-Requirements)
     - [Minimum and maximum plot sizes](#Minimum-and-maximum-plot-sizes)
     - [Expected number of proofs](#Expected-number-of-proofs)
-    - [Using AES256 and RRAES128](#Using-AES256-and-RRAES128)
-    - [Fx custom mode](#Fx-custom-mode)
+    - [Using ChaCha8 and BLAKE3](#Using-ChaCha8-and-BLAKE3)
     - [Quality String](#Quality-String)
     - [Plot seed](#Plot-seed)
     - [Plotting algorithm cache locality](#Plotting-algorithm-cache-locality)
@@ -71,7 +74,7 @@ The [Beyond Hellman](https://eprint.iacr.org/2017/893.pdf) paper can be read fir
     - [Dropping bits in x values / line points](#Dropping-bits-in-x-values--line-points)
     - [Reduce Plotting Space overhead](#Reduce-Plotting-Space-overhead)
     - [Mixing passes](#Mixing-passes)
-    - [Every pos_R value is used at least once](#Every-posR-value-is-used-at-least-once)
+    - [Every pos_R value is used at least once](#Every-pos_R-value-is-used-at-least-once)
     - [Pruning bad x values](#Pruning-bad-x-values)
     - [Replotting Attack](#Replotting-Attack)
     - [Reduce Checkpoint table size](#Reduce-Checkpoint-table-size)
@@ -85,8 +88,8 @@ The [Beyond Hellman](https://eprint.iacr.org/2017/893.pdf) paper can be read fir
 #### Definitions
 
 * $[X]$ denotes the set $\{0, 1, ..., X-1\}$
-* $AES_{256}(c, K) : [2^{128}] \rightarrow [2^{128}]$ is a 14 (13+1) round AES256 encryption with a 256-bit key $K$.
-* $AES_{128}(c; K) : [2^{128}] \rightarrow [2^{128}]$ is a 2 (2+0) round AES128 encryption with a 128-bit key $K$
+* $\text{ChaCha8}(c, K) : [2^{64}] \rightarrow [2^{512}]$ is an 8-round ChaCha encryption of a data block with zeros at block offset $c$ with key $K$. The low and high bits of $c$ are placed into state words 12 and 13, respectively, as in the reference implementation [5].
+* $\text{BLAKE3}(x) : [*] \rightarrow [2^{256}]$ is a BLAKE3 hash of $x$
 * $e$ is the natural logarithm
 * $\ll, \gg$ are bitwise left-shift and right-shift operators
 * $\%$ is the modulus operator
@@ -124,7 +127,7 @@ $$
 Here,
 * $\mathbf{M}(x, y)$ is a *matching function* $\mathbf{M} : [2^{k+param\_EXT}] \times [2^{k+param\_EXT}] \rightarrow \{\text{True}, \text{False}\}$;
 * $f$ is a high level function that composes $\mathcal{A}$ with $\mathcal{C}$;
-* $\mathcal{A'}$ and $\mathcal{A_t}$ are high level *hash functions* that call $AES_{256}$ or $AES_{128}$ on their inputs in some way, using the plot seed as a key
+* $\mathcal{A'}$ and $\mathcal{A}$ are high level *hash functions* that call ChaCha8 or BLAKE3 on their inputs in some way, using the plot seed as a key
 * $\mathcal{C}$ is a *collation function* $\mathcal{C}_t : \underset{(2^{t-2} \text{times})}{[2^k] \times \cdots \times [2^k]} \rightarrow [2^{bk}]$ for $b = \text{colla\_size}(t)$
 * Plot seed is an initial seed that determines the plot and proofs of space
 
@@ -150,10 +153,11 @@ $L$ and $R$ are switched, iff $L < R$, compared element-wise, from first to last
 We have the following parameters, precalculated values, and functions:
 $$
 \begin{aligned}
-\text{param\_EXT} &= 5\\
-\text{param\_M} &= 1 \ll \text{param\_EXT} = 32\\
-\text{param\_B} &= 60\\
-\text{param\_C} &= 509\\
+\text{param\_EXT} &= 6\\
+\text{fsize} &= k + \text{param\_EXT}\\
+\text{param\_M} &= 1 \ll \text{param\_EXT} = 64\\
+\text{param\_B} &= 119\\
+\text{param\_C} &= 127\\
 \text{param\_BC} &= \text{param\_B} * \text{param\_C}\\
 \text{param\_c1} = \text{param\_c2} &= 10000\\
 \text{bucket\_id}(x) &= \big\lfloor\frac{x}{\small\text{param\_BC}}\big\rfloor\\
@@ -176,22 +180,22 @@ For convenience of notation, we have functions $f_1, f_2, \cdots f_7$ with:
 $$
 \begin{aligned}
 
-f_t &: \underset{(2^{t-1} \text{times})}{[2^k] \times \cdots \times [2^k]} \rightarrow [2^{k + \small\text{param\_EXT}}]
+f_t &: \underset{(2^{t-1} \text{times})}{[2^k] \times \cdots \times [2^k]} \rightarrow [2^{\small\text{fsize}}]
 \\
 
 f_1(x_1) &= \mathcal{A}'(x_1)\\
 
-f_2(x_1, x_2) &= \mathcal{A}_2(\mathcal{C}_2(x_1), \mathcal{C}_2(x_2)) \oplus f_1(x_1)\\
+f_2(x_1, x_2) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_2(x_1), \mathcal{C}_2(x_2), f_1(x_1)))\\
 
-f_3(x_1, x_2, x_3, x_4) &= \mathcal{A}_3(\mathcal{C}_3(x_1, x_2), \mathcal{C}_3(x_3, x_4)) \oplus f_2(x_1, x_2)\\
+f_3(x_1, x_2, x_3, x_4) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_3(x_1, x_2), \mathcal{C}_3(x_3, x_4), f_2(x_1, x_2)))\\
 
-f_4(x_1, \dots, x_8) &= \mathcal{A}_4(\mathcal{C}_4(x_1, \dots, x_4), \mathcal{C}_4(x_5, \dots, x_8)) \oplus f_3(x_1, \dots, x_4)\\
+f_4(x_1, \dots, x_8) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_4(x_1, \dots, x_4), \mathcal{C}_4(x_5, \dots, x_8), f_3(x_1, \dots, x_4)))\\
 
-f_5(x_1, \dots, x_{16}) &= \mathcal{A}_5(\mathcal{C}_5(x_1, \dots, x_8), \mathcal{C}_5(x_9, \dots, x_{16})) \oplus f_4(x_1, \dots, x_8)\\
+f_5(x_1, \dots, x_{16}) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_5(x_1, \dots, x_8), \mathcal{C}_5(x_9, \dots, x_{16}), f_4(x_1, \dots, x_8)))\\
 
-f_6(x_1, \dots, x_{32}) &= \mathcal{A}_6(\mathcal{C}_6(x_1, \dots, x_{16}), \mathcal{C}_6(x_{17}, \dots, x_{32})) \oplus f_5(x_1, \dots, x_{16})\\
+f_6(x_1, \dots, x_{32}) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_6(x_1, \dots, x_{16}), \mathcal{C}_6(x_{17}, \dots, x_{32}), f_5(x_1, \dots, x_{16})))\\
 
-f_7(x_1, \dots, x_{64}) &= \mathcal{A}_7(\mathcal{C}_7(x_1, \dots, x_{32}), \mathcal{C}_7(x_{33}, \dots, x_{64})) \oplus f_6(x_1, \dots, x_{32})\\
+f_7(x_1, \dots, x_{64}) &= \underset{\text{fsize}}{\text{trunc}}(\mathcal{A}(\mathcal{C}_7(x_1, \dots, x_{32}), \mathcal{C}_7(x_{33}, \dots, x_{64}), f_6(x_1, \dots, x_{32})))\\
 \end{aligned}
 $$
 
@@ -200,7 +204,7 @@ $$
 Then the matching function $\mathbf{M}$ is:
 $$
 \begin{aligned}
-\mathbf{M}(l, r) &: [2^{k+param\_EXT}] \times [2^{k+param\_EXT}] \rightarrow \{\text{True},
+\mathbf{M}(l, r) &: [2^{\text{fsize}}] \times [2^{\text{fsize}}] \rightarrow \{\text{True},
 \text{False}\}\\
 \\
 \mathbf{M}(l, r) &=
@@ -219,48 +223,27 @@ $$
 
 $$
 \begin{aligned}
-\mathcal{A'}(x) = (AES_{256}(0, plot\_seed) \mathbin{\|} AES_{256}(1, plot\_seed) \mathbin{\|} ... )[kx : kx + k] \mathbin{\|} (x \text{1}\% \text{param\_M})& \\
+\mathcal{A'}(x) = (\text{ChaCha8}(0, plot\_seed) \mathbin{\|} \text{ChaCha8}(1, plot\_seed) \mathbin{\|} ... )[kx : kx + k] \mathbin{\|} x[:\text{param\_M}]& \\
 \end{aligned}
 $$
 $$
 \begin{aligned}
 \Rightarrow \mathcal{A}'(x) =
 \begin{cases}
-AES_{256}(q, plot\_seed)[r:r+k]  \mathbin{\|} (x \text{1}\% \text{param\_M}) &\text{if } r+k \leq 128\\
-AES_{256}(q, plot\_seed)[r:] \mathbin{\|} AES_{256}(q+1)[:r+k-128]  \mathbin{\|} (x \text{1}\% \text{param\_M})&\text{else}\\
+\text{ChaCha8}(q, plot\_seed)[r:r+k]  \mathbin{\|} x[:\text{param\_M}] &\text{if } r+k \leq 512\\
+\text{ChaCha8}(q, plot\_seed)[r:] \mathbin{\|} \text{ChaCha8}(q+1)[:r+k-512]  \mathbin{\|} x[:\text{param\_M}]&\text{else}\\
 \end{cases}
 \end{aligned}
 $$
 
-for $(q, r) = \text{divmod}(x*k, 128)$.
+for $(q, r) = \text{divmod}(x*k, 512)$.
 
-##### $\large \mathcal{A_t}$ function:
+##### $\large \mathcal{A}$ function:
 
 $$
-\begin{aligned}
-\mathcal{A}_t(x, y) := {
-\begin{cases}
-\underset{k+\text{param\_EXT}}{\text{trunc}}\big( A(x \mathbin{\|} y) \big) &\text{if } 0 \leq \text{size} \leq 128 \\
-
-\underset{k+\text{param\_EXT}}{\text{trunc}}\big( A(A(x) \oplus y) \big) &\text{if } 129 \leq \text{size} \leq 256 \\
-
-\underset{k+\text{param\_EXT}}{\text{trunc}}\big( A(A(x_{high}) \oplus A(y_{high}) \oplus A(x_{low} \mathbin{\|} y_{low})) \big) &\text{if } 257 \leq \text{size} \leq 384 \\
-
-\underset{k+\text{param\_EXT}}{\text{trunc}}\big( A(A(A(x_{high}) \oplus x_{low}) \oplus A(y_{high}) \oplus y_{low}) \big) &\text{if } 385 \leq \text{size} \leq 512  \\
-\end{cases}
-}
-\end{aligned}
+\mathcal{A}(l, r, y) = \text{BLAKE3}(y \mathbin{\|} l \mathbin{\|} r)
 $$
 
-where
-$$
-\begin{aligned}
-A(c) &= AES_{128}(c, \underset{128}{\text{trunc}}(plot\_seed)) \\
-x_{high}, x_{low} &= \text{divmod(}x\text{, 1 }\ll\text{ 128)}\\
-y_{high}, y_{low} &= \text{divmod(}y\text{, 1 }\ll\text{ 128)}\\
-\text{size} &= 2 * k * \text{colla\_size}(t)\\
-\end{aligned}
-$$
 
 ##### Collation function $\mathcal{C}$:
 
@@ -274,15 +257,11 @@ $$
 
   x_1 \mathbin{\|} x_2 \mathbin{\|} x_3 \mathbin{\|} x_4 &\text{if } t = 4\\
 
-  (x_1 \mathbin{\|} \dots \mathbin{\|} x_4) \oplus (x_5 \mathbin{\|} \dots \mathbin{\|} x_8) &\text{if } t = 5\\
+  \mathcal{A}(\mathcal{C}_4(x_1, \dots, x_4), \mathcal{C}_4(x_5, \dots, x_8), f_3(x_1, \dots, x_4))[\text{fsize} : \text{fsize} + 4*k] &\text{if } t = 5\\
 
-  \underset{3k}{\text{trunc}}\big( (x_1 \mathbin{\|} \dots \mathbin{\|} x_4) \oplus (x_5 \mathbin{\|} \dots \mathbin{\|} x_8) \oplus
-                (x_9 \mathbin{\|} \dots \mathbin{\|} x_{12}) \oplus (x_{13} \mathbin{\|} \dots \mathbin{\|} x_{16}) \big) &\text{if } t = 6\\
-  = (x_1 \mathbin{\|} x_2 \mathbin{\|} x_3) \oplus (x_5 \mathbin{\|} x_6 \mathbin{\|} x_7) \oplus (x_9 \mathbin{\|} x_{10} \mathbin{\|} x_{11})  \oplus (x_{13} \mathbin{\|} x_{14} \mathbin{\|} x_{15}) \\
+  \mathcal{A}(\mathcal{C}_5(x_1, \dots, x_8), \mathcal{C}_5(x_9, \dots, x_{16}), f_4(x_1, \dots, x_8))[\text{fsize} : \text{fsize} + 3*k] &\text{if } t = 6\\
 
-  \underset{2k}{\text{trunc}}\big( (x_1 \mathbin{\|} \dots \mathbin{\|} x_4) \oplus \cdots \oplus (x_{29} \mathbin{\|} \dots \mathbin{\|} x_{32}) \big) &\text{if } t = 7\\
-
-  = (x_1 \mathbin{\|} x_2) \oplus (x_5 \mathbin{\|} x_6) \oplus \cdots \oplus (x_{29} \mathbin{\|} x_{30})
+  \mathcal{A}(\mathcal{C}_6(x_1, \dots, x_{16}), \mathcal{C}_6(x_{17}, \dots, x_{32}), f_5(x_1, \dots, x_{16}))[\text{fsize} : \text{fsize} + 2*k] &\text{if } t = 7\\
 \end{cases}
 }
 \end{aligned}
@@ -714,8 +693,6 @@ The algorithm is designed with [cache locality](#Plotting-algorithm-cache-locali
 and a large amount of memory is not necessary. The [sort on disk](#sort-on-disk-quick-sort-vs-bucketsort) algorithm will perform better if more memory is allocated.
 
 However, multiple passes on disk are required, both in the sorts, and in the other parts of the algorithm.
-On slow CPU's plotting can be CPU bound, especially since AES256 must be computed on O(2^k) values.
-On newer CPU's, AES instruction sets are available, which makes that part extremely fast.
 Still, comparisons, arithmetic, and memory allocation are required during plotting, which can cause the algorithm to be CPU bound.
 Multi-threading can be used to split up the work, as well as to separate CPU from disk I/O.
 
@@ -929,7 +906,7 @@ $$
 (i, b, c) \rightarrow (i+1, b+r, c+(2r + i\%2)^2)
 $$
 
-for all $0 \leq r < 32 = \text{param\_M}$.
+for all $0 \leq r < 64 = \text{param\_M}$.
 
 Consider a cycle in this graph of length $4$ (when edges are considered undirected).  We must have $2$ forward edges and $2$ reverse edges.  Thus, for the $r_i$'s of the forward edges and the $\bar r_i$'s of the reverse edges, and up to parity bits $p_i \in \{0, 1\}$ (and $\bar p_i = 1 - p_i$),
 
@@ -943,7 +920,7 @@ With a simple program (or by careful analysis), we can verify there are no 4-cyc
 
 ```python
 from itertools import product
-B, C, M = 60, 509, 32
+B, C, M = 119, 127, 64
 for r1, r2, s1, s2 in product(range(M), repeat = 4):
     if r1 != s1 and (r1,r2) != (s2,s1) and (r1-s1+r2-s2) % B == 0:
         for p1, p2 in product(range(2), repeat = 2):
@@ -960,7 +937,7 @@ For a proof of space to be valid, the proof must be generated almost immediately
 There are practical considerations for choosing the minimum size as well.
 If there is a plot size were its possible to use a very expensive setup (a lot of memory, CPU, etc) to quickly generate a plot, this can still work as a valid proof of space, since the cost of this attack makes it impractical.
 
-The maximum plot size is chosen at 59, a conservative maximum even accounting for future hard drive improvements, still allowing everything to be represented in 64 bits, and keeping k-truncated AES ciphertexts difficult to invert.
+The maximum plot size is chosen at 50, a conservative maximum even accounting for future hard drive improvements, still allowing everything to be represented in 64 bits.
 
 ### Expected number of proofs
 
@@ -982,41 +959,11 @@ Furthermore, a tuple that is not weakly distinct cannot be a valid proof, since 
 
 Thus, the expected number of proofs per challenge is $W * p \approx 2^{64k} * 2^{-64k} = 1$.
 
-### Using AES256 and RRAES128
+### Using ChaCha8 and BLAKE3
 
-A random function $f$ is required for the definition of proofs of space from [Beyond Hellman](#https://eprint.iacr.org/2017/893.pdf). $AES_{256}$, and a reduced round $AES_{128}$ ($RRAES_{128}$) are used, due to their efficient hardware implementations (AES-NI).
-While the AES function to 128 bits can be easily reverted, we can reduce the output size to $k+param\_EXT$ bits, making it an irreversible function from $2^k$ to $2^{k+param\_EXT}$ bits.
-We can also reuse the same ciphertext for multiple evaluations of $f(x)$.
+A random function $f$ is required for the definition of proofs of space from [Beyond Hellman](#https://eprint.iacr.org/2017/893.pdf). ChaCha8 and BLAKE3 are used due to their efficient software implementations. There are assembly implementations of these algorithms that use SIMD instructions.
 
-As written in [A' function](#large-mathcalA-function), $f_1$ is evaluated by performing $AES_{256}$ on every number from 0 to $2^{k}-1$, using the $plot\_seed$ as the key, and then adding $param\_EXT$ bits from $x$, to reduce the impact of collisions on the matching function.
-This is similar to counter mode in $AES$, but with a plaintext of 0, and truncating the output to k bits.
-Note that each AES call results in $\frac{128}{k}$ evaluations of $f_1$.
-
-<img src="images/aesctr.png" alt="drawing" width="700"/>
-
-Using counter mode with multiple outputs saves CPU time, and also allows us to evaluate $f_1$ in the forward direction, without having to store nonces.
-
-Note that even though the key and plaintext are fixed and known, $f_1$ is a one-way function. If we have an output, like $f_1(x)$, and we want to compute the preimage without storing all of the ciphertexts, this should require a significant amount of CPU time, since we don’t know the rest of the ciphertext for that block.
-If $k$ was much larger than 64, it would become practical to revert these f functions.
-
-
-### Fx custom mode
-
-For $f_2$ to $f_7$, since all the inputs are chosen based on cryptographically strong outputs from $AES_{256}$, such strong security is not necessary, as long as there is good diffusion in the function (all the inputs affect all the outputs).
-Furthermore, the number of AES rounds can also be reduced to 2 (the minimum such that every input bit has an effect on every output bit).
-
-Note that the inputs to $f_2$ to $f_7$ vary in length, so the definition needs to allow the input to be larger than one AES block.
-Instead of using something like CBC mode, a custom mode (defined in [$A_t$ function](#large-mathcalAt-function)) is used, which allows caching of AES outputs.
-
-Since matches are computed sequentially, if an entry $E$ matches with 3 other entries, and $E$ is on the right side of the match, the right half of the $f$ inputs can be identical for 3 executions of $f$, and therefore AES outputs can be cached.
-
-Compare this with CBC, where the first time a bit changes, it affects the entire ciphertext, and therefore cached values can no longer be used. Since $E$ is on the right side, the AES plaintext for E will be on the right, and CBC will be encrypting different blocks for all three evaluations.
-
-A potential optimization in the reference code is to take advantage of this, and cache AES values where appropriate.
-
-Finally, $k+param\_EXT$ bits are taken from the ciphertext, and an XOR operation is performed with the first output from the previous table.
-For $f_7$, the final output is obtained after encrypting, truncating, and XORing with the left $f_6$ output.
-This is cheap to perform, and ensures that any weaknesses from reverting reduced round AES do not affect security, since we are XORing with a cryptographically strong output of $AES_{256}$.
+The output of a stream cipher (ChaCha8) or a cryptographic hash function (BLAKE3) is assumed to be irreversible and indistinguishable from random, so we may assume that all $f_t$ functions are random and one-way as well.
 
 ### Quality String
 
@@ -1040,7 +987,7 @@ Therefore, the verifier must perform this [calculation](#Proof-Quality-String) t
 ### Plot seed
 
 The $plot\_seed$ is a 32 byte value which is used to deterministically seed the whole plot.
-The 32 bytes are used as the key in $AES_{256}$ in $f_1$, and 16 of those bytes are used as the key in $AES_{128}$ in $f_2$ to $f_7$.
+The 32 bytes are used as the key for ChaCha8 in $f_1$.
 
 ### Plotting algorithm cache locality
 
@@ -1188,8 +1135,10 @@ Multithreading can provide significant performance improvements. The CPU usage o
 with Applications to Proofs of Space (2017) https://eprint.iacr.org/2017/893.pdf
 
 [2] Philippe Oechslin: Making a Faster Cryptanalytic Time-Memory
-Trade-Of (2013) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
+Trade-Off (2003) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
 
 [3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019)
 
 [4] Mart Simisker: Assymetrical Number Systems (2017) https://courses.cs.ut.ee/MTAT.07.022/2017_fall/uploads/Main/mart-report-f17.pdf
+
+[5] Daniel J. Bernstein: The ChaCha family of stream ciphers (2008) https://cr.yp.to/chacha.html
