@@ -28,6 +28,16 @@ jobs:
       with:
         python-version: '3.7'
 
+    - name: Install python markdown
+      shell: bash
+      run: |
+         python -m venv venv
+         source venv/bin/activate
+         -m pip install --upgrade pip
+         pip install markdown
+         pip install python-markdown-math
+#         python -m markdown -x mdx_math --verbose -f proof_of_space.html proof_of_space.md
+
 #    - name: Test for secrets access
 #      id: check_secrets
 #      shell: bash
@@ -43,7 +53,7 @@ jobs:
       with:
         htmlFile: ./documents/proof_of_space.html
         outputFile: ./documents/proof_of_space.pdf
-        pdfOptions: '{"margin": {"top": "10mm", "left": "10mm", "right": "10mm", "bottom": "10mm"}}'
+        pdfOptions: '{"margin": {"top": "1cm", "left": "1cm", "right": "1cm", "bottom": "1cm"}}'
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
