@@ -33,7 +33,7 @@ jobs:
       run: |
          python -m venv venv
          source venv/bin/activate
-         -m pip install --upgrade pip
+         python -m pip install --upgrade pip
          pip install markdown
          pip install python-markdown-math
 #         python -m markdown -x mdx_math --verbose -f proof_of_space.html proof_of_space.md
