@@ -24,6 +24,7 @@
 #include <algorithm>
 #include "./util.hpp"
 
+
 class SortOnDiskUtils {
  public:
     /*
@@ -111,9 +112,9 @@ class FileDisk : public Disk {
             readPos=begin + amtread;
             if(amtread != length) {
                 std::cout << "Only read " << amtread << " of " << length << " bytes from " << filename_ << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
-#ifdef WIN32                
-                Sleep(5 * 60000);                
-#else                
+#ifdef WIN32
+                Sleep(5 * 60000);
+#else
                 sleep(5 * 60);
 #endif
             }
@@ -447,9 +448,9 @@ class Sorting {
         }
     }
 
-    inline static void SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
-                                  uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
-                                  uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
+    inline static uint64_t SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
+                                      uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
+                                      uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
 
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
@@ -461,7 +462,7 @@ class Sorting {
         assert(disk_begin + total_size * entry_len <= spare_begin);
 
         if (bits_begin >= entry_len * 8) {
-            return;
+            return 0;
         }
 
         // If we have enough memory to sort the entries, do it.
@@ -475,13 +476,13 @@ class Sorting {
             disk.Read(disk_begin, mem, total_size * entry_len);
             QuickSort(mem, entry_len, total_size, bits_begin);
             disk.Write(disk_begin, mem, total_size * entry_len);
-            return ;
+            return 0;
         }
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (quicksort == 0 && SortOnDiskUtils::RoundSize(total_size) * entry_len_memory <= mem_len) {
             SortInMemory(disk, disk_begin, mem, entry_len, total_size, bits_begin);
-            return;
+            return 0;
         }
 
         std::vector<uint64_t> bucket_begins;
@@ -629,6 +630,7 @@ class Sorting {
                 break;
             last_bucket--;
         }
+        uint64_t max_spare_written = spare_written * entry_len;
         for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
             // Do we have to do quicksort for the new partition?
             int new_quicksort;
@@ -649,9 +651,15 @@ class Sorting {
             // We recursively sort each chunk, this time starting with the next 4 bits to determine the buckets.
             // (i.e. firstly, we sort entries starting with 0000, then entries starting with 0001, ..., then entries
             // starting with 1111, at the end producing the correct ordering).
-            SortOnDisk(disk, disk_begin + bucket_begins[i] * entry_len, spare_begin,
-                       entry_len, bits_begin + bucket_log, subbucket_sizes[i], mem, mem_len, new_quicksort);
+            uint64_t bytes_written = SortOnDisk(disk, disk_begin + bucket_begins[i] * entry_len, spare_begin,
+                                                entry_len, bits_begin + bucket_log, subbucket_sizes[i], mem, mem_len,
+                                                new_quicksort);
+            // Keeps track of how much spare space we used for sorting
+            if (bytes_written > max_spare_written) {
+                max_spare_written = bytes_written;
+            }
         }
+        return max_spare_written;
     }
 
     inline static void SortInMemory(Disk& disk, uint64_t disk_begin, uint8_t* memory, uint32_t entry_len,
@@ -758,7 +766,7 @@ class Sorting {
 
         cout << "CheckSortOnDisk entry_len: " << entry_len << " length: " << length << " total size: " << total_size << endl;
                disk.Read(disk_begin, mem, 20 * entry_len);
-  
+
         for(uint64_t i=0;i<20;i++) {
             cout << i << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
         }

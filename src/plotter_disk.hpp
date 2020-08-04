@@ -84,7 +84,7 @@ class DiskPlotter {
                         uint32_t memo_len, const uint8_t* id, uint32_t id_len, uint32_t buffmegabytes = 2*1024) {
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             std::cout << "Plot size k=" << std::to_string(k) << " is invalid" << std::endl;
-            return; 
+            return;
         }
 
         memorySize=((uint64_t)buffmegabytes)*1024*1024;
@@ -171,8 +171,8 @@ class DiskPlotter {
             WriteCTables(k, k + 1, tmp2_disk, tmp1_disk, res);
             p4.PrintElapsed("Time for phase 4 =");
 
-            std::cout << "Approximate working space used: " <<
-                     static_cast<double>(res.plot_table_begin_pointers[8])/(1024*1024*1024) << " GiB" << std::endl;
+            std::cout << "Approximate working space used (without final file): " <<
+                     static_cast<double>(res.plot_table_begin_pointers[9])/(1024*1024*1024) << " GiB" << std::endl;
             std::cout << "Final File size: " <<
                      static_cast<double>(res.final_table_begin_pointers[11])/(1024*1024*1024) << " GiB" << std::endl;
             all_phases.PrintElapsed("Total time =");
@@ -233,7 +233,7 @@ class DiskPlotter {
             }
         } while (!bRenamed);
 
-        bool removed_2 = fs::remove(tmp_2_filename); 
+        bool removed_2 = fs::remove(tmp_2_filename);
         std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2 << std::endl;
     }
 
@@ -415,13 +415,14 @@ class DiskPlotter {
         uint64_t total_table_entries = ((uint64_t)1) << k;
 
         // This will contain the start bytes (into the plot file) for each table
-        std::vector<uint64_t> plot_table_begin_pointers(9, 0);
+        std::vector<uint64_t> plot_table_begin_pointers(10, 0);
         plot_table_begin_pointers[1] = begin_byte;
 
         // Store positions to previous tables, in k+1 bits. This is because we may have
         // more than 2^k entries in some of the tables, so we need an extra bit.
         uint8_t pos_size = k + 1;
         uint32_t right_entry_size_bytes = 0;
+        uint64_t max_spare_written = 0;
 
         // Number of buckets that y values will be put into.
         double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
@@ -447,8 +448,11 @@ class DiskPlotter {
 
             // Performs a sort on the left table,
             Timer sort_timer;
-            Sorting::SortOnDisk(tmp1_disk, begin_byte, begin_byte_next, entry_size_bytes,
-                                0, bucket_sizes, memory, memorySize);
+            uint64_t spare_written = Sorting::SortOnDisk(tmp1_disk, begin_byte, begin_byte_next, entry_size_bytes,
+                                                         0, bucket_sizes, memory, memorySize);
+            if (spare_written > max_spare_written) {
+                max_spare_written = spare_written;
+            }
             sort_timer.PrintElapsed("\tSort time:");
 
             Timer computation_pass_timer;
@@ -651,6 +655,9 @@ class DiskPlotter {
                       << std::hex << plot_table_begin_pointers[i] << std::dec << std::endl;
         }
 
+        // Pointer to the end of the final byte written in the file (including sort on disk spare space)
+        // Some sort on disks take more space, so we use the max spare used between all sorts.
+        plot_table_begin_pointers[9] = plot_table_begin_pointers[8] + max_spare_written;
         return plot_table_begin_pointers;
     }
 

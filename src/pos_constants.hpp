@@ -26,6 +26,9 @@ const uint32_t kMinPlotSize = 15;
 // Set to 50 since k + kExtraBits + k*4 must not exceed 256 (BLAKE3 output size)
 const uint32_t kMaxPlotSize = 50;
 
+// The amount of spare space used for sort on disk (multiplied time memory buffer size)
+const uint32_t kSpareMultiplier = 5;
+
 // How many f7s per C1 entry, and how many C1 entries per C2 entry
 const uint32_t kCheckpoint1Interval = 10000;
 const uint32_t kCheckpoint2Interval = 10000;
