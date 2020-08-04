@@ -1,6 +1,6 @@
 name: Build PoSpace Doc
 
-on: [workflow_dispatch]
+on: [push, pull_request]
 
 jobs:
   html_to_pdf:
