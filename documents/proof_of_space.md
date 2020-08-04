@@ -143,7 +143,7 @@ $$
     x_{i*2^{s}+2^{s-1}}] , R= [x_{i*2^{s}+2^{s-1}+1}, \dots,  x_{(i+1)*2^{s}}]
 $$
 
-$L$ and $R$ are switched, if $L < R$, compared element-wise, from first to last.
+$L$ and $R$ are switched if and only if $L < R$, compared element-wise, from first to last.
 
 #### Definition of parameters, and $\mathbf{M}, f, \mathcal{A}, \mathcal{C}$ functions:
 
