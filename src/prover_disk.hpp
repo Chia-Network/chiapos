@@ -542,7 +542,7 @@ class DiskProver {
             std::vector<pair<Bits, Bits> > new_results;
             FxCalculator f(k, table_index);
             // Iterates through pairs of things, starts with 64 things, then 32, etc, up to 2.
-            for (uint8_t i = 0; i < results.size(); i += 2) {
+            for (size_t i = 0; i < results.size(); i += 2) {
                 std::pair<Bits, Bits> new_output;
                 // Compares the buckets of both ys, to see which one goes on the left, and which
                 // one goes on the right
