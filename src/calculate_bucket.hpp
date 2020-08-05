@@ -339,14 +339,14 @@ class FxCalculator {
         std::vector<std::pair<uint16_t, uint16_t>> matches;
         uint16_t parity = (bucket_L[0].y / kBC) % 2;
 
-        for (uint16_t i = 0; i < rmap_clean.size(); i++) {
+        for (size_t i = 0; i < rmap_clean.size(); i++) {
             uint16_t yl = rmap_clean[i];
             this->rmap[yl].count = 0;
         }
         rmap_clean.clear();
 
         uint64_t remove = (bucket_R[0].y / kBC) * kBC;
-        for (uint16_t pos_R = 0; pos_R < bucket_R.size(); pos_R++) {
+        for (size_t pos_R = 0; pos_R < bucket_R.size(); pos_R++) {
             uint64_t r_y = bucket_R[pos_R].y - remove;
 
             if (!rmap[r_y].count) {
@@ -357,11 +357,11 @@ class FxCalculator {
         }
 
         uint64_t remove_y = remove - kBC;
-        for (uint16_t pos_L = 0; pos_L < bucket_L.size(); pos_L++) {
+        for (size_t pos_L = 0; pos_L < bucket_L.size(); pos_L++) {
             uint64_t r = bucket_L[pos_L].y - remove_y;
             for (uint8_t i = 0; i < kExtraBitsPow; i++) {
                 uint16_t r_target = L_targets[parity][r][i];
-                for (uint8_t j = 0; j < rmap[r_target].count; j++) {
+                for (size_t j = 0; j < rmap[r_target].count; j++) {
                     matches.push_back(std::make_pair(pos_L, rmap[r_target].pos + j));
                 }
             }

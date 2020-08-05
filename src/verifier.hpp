@@ -29,7 +29,7 @@ class Verifier {
         for (uint8_t table_index = 1; table_index < 7; table_index++) {
             LargeBits new_proof;
             uint16_t size = k * (1 << (table_index - 1));
-            for (uint8_t j = 0; j < (1 << (7 - table_index)); j += 2) {
+            for (int j = 0; j < (1 << (7 - table_index)); j += 2) {
                 LargeBits L = proof.Slice(j * size, (j + 1) * size);
                 LargeBits R = proof.Slice((j + 1) * size, (j + 2) * size);
                 if (CompareProofBits(L, R, k)) {
@@ -78,7 +78,7 @@ class Verifier {
             FxCalculator f(k, depth);
             std::vector<Bits> new_ys;
             std::vector<Bits> new_metadata;
-            for (uint8_t i = 0; i < (1 << (8 - depth)); i += 2) {
+            for (int i = 0; i < (1 << (8 - depth)); i += 2) {
                 PlotEntry l_plot_entry;
                 PlotEntry r_plot_entry;
                 l_plot_entry.y = ys[i].GetValue();
@@ -99,7 +99,7 @@ class Verifier {
                 new_ys.push_back(std::get<0>(results));
                 new_metadata.push_back(std::get<1>(results));
             }
-            for (uint8_t i = 0; i < new_ys.size(); i++) {
+            for (size_t i = 0; i < new_ys.size(); i++) {
                 if (new_ys[i].GetSize() <= 0) {
                     return LargeBits();
                 }
