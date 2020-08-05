@@ -6,10 +6,10 @@ Updated: July 31, 2020
 
 ## Introduction
 
-In order to create a secure blockchain consensus algorithm using disk space, a Proof of Space is scheme is necessary.
-This document describes a practical contruction of Proofs of Space, based on [Beyond Hellman’s Time-Memory Trade-Offs
+In order to create a secure blockchain consensus algorithm using disk space a Proof of Space is scheme is necessary.
+This document describes a practical construction of Proofs of Space based on [Beyond Hellman’s Time-Memory Trade-Offs
  with Applications to Proofs of Space](https://eprint.iacr.org/2017/893.pdf) [1].
-We use the techniques laid out in that paper, extend it from 2 to 7 tables, and tweak it to make it efficient and secure, for use in the Chia Blockchain.
+We use the techniques laid out in that paper, extend it from 2 to 7 tables, and tweak it to make it efficient and secure for use in the Chia Blockchain.
 The document is divided into three main sections: [What](#What-is-Proof-of-Space) (mathematical definition of a proof of space), [How](#How-do-we-implement-Proof-of-Space) (how to implement proof of space), and [Why](#Construction-Explanation-Why) (motivation and explanation of the construction) sections.
 The [Beyond Hellman](https://eprint.iacr.org/2017/893.pdf) paper can be read first for more mathematical background.
 
@@ -102,7 +102,7 @@ For example, $(0b100100)[2:5]$ on implied domain $[2^6]$ is $0b010 = 2$.
 Also, the default values are $a=0$ and $b=z$ if they are not specified.
 
 #### Proof format
-For a given $\text{plot\_seed} \in [2^{256}]$, a space parameter $33 \leq k \leq 59$, and a challenge $\text{Chall} \in [2^{256}]$ chosen by a verifier, a proof of space ${\Large\pi}$ is $64k$ bits:
+For a given $\text{plot\_seed} \in [2^{256}]$, a space parameter $30 \leq k \leq 50$, and a challenge $\text{Chall} \in [2^{256}]$ chosen by a verifier, a proof of space ${\Large\pi}$ is $64k$ bits:
 
 ${\Large\pi}_{\text{Chall; plot\_seed, k}} = x_1, x_2, ..., x_{64}$ (with $x_i \in [2^k]$) satisfying:
 
@@ -143,7 +143,7 @@ $$
     x_{i*2^{s}+2^{s-1}}] , R= [x_{i*2^{s}+2^{s-1}+1}, \dots,  x_{(i+1)*2^{s}}]
 $$
 
-$L$ and $R$ are switched, iff $L < R$, compared element-wise, from first to last.
+$L$ and $R$ are switched if and only if $L < R$, compared element-wise, from first to last.
 
 #### Definition of parameters, and $\mathbf{M}, f, \mathcal{A}, \mathcal{C}$ functions:
 
@@ -270,14 +270,14 @@ $$
 
 ## How do we implement Proof of Space?
 
-Proof of space is composed of three algorithms: [plotting](#Plotting), [proving](#Proving) and [verication](#Verification).
+Proof of space is composed of three algorithms: [plotting](#Plotting), [proving](#Proving) and [verification](#Verification).
 
 ### Plotting
 
 #### Plotting Tables (Concepts)
 
 *Plotting* is our term for the method of writing data to disk such that we can quickly retrieve 1 or more proofs (if they exist) for a given challenge.
-The *plot* refers to the contents of the disk. While proof retrieval must be fast, the plotting process can take time, as it is only done once, by the prover.
+The *plot* refers to the contents of the file on disk. While proof retrieval must be fast, the plotting process can take time, as it is only done once, by the prover.
 In the Chia Blockchain, these provers are referred to as *farmers*, since they create and maintain the plots.
 That is, a farmer creates and efficiently stores data on disk, for a given *plot seed*, that allows them to find proofs $\Large{\Pi}$ that meet the above requirements.
 We first discuss general concepts related to the problem of plotting.
@@ -352,7 +352,7 @@ We say that the points are in *delta format* if we are storing these deltas inst
 
 ##### ANS Encoding of Delta Formatted Points
 
-We can encode these deltas (from points in a discrete uniform distribution) using an Asymmetric Numeral System (ANS [4]) encoding, an encoding scheme that is essentially lossless and offers extremely fast compression and decompression speeds for fixed distributions.  A requirement to do so is that we know the distribution of $\Delta_i$.  From mathematics pertaining to order statitics, it can be proved that the pdf (probability density function) of $\delta$ is independent of $i$, and equal to:
+We can encode these deltas (from points in a discrete uniform distribution) using an Asymmetric Numeral System (ANS [4]) encoding, an encoding scheme that is essentially lossless and offers extremely fast compression and decompression speeds for fixed distributions.  A requirement to do so is that we know the distribution of $\Delta_i$.  From mathematics pertaining to order statistics, it can be proved that the pdf (probability density function) of $\delta$ is independent of $i$, and equal to:
 
 $$
 P(\Delta_i = X; R) =
@@ -416,7 +416,7 @@ More complicated systems of writing parks to disk are possible that offer minor 
 
 ##### Checkpoint Tables
 
-Retriving a proof of space for a challenge, as explained in [Proving](#Proving), requires efficienty looking up a final output $f_7$ in the final table.
+Retrieving a proof of space for a challenge, as explained in [Proving](#Proving), requires efficiently looking up a final output $f_7$ in the final table.
 Therefore, in $\text{Table}_7$ entries are sorted by $f_7$.
 In order to compress the on disk representation, we can store deltas between each $f_7$, which are small, since there are approximately $2^k$ uniformly distributed integers of size $k$.
 
@@ -431,7 +431,7 @@ Since there will be approximately $\frac{2^k}{c_{1}*c_{2}}$ $C_2$ entries, we ca
 ##### Final Disk Format
 
 Let $pos_{t;L}$ and $pos_{t;R}$ denote the positions in $Table_t$ of a $\text{Table}_{t+1}$ entry.
-That is, a $Table_{t+1}$ entry is composed of two indeces into $Table_t$.
+That is, a $Table_{t+1}$ entry is composed of two indices into $Table_t$.
 
 $f_7$ is a final output of function $f_7$, which is compared to the challenge at verification. The $N$ values (number of entries in a table) are calculated in the [Space Required](#space-required) section.
 The final format is composed of a table that stores the original $x$ values, 5 tables that store positions to the previous table, a table for the final outputs, and 3 small checkpoint tables.
@@ -452,7 +452,8 @@ The final disk format is the following:
 | $C_{3}$     | $f_7$                               | Deltafied, encoded, and parked                       | $\frac{2^k}{param\_c_1}$            |
 
 ##### Full algorithm
-The plotting algorithm $\text{PlotAlgo1}$ takes as input a unique $\text{plot\_seed} \in [2^{256}]$, a space parameter $33 \leq k \leq 60$, a param object $param$, and deterministically outputs a final file $F$.
+
+The plotting algorithm $\text{PlotAlgo1}$ takes as input a unique $\text{plot\_seed} \in [2^{256}]$, a space parameter $30 \leq k \leq 50$, a param object $param$, and deterministically outputs a final file $F$.
 
 $Sort$, or sort on disk, takes in a table on disk, and performs a full ascending sort, starting at a specified bit position.
 
@@ -505,12 +506,12 @@ For entries in table7:
 ##### Phase 1: Forward Propagation
 
 The purpose of the forward propagation phase is to compute all tables where the matching conditions are met, and to compute all final outputs $f_7$.
-For each $Table_i$, we compute the correspoding $f$ function on the $x$ values (actually on the collated values), and write the outputs to disk to $Table_{i+1}$, along with the corresponding positions in $Table_i$, and the collated $x$ values.
+For each $Table_i$, we compute the corresponding $f$ function on the $x$ values (actually on the collated values), and write the outputs to disk to $Table_{i+1}$, along with the corresponding positions in $Table_i$, and the collated $x$ values.
 
 Then, $Sort$ is performed on the new table, to sort it by output $f_i$.
 This allows us to check for the matching condition efficiently, since matching entries will have adjacent $bucket\_id$s.
 Matches can be found by using a sliding window which reads entries from disk, one group at a time.
-$C_3$ to $C_7$ refers to the output of the collation functiod for each n
+$C_3$ to $C_7$ refers to the output of the collation function for each n.
 
 File $T$ will store the following data after phase 1:
 
@@ -527,9 +528,9 @@ File $T$ will store the following data after phase 1:
 Pointers in Phase 1 and 2 are stored in <strong>pos, offset format</strong>.
 Pos offset format represents a match, by storing a $k+1$ bit position, and a much smaller 9 or 10 bit offset.
 
-Duting phase 1, entries are close to their matches, so storing the offset is efficient.
+During phase 1, entries are close to their matches, so storing the offset is efficient.
 This will change into <strong>double pointer format</strong>, which stores two $k$ bit pointers,
-but uses sorting and compression to reduce each entry: to a size much closer to $k$.
+but uses sorting and compression to reduce each entry to a size much closer to $k$.
 
 
 ##### Phase 2: Backpropagation
@@ -541,11 +542,11 @@ The purpose of the backpropagation step is to remove data which is not useful fo
 During this phase, all entries which do not form part of the matching condition in the next table, are dropped.
 Positions in the next table are adjusted to account for the dropped entries.
 The Collation outputs ($C$ values) are also dropped, since they are only useful for forward propagation.
-For a more efficient compression phase, each entry is given a $sort\_key$, which corresponds to it's position in the table.
-This is more efficient than storing $(f_t, pos_{t-1}, offset)$ to represent it's position.
+For a more efficient compression phase each entry is given a $sort\_key$, which corresponds to its position in the table.
+This is more efficient than storing $(f_t, pos_{t-1}, offset)$ to represent its position.
 
 Implementation of this phase requires iterating through two tables at once, a left and a right table, checking which left entries are used in the right table, and dropping the ones that are not.
-Finally, a sort by position is required before looking at the right table, so it's possible to read a window into both tables at once, in a cache-local manner, without reading random locations on disk.
+Finally, a sort by position is required before looking at the right table, so it's possible to read a window into both tables at once in a cache-local manner without reading random locations on disk.
 
 File $T$ will store the following data after phase 2:
 
@@ -599,9 +600,9 @@ Phase 4 involved iterating through $T.Table_7$, writing $F.Table_7$, and compres
 
 ##### Sort on Disk
 
-Sort on disk is an external sorting algorithm that sorts large amounts of data with significantly less memory that the data size.
+Sort on disk is an external sorting algorithm that sorts large amounts of data with significantly less memory than the data size.
 On large plots, this function quickly becomes the bottleneck of the plotting algorithm.
-It works by recursively dividing data into smaller partitions, until there is enough memory to a partition in memory.
+It works by recursively dividing data into smaller partitions, until there is enough memory to fit a partition in memory.
 Data is grouped into partitions by the first $4$ unique bits of the numbers to be sorted, which means data is divided into 16 buckets.
 While impractical, the simplified idea is presented below.
 
@@ -619,11 +620,11 @@ SortOnDisk(data, bits_begin):
 While partitioning data, everything must fit into memory, so we continuously extract from all 16 buckets into memory, and write back from memory into the target buckets.
 
 Let $bucket\_sizes[i]$ the number of entries from partition (bucket) $i$, $written\_per\_bucket[i]$ the number of entries written back to partition $i$, that belong there and $consumed\_per\_bucket[i]$ the number of entries read from bucket $i$ from Disk.
-We also define $disk\_begin$ as the disk position of the first entry and $entry\_len$ the total size of an entry.
+We also define $disk\_begin$ as the disk position of the first entry and $entry\_len$ as the total size of an entry.
 We assume $bstore$ is an efficient way to store and retrieve entries in memory, grouping entries by their first 4 unique bits (their bucket).
 
 The algorithm works by constantly filling memory by reading a few entries from each bucket, then extracting from memory and writing into the correct disk location.
-At any step, number of entries written back to bucket $i$ must be smaller or equal to the number of entries read from bucket $i$ (this way no entry is overwritten).
+At any step, the number of entries written back to bucket $i$ must be smaller or equal to the number of entries read from bucket $i$ (this way no entry is overwritten).
 We also write the heaviest buckets first, in order to quickly clear the memory.
 When refilling the memory, we read from buckets in increasing order of $consumed\_per\_bucket[i] - written\_per\_bucket[i]$, as the smaller the difference is, the less we can extract from memory from bucket $i$ on the next step (and this optimizes the worst case).
 Finally, we know the beginning of each bucket in the sorted ordering on Disk: for bucket $i$, it's $disk\_begin + \sum_{j=0}^{i-1} {bucket\_sizes[j]} * entry\_len$, so this will help to know the exact position in which to write entries from bucket $i$ on Disk.
@@ -669,7 +670,7 @@ The custom SortInMemory algorithm is similar to the SortOnDisk, as each entry is
 The main difference is we are using twice as many buckets as the number of entries, guaranteeing that the buckets will have a sparse number of entries, and collisions will slow down the algorithm.
 Since we know that the data is evenly distributed, we know approximately where each entry should go, and therefore can sort in $O(n)$ time.
 
-Let $b$ be the smallest number such as $2^b >= 2*num\_entries$. The bucket of an entry is given by the bits from $bits\_begin$ to $bits\_begin+b$. We use the memory to store the entries into buckets: we initially try to place the entry on its bucket position. If the position is free, we simpy place the entry there. Otherwise, we place there the minimum between the current entry and the existing entry and try to place the other entry one position higher. We keep doing this until we find an empty position.
+Let $b$ be the smallest number such as $2^b >= 2*num\_entries$. The bucket of an entry is given by the bits from $bits\_begin$ to $bits\_begin+b$. We use the memory to store the entries into buckets: we initially try to place the entry on its bucket position. If the position is free, we simply place the entry there. Otherwise, we place the minimum between the current entry and the existing entry and try to place the other entry one position higher. We keep doing this until we find an empty position.
 
 ```python
 SortInMemory():
@@ -758,8 +759,8 @@ ${\Large\pi}_1 \dots {\Large\pi}_n$, in time independent of the space parameter 
 4. Seek to $table_{c_1}$, based on the index from the previous step, and read $param\_c2$ entries.
 5. Find the index of the final $c_1$ entry where $target < c_1$
 6. Read a park from $c_3$ based on the index from the previous step
-7. Find all indeces where $f_7 = target$
-8. If there are no such indeces, return []
+7. Find all indices where $f_7 = target$
+8. If there are no such indices, return []
 9. For each proof, recursively follow all table pointers from $table_7$ to $table_1$ and return 64 $x$ values.
 10. For each proof, reorder the proof from plot ordering to proof ordering
 
@@ -776,7 +777,7 @@ The proof retrieval algorithm takes in a plot file $F$, a challenge $Chall$, and
 
 #### Proving Performance
 
-The prover needs to be able to create proofs immediately, for blockchain consensus applications.
+The prover needs to be able to create proofs immediately for blockchain consensus applications.
 For challenges that don't have any proofs of space, steps 2-7 in [Proof Retrieval](#proof-retrieval) require only two disk lookups.
 
 When proofs exist, only 6 additional disk lookups are required to find the quality, per proof.
@@ -791,7 +792,7 @@ On a successful proof, the verifier can also compute the quality string by conve
 
 ### Blockchain consensus summary
 
-The motivation for Chia's proof of space construction, is for use as an alternative resource to Proof of Work, in a Namakoto-consensus style blockchain. Space miners (also referred to as farmers) allocate space on their hard drives, respond to challenges, and occasionally win rewards.
+The motivation for Chia's proof of space construction is for use as an alternative resource to Proof of Work in a Namakoto-consensus style blockchain. Space miners (referred to as farmers) allocate space on their hard drives, respond to challenges, and occasionally win rewards.
 Challenges are random 256 values that result from each block.
 In Chia's blockchain, this challenge is the unpredictable output of a Verifiable Delay Function that is required for each block.
 
@@ -801,21 +802,21 @@ This should be true even if the attacker has a significant amount of processing 
 
 Furthermore, the initialization phase (plotting), should be as efficient as possible, but farmers should not be able to perform this phase within the average block interval.
 
-Finally, prover efficiency, verifier efficiency, proof size, noninteractivity of the initialization phase, and simplicity of honest operation, are all concerns that must be taken into account, and these are some reasons for a lot of the details of the construction, explained in depth below. We will build up from the simple ideas, up to the full definition of proof of space from section 1.
+Finally, prover efficiency, verifier efficiency, proof size, non-interactivity of the initialization phase, and simplicity of honest operation, are all concerns that must be taken into account, and these are some reasons for a lot of the details of the construction, explained in depth below. We will build up from the simple ideas, up to the full definition of proof of space from section 1.
 
 ### AACKPR17
 
-This construction by [Abusalah, Alwen, Cohen, Khilko, Pietrzak and Reyzin[1]](https://eprint.iacr.org/2017/893.pdf) aims to create a simple and efficient proof of space scheme, compared to exists pebbling based PoSpace schemes.
+This construction by [Abusalah, Alwen, Cohen, Khilko, Pietrzak and Reyzin[1]](https://eprint.iacr.org/2017/893.pdf) aims to create a simple and efficient proof of space scheme, compared to existing pebbling based PoSpace schemes.
 
-One of the simplest ways to think about contructing a proof of space, is for the verifier to specify a random function $f : [N] \to [N]$, where $N = 2^k$, which the prover must quickly be able to invert.
+One of the simplest ways to think about constructing a proof of space is for the verifier to specify a random function $f : [N] \to [N]$, where $N = 2^k$, which the prover must quickly be able to invert.
 The idea is that the prover can precompute this function table, sort it by output values, and be able to quickly invert any challenge given by the verifier.
 For example, we can set $f(x) = H(n || x)$, where $n$ is a random nonce chosen at initialization time, and $H$ is a cryptographic hash function.
 
 <img src="images/proofofspace.png" alt="drawing" width="200"/>
 
-The problem  with the above construction is that the verifier can perform a Hellman Attack (time space tradeoff), where only $N^{1/2}$ checkpoint values are stored, and $N^{1/2}$ computation is performed, from the checkpoint, to the target value.
+The problem with the above construction is that the verifier can perform a Hellman Attack (time space tradeoff), where only $N^{1/2}$ checkpoint values are stored, and $N^{1/2}$ computation is performed from the checkpoint to the target value.
 
-The new idea in the paper, is to construct a function $[N] \to [N]$ that can resist such attacks, by making the function hard to compute in the forward direction for a chosen input.
+The new idea in the paper is to construct a function $[N] \to [N]$ that can resist such attacks, by making the function hard to compute in the forward direction for a chosen input.
 
 The function that has to be inverted is $f(x_1) = f_2(x_1, x_2)$, where $f_2(x_1, x_2) = H(x_1 || x_2)$, but with the requirement that $f_1(x_1) = f_1(x_2) + 1$, where $f_1(x)$ can be another hash function.
 Given a challenge $Chall$, the prover must find $x_1$ and $x_2$.
@@ -850,7 +851,7 @@ The number of disk seeks also grows exponentially, making the proving slower, an
 
 ### Collation of Inputs
 
-Since increasing the number of $f$ functions makes the input sizes grow exponentially, this has a signifant performance effect even at $m=7$. Specifically, it makes the temporary storage required to compute these tables much larger than the final size of the plot file. Furthermore, it makes the plotting process require more CPU and more time.
+Since increasing the number of $f$ functions makes the input sizes grow exponentially, this has a significant performance effect even at $m=7$. Specifically, it makes the temporary storage required to compute these tables much larger than the final size of the plot file. Furthermore, it makes the plotting process require more CPU and more time.
 
 This can be improved by collating the left and right values, using some other function than just concatenation, as in [collation](#Collation-function-mathcalC). By limiting the output of the collation function to 4 values (and the domain of the $\mathcal{A}$ functions at 8), an attacker trying to perform a Hellman attack on table 7, for example, will need to either store extra bits or perform many disk lookups.
 
@@ -859,10 +860,10 @@ The collation function output size can be reduced to $3k$ and $2k$ in the last t
 
 Why the numbers $3k$ and $2k$?
 Let's say we truncated the sizes to $k$ instead of $3k$ for $C_6$.
-This would enable us to evaluate $f_6$ for any input, by storing all the inputs, with storage of $2k$ per entry (which can be further compressed).
+This would enable us to evaluate $f_6$ for any input by storing all the inputs with storage of $2k$ per entry (which can be further compressed).
 This is sufficient to initiate a Hellman attack, which makes inversion of $f_6$ cheap.
 By increasing this number to $3k$, the storage required to Hellman attack $f_6$ by storing the inputs is $6k$, much larger than the honest protocol's $k$ bits for $Table_6$ and $k$ bits for $Table_7$.
-$2k$ and $3k$ are chose are convervative numbers, ensuring that performing time space tradeoffs is much more expensive than honest storage, for later tables.
+$2k$ and $3k$ as chosen are conservative numbers, ensuring that performing time space tradeoffs is much more expensive than honest storage for later tables.
 
 
 ### Inlining Islands
@@ -872,12 +873,12 @@ An island is a set of entries in a table, $S_I$ such that $M(E_1, E_2) \wedge E_
 
 Consider a plot stored in [pos, offset format](#Phase-3-Compression).  Let's assume there is an island $S_I = \{E_{t,1}, \dots, E_{t,i}\}$ in $Table_t$.
 This island matches to a set of entries in $Table_{t+1}$, let's call it $Z_I=\{E_{t+1,1}, \dots, E_{t+1,j}\}$.
-To compress this, we remove $S_I$ completely from $Table_t$, and place it in $Table_{t+1}$, in place of one element, $E_{t+1;1}$ of $Z_I$.
+To compress this we remove $S_I$ completely from $Table_t$ and place it in $Table_{t+1}$ in place of one element, $E_{t+1;1}$ of $Z_I$.
 Then, for all other elements of $Z_I$, we simply point to the new pos and offset in the same $Table_{t+1}$, instead of pointing to the previous table.
 
 This saves around $k$ bits for every island, since $E_{t+1;1}$ is no longer stored.
-The drawback of this optimization is that it makes the plotting algorithm and data format more complicated, it's not straightforward to implement, and requires more passes over the plot.
-The matching function should try to maximize the size of islands, making this optimiztion as insignificant possible.
+The drawback of this optimization is that it makes the plotting algorithm and data format more complicated as it's not straightforward to implement, and requires more passes over the plot.
+The matching function should try to maximize the size of islands, making this optimization as insignificant possible.
 
 The number of islands in a random graph of $N$ nodes and $N$ edges is
 $$N*\sum_{k=2}^{\infty} \frac{k^{k-2}*2^{k-1}}{k!*e^{2k}} \approx 0.026N$$
@@ -888,13 +889,13 @@ Experimentally, this increases the number of islands to $0.06N$ or $0.07N$, and 
 
 ### Matching Function Requirements
 
-Let's consider an *underlying graph* of a table: the digraph where each node is an entry, and an edge exists if that pair of entries is a match.
+Let's consider an *underlying graph* of a table: the digraph where each node is an entry and an edge exists if that pair of entries is a match.
 
 There are two main motivations for the matching function:
 
 - Efficiency: All matches can be found efficiently.  Generally this means that:
     - the set of matches to search is quasilinear to the number of entries, and
-    - the matches can be made to be local to some region of the disk, so as to minimize disk seeks.
+    - the matches can be made to be local to some region of the disk so as to minimize disk seeks.
 - No small-length cycles: In the underlying graph (considering each edge as undirected), 4-length cycles don't exist, as small length cycles can be compressed later (see: [Cycles attack](#Cycles-attack))
 
 The first requirement can be fulfilled by only matching things close together under some ordering of entries.
@@ -935,9 +936,9 @@ The minimum plot size is important to prevent grinding attacks.
 If $k$ is small, an attacker could regenerate an entire plot in a short period of time.
 For a proof of space to be valid, the proof must be generated almost immediately, and a plot size which allows generating a plot during proving, should not be possible.
 There are practical considerations for choosing the minimum size as well.
-If there is a plot size were its possible to use a very expensive setup (a lot of memory, CPU, etc) to quickly generate a plot, this can still work as a valid proof of space, since the cost of this attack makes it impractical.
+If the plot size is too small it could be possible to use a very expensive computer (a lot of memory, CPU, etc) to quickly generate multiple plots for each challenge -  this could work as proof of space, but the cost of this attack makes it impractical.
 
-The maximum plot size is chosen at 50, a conservative maximum even accounting for future hard drive improvements, still allowing everything to be represented in 64 bits.
+The maximum plot size is chosen at 50, a conservative maximum even accounting for future storage improvements, while allowing everything to be represented in 64 bits.
 
 ### Expected number of proofs
 
@@ -953,7 +954,7 @@ x_1 \neq x_2, x_3 \neq x_4, x_5 \neq x_6, \dots, x_{63} \neq x_{64}\\
 \end{cases}
 $$
 
-Given a weakly distinct tuple $(x_1, \dots, x_{64})$ chosen uniformly at random, and modeling all functions $f_i$ as random, that tuple is a valid proof for a challenge with probability $p = 2^{-64k}$, since all matching conditions $\mathbf{M_i}$ are independent.  Also, note that the number of weakly distinct tuples is approximately $W = 2^{64k}$, as $2^k \gg 64$.
+Given a weakly distinct tuple $(x_1, \dots, x_{64})$ chosen uniformly at random and modeling all functions $f_i$ as random, that tuple is a valid proof for a challenge with probability $p = 2^{-64k}$, since all matching conditions $\mathbf{M_i}$ are independent.  Also, note that the number of weakly distinct tuples is approximately $W = 2^{64k}$, as $2^k \gg 64$.
 
 Furthermore, a tuple that is not weakly distinct cannot be a valid proof, since matches never occur for the same left and right halves (ie. $\mathbf{M}(x, x)$ is always $\text{False}$.)
 
@@ -967,19 +968,19 @@ The output of a stream cipher (ChaCha8) or a cryptographic hash function (BLAKE3
 
 ### Quality String
 
-The quality string $(x_{2a+1} \mathbin{\|} x_{2a+2})$, along with the challenge, can be hashed to create a unique random number, or "lottery ticket", to be used for blockchain consensus.
+The quality string $(x_{2a+1} \mathbin{\|} x_{2a+2})$ along with the challenge can be hashed to create a unique random number, or "lottery ticket", to be used for blockchain consensus.
 
 The reason why only two out of the 64 proof values are used, is that reading two $x$ values requires $6$ lookups on disk, as opposed to $64$ lookups: only one branch is followed through the tree, as opposed to every branch.
 A farmer running proof of space in a blockchain, may check their plot every time they see a new block or a new challenge.
 However, most of the time, they will not win the block, and their proof of space quality will not be good enough.
 Therefore, we can avoid the 64 disk lookups that are required for fetching the whole proof.
-Two adjacent $x$ values can be used, since they are stored together on disk, and therefore additional disk seeks are not needed compared to only reading one.
+Two adjacent $x$ values can be used since they are stored together on disk and therefore additional disk seeks are not needed compared to only reading one.
 
 It is important that the choice of which $x$ values must be fetched depends on the challenge.
 If the first two x values were always used, an attacker could compute a farmer's plot, and save $x_1, x_2$ for all the proofs in the plot, and be able to compute qualities with significantly less storage than the full plot.
-This would allow the attacker, for example, to withold blocks that benefit others.
+This would allow the attacker, for example, to withhold blocks that benefit others.
 
-Furthermore, since the farmer does not know the challenge in advance, the qualities cannot be precomputed.
+Furthermore, since the farmer does not know the challenge in advance the qualities cannot be precomputed.
 
 During the plotting process, entry data is [compressed](#compressing-entry-data) by reordering tuples, which means the ordering of the proof $x$ values is lost. The quality that the prover computes (by traversing back through the tables) is based on this modified ordering.
 Therefore, the verifier must perform this [calculation](#Proof-Quality-String) to retrieve the efficient ordering used by the prover.
@@ -998,15 +999,15 @@ This is particularly important in the Forward Propagation phase, where pairs of 
 One of the matching requirements is that the $bucket\_id$ of $E_2$ is one greater than that of $E_2$.
 Therefore, in the Forward Propagation phase we sort by $bucket\_id$/$f$ output.
 
-In the Compression Phase, positions to previous table entries are based on $f$ output sorting, but to save space, they are converted to positions to tables based on [$line\_point$](#Compressing-Entry-Data) sorting.
-Doing this mapping cannot be done with a lookup table, so we first sort by the new sort criteria, write the index of each new entry, and then sort by the old criteria again, so we can iterate through the next table.
+In the Compression Phase, positions to previous table entries are based on $f$ output sorting but, to save space, they are converted to positions to tables based on [$line\_point$](#Compressing-Entry-Data) sorting.
+Doing this mapping cannot be done with a lookup table, so we first sort by the new sort criteria, write the index of each new entry, and then sort by the old criteria again so we can iterate through the next table.
 A small window is used, which requires very little memory.
 
 ## Potential Optimizations
 
 ### Variable Sized Parks
 
-The current implementation puts sections of empty space between [parks](#Parks), which is wasteful and can be used.  In the following discussion, a "house" prepends each park and contains additional metadata for that park, and recall that houses in the original scheme contained the value of the first entry $e_0$ as in the fixed width park scheme.
+The current implementation puts sections of empty space between [parks](#Parks), which is wasteful and can be optimized.  In the following discussion, a "house" prepends each park and contains additional metadata for that park, and recall that houses in the original scheme contained the value of the first entry $e_0$ as in the fixed width park scheme.
 
 In an alternate scheme that has "park alignment", we'll have houses also containing a fixed number of bits to store "park alignment", and parks are written sequentially, "skipping" over the allocated space of any house.  This saves space as it mitigates the $N * 8 \sigma$ loss and replaces it with an $(\frac{N}{EPP}) * \lceil(log_2(\text{MAX\_PARK\_ALIGNMENT}))\rceil$ cost, which is substantially cheaper.
 
@@ -1022,11 +1023,11 @@ In reality, the hint table will be very small, as the size differences need to h
 
 ### Cycles attack
 
-Considering the *underlying graph* of a table (see [Matching Function Requirements](#Matching-Function-Requirements)), it's possible to write say, 3 of the associated entries corresponding to edges of a 4-cycle to disk, plus specify how to walk the edges of this cycle (possibly some edges walked in reverse) to find the last edge (entry).
+Considering the *underlying graph* of a table (see [Matching Function Requirements](#Matching-Function-Requirements)), it's possible to write, say, 3 of the associated entries corresponding to edges of a 4-cycle to disk plus specify how to walk the edges of this cycle (possibly some edges walked in reverse) to find the last edge (entry).
 
 Because there are no 4-cycles (or 5-cycles, because each edge changes the parity of the first coordinate), the minimum length cycle is a 6-cycle.
 
-For every cycle on an island in the graph of a table it's possible to save one of the edges by specifying how to walk the edges to find the the pair instead of giving the counterpart directly.
+For every cycle on an island in the graph of a table it is possible to save one of the edges by specifying how to walk the edges to find the the pair instead of giving the counterpart directly.
 There are two types of cycles which occur: 4-cycles which happen when there's a bucket which has two things in it and has at least two things it connects to, and 6-cycles, which can happen with two buckets with two things in them being connected but are more common as happenstance through the graph as a whole.
 The cycles which depend on multiple things in the same bucket can be made much less common by increasing the degree of the graph (and correspondingly the B-group size) at the direct linear expense of CPU time.
 The length of other types of cycles can be increased by increasing the C-group size, at the expense of requiring correspondingly more cache space when plotting.
@@ -1048,22 +1049,22 @@ To invert, we store checkpoint chains as in [Rainbow Tables[2]](https://lasec.ep
 There can also be collisions and false positives, i.e we invert $f_1$ but get the wrong input.
 This can be fixed by also checking that all retrieved $x$ values also match with respect to $f_2$.
 
-If $Table_1$ is fully removed, $13\%$ of space from the final plot file is saved, which makes this potentially the most significant optimization.
+If $Table_1$ is fully removed, $13\%$ of space from the final plot file is saved which makes this potentially the most significant optimization.
 
 A caveat of this optimization, is that it potentially requires a large amount of memory to set up the rainbow tables.
 This is due to the fact that the algorithm needs the check whether each $x$ value that is being looked at, is already included or not included in the saved chains.
 Furthermore, if not all $x$ values are covered, plot success rate will decrease.
-In order to cover all $x$ values, a significant amount of memory is required for proving, to store all of these remaining x values.
+In order to cover all $x$ values a significant amount of memory is required for proving to store all of these remaining x values.
 
-Potentially, some tradeoffs can be performed to make the attack require less CPU and less memory, which slightly decrease the efficiency of the plot.
+Potentially some tradeoffs can be performed to make the attack require less CPU and less memory, which slightly decrease the efficiency of the plot.
 
 ### Dropping bits in x values / line points
 
-A fraction of the stored line points in $Table_1$ could have $z$ bits dropped and on recovery all possible values of the dropped bits could be brute forced.
+A fraction of the stored line points in $Table_1$ could have $z$ bits dropped and, on recovery, all possible values of the dropped bits could be brute forced.
 Instead of storing deltas for $2k$ bit line points $L$, we store deltas for $\underset{k-z}{\text{trunc}}(L)$.
 This saves around $\frac{z}{2}$ bits from each entry, and requires $2^z$ more computation.
 To recover the line point, we find the truncated line point, and then try each possibility for the dropped bits, until we find a resulting $(x_1, x_2)$ pair such that $M(x_1, x_2)$ is true.
-Note that false positives are possible, but they are rare, and can be checked by evaluting $f_2$.
+Note that false positives are possible, but they are rare, and can be checked by evaluating $f_2$.
 
 This optimization, like Hellman Attacks, relies on using CPU to minimize $Table_1$.
 Furthermore, it does not seem practical for anything past $Table_1$, and perhaps a few bits from $Table_2$.
@@ -1089,7 +1090,7 @@ Our method does not take into account that every $\text{pos\_R}$ value is used a
 
 To give a good approximation of the theoretical loss from not considering this information, consider a table of $N$ entries, where each entry is independently chosen as pointing to two different positions from $[N]$.  The information content of the table is $N \log \binom{N}{2}$.
 
-Let $e_i$ be the set of tables such that no entry points to $i$.  Clearly, $|e_i| = \binom{N-1}{2}^N$, $|e_i \cap e_j| = \binom{N-2}{2}^N$, $|e_i \cap e_j \cap e_k| = \binom{N-3}{2}^N$, and so on.  Thus, by the principle of inclusion-exclusion,
+Let $e_i$ be the set of tables such that no entry points to $i$.  Clearly, $|e_i| = \binom{N-1}{2}^N$, $|e_i \cap e_j| = \binom{N-2}{2}^N$, $|e_i \cap e_j \cap e_k| = \binom{N-3}{2}^N$, and so on.  Thus, by the principle of inclusion-exclusion:
 
 $$
 \begin{aligned}
@@ -1112,7 +1113,7 @@ Most entries stored in the plot cannot be removed without without reducing the p
 ### Replotting Attack
 
 Some plots will by random noise have greater per-byte effectiveness. The amount of this is proportional to the square root of the size of the plot with a small constant factor so the potential gains aren't high.
-Furtermore, this requires evaluating the entire forward propagatio phase.
+Furthermore, this requires evaluating the entire forward propagation phase.
 If a farmer has multiple plots, and wants to delete one of them, the least effective one can be reclaimed first.
 
 ### Reduce Checkpoint table size
@@ -1126,7 +1127,7 @@ Plotting on an SSD or a ramdisk will provide massive performance improvements, e
 
 ### Multithreading
 
-Multithreading can provide significant performance improvements. The CPU usage of most phases is completely paralellizable, and disk I/O blocking can be minimized.
+Multithreading can provide significant performance improvements. The CPU usage of most phases is completely parallelizable, and disk I/O blocking can be minimized.
 
 
 ## References
@@ -1137,8 +1138,8 @@ with Applications to Proofs of Space (2017) https://eprint.iacr.org/2017/893.pdf
 [2] Philippe Oechslin: Making a Faster Cryptanalytic Time-Memory
 Trade-Off (2003) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
 
-[3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019)
+[3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019) https://www.chia.net/assets/ChiaGreenPaper.pdf
 
-[4] Mart Simisker: Assymetrical Number Systems (2017) https://courses.cs.ut.ee/MTAT.07.022/2017_fall/uploads/Main/mart-report-f17.pdf
+[4] Mart Simisker: Asymmetrical Number Systems (2017) https://courses.cs.ut.ee/MTAT.07.022/2017_fall/uploads/Main/mart-report-f17.pdf
 
 [5] Daniel J. Bernstein: The ChaCha family of stream ciphers (2008) https://cr.yp.to/chacha.html
