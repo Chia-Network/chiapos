@@ -167,7 +167,7 @@ class DiskProver {
 
         // The last 5 bits of the challenge determine which route we take to get to
         // our two x values in the leaves.
-        LargeBits last_5_bits = LargeBits(challenge, 256/8, 256).Slice(256 - 5);
+        uint8_t last_5_bits = challenge[31] & 0x1f;
 
         for (uint32_t i = 0; i < p7_entries.size(); i++) {
             uint64_t position = p7_entries[i];
@@ -179,7 +179,7 @@ class DiskProver {
                 auto xy = Encoding::LinePointToSquare(line_point);
                 assert(xy.first >= xy.second);
 
-                if (last_5_bits.Slice(7 - table_index - 1, 7 - table_index).GetValue() == 0) {
+                if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
                     position = xy.second;
                 } else {
                     position = xy.first;
