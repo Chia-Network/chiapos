@@ -296,11 +296,10 @@ class DiskProver {
         {
              // Compressed
              disk_file.read(reinterpret_cast<char*>(deltas_bin), encoded_deltas_size);
-             ParkBits deltas_park = ParkBits(deltas_bin, encoded_deltas_size, encoded_deltas_size*8);
 
              // Decodes the deltas
              double R = kRValues[table_index - 1];
-             deltas = Encoding::ANSDecodeDeltas(deltas_park, kEntriesPerPark - 1, R);
+             deltas = Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
         deltas.insert(deltas.begin(), 1, 0);
@@ -326,7 +325,7 @@ class DiskProver {
     // A C3 park is a list of deltas between p7 entries, ANS encoded.
     std::vector<uint64_t> GetP7Positions(uint64_t curr_f7, uint64_t f7, uint64_t curr_p7_pos, uint8_t* bit_mask,
                                          uint16_t encoded_size, uint64_t c1_index) {
-        std::vector<uint8_t> deltas = Encoding::ANSDecodeDeltas(LargeBits(bit_mask, encoded_size, encoded_size*8),
+        std::vector<uint8_t> deltas = Encoding::ANSDecodeDeltas(bit_mask, encoded_size,
                                                                 kCheckpoint1Interval, kC3R);
         std::vector<uint64_t> p7_positions;
         for (uint8_t delta : deltas) {

@@ -140,8 +140,7 @@ class Encoding {
         return res;
     }
 
-    template <typename X>
-    static std::vector<uint8_t> ANSDecodeDeltas(X bits, int numDeltas, double R) {
+    static std::vector<uint8_t> ANSDecodeDeltas(const uint8_t *inp, size_t inp_size, int numDeltas, double R) {
         if (DT_MEMO.find(R) == DT_MEMO.end()) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size()-1;
@@ -152,24 +151,13 @@ class Encoding {
             DT_MEMO[R] = dt;
         }
 
-        void* inp = malloc(numDeltas * 8);
-        memset(inp, 0x00, numDeltas * 8);
-        int inpsize = Util::ByteAlign(bits.GetSize()) / 8;
-        void* out = malloc(numDeltas);
-        memset(out, 0x00, numDeltas);
-        bits.ToBytes(reinterpret_cast<uint8_t*>(inp));
-
         std::vector<uint8_t> deltas(numDeltas);
-        size_t err = FSE_decompress_usingDTable(out, numDeltas, inp, inpsize, DT_MEMO[R]);
+        size_t err = FSE_decompress_usingDTable(&deltas[0], numDeltas, inp, inp_size, DT_MEMO[R]);
 
         if(FSE_isError(err)) {
             throw FSE_getErrorName(err);
         }
 
-        deltas.assign((unsigned char *) out, ((unsigned char *) out) + numDeltas);
-
-        free(inp);
-        free(out);
         for (uint32_t i = 0; i < deltas.size(); i++) {
            if (deltas[i] == 0xff) {
               throw std::string("Bad delta detected");
