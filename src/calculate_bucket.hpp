@@ -52,15 +52,7 @@ const uint16_t kBC = kB * kC;
 // This (times k) is the length of the metadata that must be kept for each entry. For example,
 // for a tbale 4 entry, we must keep 4k additional bits for each entry, which is used to
 // compute f5.
-std::map<uint8_t, uint8_t> kVectorLens = {
-    {2, 1},
-    {3, 2},
-    {4, 4},
-    {5, 4},
-    {6, 3},
-    {7, 2},
-    {8, 0}
-};
+static const uint8_t kVectorLens[] = { 0, 0, 1, 2, 4, 4, 3, 2 };
 
 uint16_t L_targets[2][kBC][kExtraBitsPow];
 bool initialized = false;
