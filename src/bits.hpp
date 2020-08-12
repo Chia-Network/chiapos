@@ -222,15 +222,8 @@ template <class T> class BitsGeneric {
 
     // Concatenates two Bits objects together.
     BitsGeneric<T> operator+(const BitsGeneric<T>& b) const {
-        if (GetSize() + b.GetSize() > kMaxSizeBits) {
-            throw std::string("The number of bits exceeds the limit.");
-        }
-        BitsGeneric<T> result;
-        if (values_.size() > 0) {
-            for (typename T::size_type i = 0; i < values_.size() - 1; i++)
-                result.AppendValue(values_[i], 64);
-            result.AppendValue(values_[values_.size() - 1], last_size_);
-        }
+        BitsGeneric<T> result = *this;
+
         if (b.values_.size() > 0) {
             for (typename T::size_type i = 0; i < b.values_.size() - 1; i++)
                 result.AppendValue(b.values_[i], 64);
