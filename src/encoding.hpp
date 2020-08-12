@@ -116,13 +116,14 @@ class Encoding {
         return ans;
     }
 
-    static ParkBits ANSEncodeDeltas(std::vector<unsigned char> deltas, double R) {
+    static size_t ANSEncodeDeltas(std::vector<unsigned char> deltas, double R, uint8_t *out) {
         if (CT_MEMO.find(R) == CT_MEMO.end()) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
             unsigned tableLog = 14;
 
-            if (maxSymbolValue > 255) return ParkBits();
+            if (maxSymbolValue > 255)
+                return 0;
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
@@ -131,13 +132,9 @@ class Encoding {
             CT_MEMO[R] = ct;
         }
 
-        void *out = malloc(deltas.size() * 8);
-        uint64_t num_bytes = FSE_compress_usingCTable(out, deltas.size() * 8, static_cast<void*>(deltas.data()),
-                                                      deltas.size(), CT_MEMO[R]);
-
-        ParkBits res = ParkBits(reinterpret_cast<uint8_t*>(out), num_bytes, num_bytes * 8);
-        free(out);
-        return res;
+        return FSE_compress_usingCTable(out, deltas.size() * 8,
+                                        static_cast<void*>(deltas.data()),
+                                        deltas.size(), CT_MEMO[R]);
     }
 
     static std::vector<uint8_t> ANSDecodeDeltas(const uint8_t *inp, size_t inp_size, int numDeltas, double R) {

@@ -1023,7 +1023,6 @@ class DiskPlotter {
         uint8_t *index = parkToFileBytes;
 
         Bits first_line_point_bits(first_line_point, 2*k);
-        memset(parkToFileBytes, 0, CalculateLinePointSize(k));
         first_line_point_bits.ToBytes(index);
         index+=CalculateLinePointSize(k);
 
@@ -1033,44 +1032,33 @@ class DiskPlotter {
             park_stubs_bits.AppendValue(stub, (k - kStubMinusBits));
         }
         uint32_t stubs_size = CalculateStubsSize(k);
-        memset(index, 0, stubs_size);
+        uint32_t stubs_valid_size = CDIV(park_stubs_bits.GetSize(), 8);
         park_stubs_bits.ToBytes(index);
-        index+=stubs_size;
+        memset(index + stubs_valid_size, 0, stubs_size - stubs_valid_size);
+        index += stubs_size;
 
         // The stubs are random so they don't need encoding. But deltas are more likely to
         // be small, so we can compress them
         double R = kRValues[table_index - 1];
-        ParkBits deltas_bits = Encoding::ANSEncodeDeltas(park_deltas, R);
+        uint8_t *deltas_start = index + 2;
+        size_t deltas_size = Encoding::ANSEncodeDeltas(park_deltas, R, deltas_start);
 
-        if(deltas_bits.GetSize()==0)
-        {
-             // Uncompressed
-             uint16_t unencoded_size=0x8000|park_deltas.size();
-
-             index[0]=unencoded_size&0xff;
-             index[1]=unencoded_size>>8;
-             index+=2;
-
-             memcpy(index,park_deltas.data(),park_deltas.size());
-             index+=park_deltas.size();
+        if (!deltas_size) {
+            // Uncompressed
+            deltas_size = park_deltas.size();
+            Util::IntToTwoBytesLE(index, deltas_size | 0x8000);
+            memcpy(deltas_start, park_deltas.data(), deltas_size);
+        } else {
+            // Compressed
+            Util::IntToTwoBytesLE(index, deltas_size);
         }
-        else
-        {
-             // Compressed
-             uint16_t encoded_size = deltas_bits.GetSize() / 8;
 
-             index[0]=encoded_size&0xff;
-             index[1]=encoded_size>>8;
-             index+=2;
-
-             deltas_bits.ToBytes(index);
-             index+=encoded_size;
-        }
+        index += 2 + deltas_size;
 
         if((uint32_t)(index-parkToFileBytes) > parkToFileBytesSize)
             std::cout << "index-parkToFileBytes " << index-parkToFileBytes << " parkToFileBytesSize " << parkToFileBytesSize << std::endl;
 
-        final_disk.Write(writer, (uint8_t *)parkToFileBytes, index-parkToFileBytes);
+        final_disk.Write(writer, (uint8_t *)parkToFileBytes, index - parkToFileBytes);
     }
 
     // Compresses the plot file tables into the final file. In order to do this, entries must be
@@ -1539,15 +1527,13 @@ class DiskPlotter {
                 final_file_writer_1+= Util::ByteAlign(k) / 8;
                 if (num_C1_entries > 0) {
                     final_file_writer_2=begin_byte_C3 + (num_C1_entries - 1) * size_C3;
-                    ParkBits to_write = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R);
+                    size_t num_bytes = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R, C3_entry_buf + 2) + 2;
 
                     // We need to be careful because deltas are variable sized, and they need to fit
-                    uint64_t num_bytes = (Util::ByteAlign(to_write.GetSize()) / 8) + 2;
                     assert(size_C3 * 8 > num_bytes);
 
-                    // Write the size, and then the data
-                    Bits(to_write.GetSize() / 8, 16).ToBytes(C3_entry_buf);
-                    to_write.ToBytes(C3_entry_buf + 2);
+                    // Write the size
+                    Util::IntToTwoBytes(C3_entry_buf, num_bytes - 2);
 
                     tmp2_disk.Write(final_file_writer_2, (C3_entry_buf), num_bytes);
                     final_file_writer_2+=num_bytes;
@@ -1576,14 +1562,12 @@ class DiskPlotter {
         final_file_writer_3+=P7_park_size;
 
         if (deltas_to_write.size() != 0) {
-            ParkBits to_write = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R);
-            memset(C3_entry_buf, 0, size_C3);
+            size_t num_bytes = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R, C3_entry_buf + 2);
+            memset(C3_entry_buf + num_bytes + 2, 0, size_C3 - (num_bytes + 2));
             final_file_writer_2=begin_byte_C3 + (num_C1_entries - 1) * size_C3;
 
-            // Writes the size, and then the data
-            Bits(to_write.GetSize() / 8, 16).ToBytes(C3_entry_buf);
-            to_write.ToBytes(C3_entry_buf + 2);
-
+            // Write the size
+            Util::IntToTwoBytes(C3_entry_buf, num_bytes);
 
             tmp2_disk.Write(final_file_writer_2, (C3_entry_buf), size_C3);
             final_file_writer_2+=size_C3;
