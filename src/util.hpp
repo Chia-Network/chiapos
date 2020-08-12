@@ -121,6 +121,17 @@ class Util {
 #endif
     }
 
+    static void IntToTwoBytes(uint8_t* result, const uint16_t input) {
+        result[0] = input >> 8;
+        result[1] = input & 0xff;
+    }
+
+    // Used to encode deltas object size
+    static void IntToTwoBytesLE(uint8_t* result, const uint16_t input) {
+        result[0] = input & 0xff;
+        result[1] = input >> 8;
+    }
+
     static uint16_t TwoBytesToInt(const uint8_t *bytes) {
         return (bytes[0] << 8) | bytes[1];
     }
