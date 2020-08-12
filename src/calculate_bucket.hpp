@@ -264,12 +264,19 @@ class FxCalculator {
 
     // Performs one evaluation of the f function.
     inline std::pair<Bits, Bits> CalculateFC(const Bits& L, const Bits& R, const Bits& y1) const {
-        Bits input = y1 + L + R;
+        Bits input;
         uint8_t input_bytes[64];
         uint8_t hash_bytes[32];
         blake3_hasher hasher;
         uint64_t f;
         Bits c;
+
+        if (table_index_ < 4) {
+            c = L + R;
+            input = y1 + c;
+        } else {
+            input = y1 + L + R;
+        }
 
         input.ToBytes(input_bytes);
 
@@ -280,7 +287,7 @@ class FxCalculator {
         f = Util::EightBytesToInt(hash_bytes) >> (64 - (k_ + kExtraBits));
 
         if (table_index_ < 4) {
-            c = L + R;
+            // c is already computed
         } else if (table_index_ < 7) {
             uint8_t len = kVectorLens[table_index_ + 1];
             uint8_t start_byte = (k_ + kExtraBits) / 8;
