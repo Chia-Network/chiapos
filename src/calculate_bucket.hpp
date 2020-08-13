@@ -234,7 +234,6 @@ class FxCalculator {
     inline FxCalculator(uint8_t k, uint8_t table_index) {
         this->k_ = k;
         this->table_index_ = table_index;
-        this->length_ = kVectorLens[table_index] * k;
 
         this->rmap.resize(kBC);
         if(!initialized) {
@@ -295,25 +294,6 @@ class FxCalculator {
         return std::make_pair(Bits(f, k_ + kExtraBits), c);
     }
 
-    // Composes two metadatas L and R, into a metadata for the next table.
-    inline Bits Compose(const Bits& L, const Bits& R) const {
-        switch (table_index_) {
-            case 2:
-            case 3:
-                return L + R;
-            case 4:
-                return L ^ R.Rotl(16);
-            case 5:
-                assert(length_ % 4 == 0);
-                return L.Add(R.Rotl(8)).Trunc(3*k_);
-            case 6:
-                assert(length_ % 3 == 0);
-                return (L ^ R.Rotl(4)).Trunc(2*k_);
-            default:
-                return Bits();
-        }
-    }
-
     // Returns an evaluation of F_i(L), and the metadata (L) that must be stored to evaluate F_i+1.
     inline std::pair<Bits, Bits> CalculateBucket(const Bits& y1, const Bits& y2, const Bits& L, const Bits& R) {
         return CalculateFC(L, R, y1);
@@ -372,7 +352,6 @@ class FxCalculator {
  private:
     uint8_t k_;
     uint8_t table_index_;
-    uint8_t length_;
     std::vector<struct rmap_item> rmap;
     std::vector<uint16_t> rmap_clean;
 };
