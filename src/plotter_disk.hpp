@@ -564,7 +564,7 @@ class DiskPlotter {
                                 new_entry = new_entry.Slice(0, k);
                             }
                             // Position in the previous table
-                            new_entry += Bits(L_entry.pos, pos_size);
+                            new_entry.AppendValue(L_entry.pos, pos_size);
                             // Offset for matching entry
                             if (R_entry.pos - L_entry.pos > (1U << kOffsetSize) * 97 / 100) {
                                 std::cout << "Offset: " <<  R_entry.pos - L_entry.pos << std::endl;
@@ -572,8 +572,6 @@ class DiskPlotter {
                             new_entry.AppendValue(R_entry.pos - L_entry.pos, kOffsetSize);
                             // New metadata which will be used to compute the next f
                             new_entry += std::get<1>(f_output);
-                            // Fill with 0s if entry is not long enough
-                            new_entry.AppendValue(0, right_entry_size_bytes * 8 - new_entry.GetSize());
 
                             right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
                             right_writer_count++;
