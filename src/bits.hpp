@@ -476,42 +476,19 @@ template <class T> class BitsGeneric {
     }
 
     void ToBytes(uint8_t buffer[]) const {
+        int i;
+        uint8_t tmp[8];
+
         // Return if nothing to work on
-        if(values_.size()==0)
+        if (!values_.size())
             return;
 
-        // Append 0s to complete the last byte.
-        uint8_t shift = Util::ByteAlign(last_size_) - last_size_;
-        uint64_t val = values_[values_.size() - 1] << (shift);
-        uint32_t cnt = 0;
-        // Extract byte-by-byte from the last bucket.
-        uint8_t iterations = last_size_ / 8;
-        if (last_size_ % 8)
-            iterations++;
-        for (uint8_t i = 0; i < iterations; i++) {
-            buffer[cnt++] = (val & 0xff);
-            val >>= 8;
-        }
-        // Extract the full buckets, byte by byte.
-        if (values_.size() >= 2) {
-            for (int32_t i = values_.size() - 2; i >= 0; i--) {
-                uint64_t val = values_[i];
-                for (uint8_t j = 0; j < sizeof(uint64_t)/sizeof(uint8_t); j++) {
-                    buffer[cnt++] = (val & 0xff);
-                    val >>= 8;
-                }
-            }
+        for (i = 0; i < (int)values_.size() - 1; i++) {
+            Util::IntToEightBytes(buffer + i * 8, values_[i]);
         }
 
-        if(cnt<=1)return;  // No need to reverse anything
-
-        // Since we extracted from end to beginning, bytes are in reversed order. Reverse everything.
-        uint32_t left = 0, right = cnt - 1;
-        while (left < right) {
-            std::swap(buffer[left], buffer[right]);
-            left++;
-            right--;
-        }
+        Util::IntToEightBytes(tmp, values_[i] << (64 - last_size_));
+        memcpy(buffer + i * 8, tmp, CDIV(last_size_, 8));
     }
 
     std::string ToString() const {
