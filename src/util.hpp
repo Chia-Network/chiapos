@@ -169,6 +169,12 @@ class Util {
         return sum;
     }
 
+    static void IntToEightBytes(uint8_t* result, const uint64_t input) {
+        for (size_t i = 0; i < 8; i++) {
+            result[7 - i] = (input >> (i * 8));
+        }
+    }
+
     /*
      * Retrieves the size of an integer, in Bits.
      */
