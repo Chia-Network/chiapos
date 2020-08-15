@@ -269,7 +269,6 @@ class DiskProver {
         uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 1];
         disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
         std::vector<uint64_t> stubs;
-        stubs.push_back(0);
 
         for (uint32_t i = 0; i < kEntriesPerPark - 1; i++) {
             ParkBits stubs_section = ParkBits(stubs_bin + (i*(k-kStubMinusBits))/8,
@@ -306,11 +305,9 @@ class DiskProver {
              deltas = Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
-        deltas.insert(deltas.begin(), 1, 0);
-
         uint128_t sum_deltas = 0;
         uint128_t sum_stubs = 0;
-        for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark) + 1, (uint32_t)deltas.size()); i++) {
+        for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark), (uint32_t)deltas.size()); i++) {
             sum_deltas += deltas[i];
             sum_stubs += stubs[i];
         }
