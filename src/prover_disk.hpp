@@ -305,14 +305,14 @@ class DiskProver {
              deltas = Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
-        uint128_t sum_deltas = 0;
-        uint128_t sum_stubs = 0;
+        uint64_t sum_deltas = 0;
+        uint64_t sum_stubs = 0;
         for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark), (uint32_t)deltas.size()); i++) {
             sum_deltas += deltas[i];
             sum_stubs += stubs[i];
         }
 
-        uint128_t big_delta = ((uint128_t)1 << (k-kStubMinusBits)) * sum_deltas + sum_stubs;
+        uint128_t big_delta = ((uint128_t)sum_deltas << (k - kStubMinusBits)) + sum_stubs;
         uint128_t final_line_point = line_point + big_delta;
 
         delete[] line_point_bin;
