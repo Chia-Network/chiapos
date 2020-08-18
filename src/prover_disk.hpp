@@ -266,16 +266,19 @@ class DiskProver {
 
         // Reads EPP stubs
         uint32_t stubs_size_bits = DiskPlotter::CalculateStubsSize(k) * 8;
-        uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 1];
+        uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
         disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
         std::vector<uint64_t> stubs;
+        uint32_t start_bit = 0;
+        uint8_t stub_size = k - kStubMinusBits;
 
         for (uint32_t i = 0; i < kEntriesPerPark - 1; i++) {
-            ParkBits stubs_section = ParkBits(stubs_bin + (i*(k-kStubMinusBits))/8,
-                                              (Util::ByteAlign((k-kStubMinusBits))/8) + 1,
-                                              (Util::ByteAlign((k-kStubMinusBits))/8 + 1)*8);
-            uint8_t start_bit = (i*(k-kStubMinusBits)) % 8;
-            stubs.push_back(stubs_section.Slice(start_bit, start_bit + (k-kStubMinusBits)).GetValue());
+            uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
+            stub <<= start_bit % 8;
+            stub >>= 64 - stub_size;
+            stubs.push_back(stub);
+
+            start_bit += stub_size;
         }
 
         // Reads EPP deltas
@@ -312,7 +315,7 @@ class DiskProver {
             sum_stubs += stubs[i];
         }
 
-        uint128_t big_delta = ((uint128_t)sum_deltas << (k - kStubMinusBits)) + sum_stubs;
+        uint128_t big_delta = ((uint128_t)sum_deltas << stub_size) + sum_stubs;
         uint128_t final_line_point = line_point + big_delta;
 
         delete[] line_point_bin;
