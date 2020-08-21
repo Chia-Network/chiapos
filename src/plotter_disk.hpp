@@ -44,7 +44,7 @@ namespace fs = ghc::filesystem;
 // Other constants can be found in pos_constants.hpp
 
 // Distance between matching entries is stored in the offset
-const uint32_t kOffsetSize = 9;
+const uint32_t kOffsetSize = 10;
 
 // Number of buckets to use for SortOnDisk.
 const uint32_t kNumSortBuckets = 16;
@@ -173,6 +173,8 @@ class DiskPlotter {
 
             std::cout << "Approximate working space used (without final file): " <<
                      static_cast<double>(res.plot_table_begin_pointers[9])/(1024*1024*1024) << " GiB" << std::endl;
+            std::cout << "Actual working space used (without final file): " <<
+                     static_cast<double>(tmp1_disk.GetWriteMax())/(1024*1024*1024) << " GiB" << std::endl;
             std::cout << "Final File size: " <<
                      static_cast<double>(res.final_table_begin_pointers[11])/(1024*1024*1024) << " GiB" << std::endl;
             all_phases.PrintElapsed("Total time =");
@@ -210,6 +212,9 @@ class DiskPlotter {
                     else {
                         std::cout << "Copied final file from " << tmp_2_filename << " to " << final_2_filename << std::endl;
                         bCopied=true;
+
+                        bool removed_2 = fs::remove(tmp_2_filename);
+                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2 << std::endl;
                     }
                 }
                 if(bCopied && (!bRenamed)) {
@@ -232,9 +237,6 @@ class DiskPlotter {
 #endif
             }
         } while (!bRenamed);
-
-        bool removed_2 = fs::remove(tmp_2_filename);
-        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2 << std::endl;
     }
 
     static uint32_t GetMaxEntrySize(uint8_t k, uint8_t table_index, bool phase_1_size) {

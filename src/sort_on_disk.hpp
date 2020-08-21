@@ -111,7 +111,7 @@ class FileDisk : public Disk {
             amtread = fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
             readPos=begin + amtread;
             if(amtread != length) {
-                std::cout << "Only read " << amtread << " of " << length << " bytes from " << filename_ << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                std::cout << "Only read " << amtread << " of " << length << " bytes at offset " << begin << " from " << filename_ << "with length " << writeMax << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
 #ifdef WIN32
                 Sleep(5 * 60000);
 #else
@@ -135,8 +135,10 @@ class FileDisk : public Disk {
             }
             amtwritten = fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
             writePos=begin+amtwritten;
+	    if(writePos > writeMax)
+                writeMax = writePos;
             if(amtwritten != length) {
-                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes to " << filename_ << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset " << begin << " to " << filename_ << "with length " << writeMax << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
 #ifdef WIN32
                 Sleep(5 * 60000);
 #else
@@ -150,9 +152,15 @@ class FileDisk : public Disk {
         return filename_;
     }
 
+    inline uint64_t GetWriteMax() const noexcept {
+        return writeMax;
+    }
+
+
  private:
     uint64_t readPos=0;
     uint64_t writePos=0;
+    uint64_t writeMax=0;
     bool bReading=true;
 
     std::string filename_;
