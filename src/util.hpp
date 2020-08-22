@@ -48,6 +48,24 @@ std::ostream &operator<<(std::ostream & strm, uint128_t const & v) {
 }
 #endif
 
+/* Platform-specific byte swap macros. */
+#if defined(_WIN32)
+#include <cstdlib>
+
+#define bswap_16(x) _byteswap_ushort(x)
+#define bswap_32(x) _byteswap_ulong(x)
+#define bswap_64(x) _byteswap_uint64(x)
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+
+#define bswap_16(x) OSSwapInt16(x)
+#define bswap_32(x) OSSwapInt32(x)
+#define bswap_64(x) OSSwapInt64(x)
+#else
+#include <byteswap.h>
+#endif
+
+
 class Timer {
  public:
     Timer() :
@@ -122,8 +140,8 @@ class Util {
     }
 
     static void IntToTwoBytes(uint8_t* result, const uint16_t input) {
-        result[0] = input >> 8;
-        result[1] = input & 0xff;
+        uint16_t r = bswap_16(input);
+        memcpy(result, &r, sizeof(r));
     }
 
     // Used to encode deltas object size
@@ -133,46 +151,43 @@ class Util {
     }
 
     static uint16_t TwoBytesToInt(const uint8_t *bytes) {
-        return (bytes[0] << 8) | bytes[1];
+        uint16_t i;
+        memcpy(&i, bytes, sizeof(i));
+        return bswap_16(i);
     }
 
     /*
      * Converts a 32 bit int to bytes.
      */
     static void IntToFourBytes(uint8_t* result, const uint32_t input) {
-        for (size_t i = 0; i < 4; i++) {
-            result[3 - i] = (input >> (i * 8));
-        }
+        uint32_t r = bswap_32(input);
+        memcpy(result, &r, sizeof(r));
     }
 
     /*
      * Converts a byte array to a 32 bit int.
      */
     static uint32_t FourBytesToInt(const uint8_t* bytes) {
-        uint32_t sum = 0;
-        for (size_t i = 0; i < 4; i++) {
-            uint32_t addend = (uint64_t) bytes[i] << (8 * (3 - i));
-            sum += addend;
-        }
-        return sum;
+        uint32_t i;
+        memcpy(&i, bytes, sizeof(i));
+        return bswap_32(i);
+    }
+
+    /*
+     * Converts a 64 bit int to bytes.
+     */
+    static void IntToEightBytes(uint8_t* result, const uint64_t input) {
+        uint64_t r = bswap_64(input);
+        memcpy(result, &r, sizeof(r));
     }
 
     /*
      * Converts a byte array to a 64 bit int.
      */
     static uint64_t EightBytesToInt(const uint8_t* bytes) {
-        uint64_t sum = 0;
-        for (size_t i = 0; i < 8; i++) {
-            uint64_t addend = (uint64_t)bytes[i] << (8 * (7 - i));
-            sum += addend;
-        }
-        return sum;
-    }
-
-    static void IntToEightBytes(uint8_t* result, const uint64_t input) {
-        for (size_t i = 0; i < 8; i++) {
-            result[7 - i] = (input >> (i * 8));
-        }
+        uint64_t i;
+        memcpy(&i, bytes, sizeof(i));
+        return bswap_64(i);
     }
 
     /*
