@@ -202,36 +202,19 @@ class Util {
         return count;
     }
 
-    inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes, const uint32_t bytes_len,
-                                               const uint32_t start_bit, const uint32_t num_bits) {
-        // assert(Util::ByteAlign(start_bit + num_bits) <= bytes_len * 8);
-        assert(num_bits <= 64);
+    inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes, uint32_t bytes_len,
+                                               uint32_t start_bit, const uint32_t num_bits) {
+        uint64_t tmp;
 
-        uint64_t sum = 0;
-        uint32_t taken_bits = 0;
-
-        uint32_t curr_byte = start_bit/8;
-        if (start_bit/8 != (start_bit + num_bits) / 8) {
-            sum += bytes[curr_byte] & ((1 << (8 - (start_bit % 8))) - 1);
-            taken_bits += (8 - (start_bit % 8));
-            ++curr_byte;
-        } else {
-            // Start and end bits are in the same byte
-            return (uint64_t)((bytes[curr_byte] & ((1 << (8 - (start_bit % 8))) - 1))
-                              >> (8 - (start_bit % 8) - num_bits));
+        if (start_bit + num_bits > 64) {
+            bytes += start_bit / 8;
+            start_bit %= 8;
         }
 
-        const uint32_t end_byte = ((start_bit + num_bits) / 8);
-        for (; curr_byte < end_byte; ++curr_byte) {
-            sum <<= 8;
-            taken_bits += 8;
-            sum += bytes[curr_byte];
-        }
-        if (taken_bits < num_bits) {
-            sum <<= (num_bits - taken_bits);
-            sum += (bytes[curr_byte] >> (8 - (num_bits - taken_bits)));
-        }
-        return sum;
+        tmp = Util::EightBytesToInt(bytes);
+        tmp <<= start_bit;
+        tmp >>= 64 - num_bits;
+        return tmp;
     }
     inline static uint128_t SliceInt128FromBytes(const uint8_t* bytes, const uint32_t bytes_len,
                                                  const uint32_t start_bit, const uint32_t num_bits) {
