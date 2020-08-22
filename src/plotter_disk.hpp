@@ -410,7 +410,7 @@ class DiskPlotter {
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
-        uint8_t* buf = new uint8_t[entry_size_bytes];
+        uint8_t buf[14];
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
@@ -446,7 +446,6 @@ class DiskPlotter {
         (*tmp_1_disks[1]).Write(plot_file, buf, entry_size_bytes);
         table_sizes[1] = x + 1;
         plot_file+=entry_size_bytes;
-        delete[] buf;
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
 
@@ -515,7 +514,7 @@ class DiskPlotter {
             uint64_t matches = 0;  // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            uint8_t *left_buf = new uint8_t[entry_size_bytes];
+            uint8_t *left_buf = new uint8_t[entry_size_bytes + 7];
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
@@ -1623,7 +1622,7 @@ class DiskPlotter {
         vector<uint8_t> deltas_to_write;
         uint32_t right_entry_size_bytes = res.right_entry_size_bits / 8;
 
-        uint8_t* right_entry_buf = new uint8_t[right_entry_size_bytes];
+        uint8_t* right_entry_buf = new uint8_t[right_entry_size_bytes + 7];
         uint8_t* C1_entry_buf = new uint8_t[Util::ByteAlign(k) / 8];
         uint8_t* C3_entry_buf = new uint8_t[size_C3];
         uint8_t* P7_entry_buf = new uint8_t[P7_park_size];
