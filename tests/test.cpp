@@ -54,6 +54,18 @@ TEST_CASE("Util") {
         REQUIRE(Util::SliceInt64FromBytes(bytes, 3, 2, 19) == 374172);
         uint8_t bytes2[1] = {213};
         REQUIRE(Util::SliceInt64FromBytes(bytes2, 1, 1, 5) == 21);
+        uint8_t bytes3[17] = {1, 2, 3, 4, 5, 6, 7, 255, 255, 10, 11, 12, 13, 14, 15, 16, 255};
+        uint128_t int3 = to_uint128(0x01020304050607ff, 0xff0a0b0c0d0e0f10);
+        REQUIRE(Util::SliceInt64FromBytes(bytes3, 16, 64, 64) == (uint64_t)int3);
+        REQUIRE(Util::SliceInt64FromBytes(bytes3, 16, 0, 60) == (uint64_t)(int3 >> 68));
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 0, 60) == int3 >> 68);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 7, 64) == int3 >> 57);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 7, 72) == int3 >> 49);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 0, 128) == int3);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 3, 125) == int3);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 2, 125) == int3 >> 1);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 16, 0, 120) == int3 >> 8);
+        REQUIRE(Util::SliceInt128FromBytes(bytes3, 17, 3, 127) == (int3 << 2 | 3));
     }
 }
 
