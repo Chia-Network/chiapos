@@ -202,6 +202,7 @@ class Util {
         return count;
     }
 
+    /* Note: requires start_bit % 8 + num_bits <= 64 */
     inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes, uint32_t bytes_len,
                                                uint32_t start_bit, const uint32_t num_bits) {
         uint64_t tmp;
@@ -216,34 +217,25 @@ class Util {
         tmp >>= 64 - num_bits;
         return tmp;
     }
+
+    static uint64_t SliceInt64FromBytesFull(const uint8_t *bytes, uint32_t start_bit, uint32_t num_bits) {
+        uint32_t last_bit = start_bit + num_bits;
+        uint64_t r = SliceInt64FromBytes(bytes, 0, start_bit, num_bits);
+        if (start_bit % 8 + num_bits > 64)
+            r |= bytes[last_bit / 8] >> (8 - last_bit % 8);
+        return r;
+    }
+
+
     inline static uint128_t SliceInt128FromBytes(const uint8_t* bytes, const uint32_t bytes_len,
                                                  const uint32_t start_bit, const uint32_t num_bits) {
-        assert(Util::ByteAlign(start_bit + num_bits) <= bytes_len * 8);
-        uint128_t sum = 0;
-        uint32_t taken_bits = 0;
+        if (num_bits <= 64)
+            return SliceInt64FromBytesFull(bytes, start_bit, num_bits);
 
-        uint32_t curr_byte = start_bit/8;
-        if (start_bit/8 != (start_bit + num_bits) / 8) {
-            sum += (uint128_t)(bytes[curr_byte] & ((1 << (8 - (start_bit % 8))) - 1));
-            taken_bits += (8 - (start_bit % 8));
-            ++curr_byte;
-        } else {
-            // Start and end bits are in the same byte
-            return (uint128_t)((bytes[curr_byte] & ((1 << (8 - (start_bit % 8))) - 1))
-                              >> (8 - (start_bit % 8) - num_bits));
-        }
-
-        const uint32_t end_byte = ((start_bit + num_bits) / 8);
-        for (; curr_byte < end_byte; ++curr_byte) {
-            sum <<= 8;
-            taken_bits += 8;
-            sum += bytes[curr_byte];
-        }
-        if (taken_bits < num_bits) {
-            sum <<= (num_bits - taken_bits);
-            sum += (uint128_t)(bytes[curr_byte] >> (8 - (num_bits - taken_bits)));
-        }
-        return sum;
+        uint32_t num_bits_high = num_bits - 64;
+        uint64_t high = SliceInt64FromBytesFull(bytes, start_bit, num_bits_high);
+        uint64_t low = SliceInt64FromBytesFull(bytes, start_bit + num_bits_high, 64);
+        return ((uint128_t)high << 64) | low;
     }
 
     static void GetRandomBytes(uint8_t* buf, uint32_t num_bytes) {
