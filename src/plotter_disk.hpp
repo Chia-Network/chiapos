@@ -126,7 +126,7 @@ class DiskPlotter {
 
         {
             // Scope for FileDisk
-            FileDisk tmp1_disk(tmp_1_filename);
+            FileDisk tmp1_disk(tmp_1_filename, true);
             if(!tmp1_disk.isOpen()) {
                 std::cout << "Could not open " << tmp_1_filename << std::endl;
                 return;

@@ -72,31 +72,62 @@ class SortOnDiskUtils {
     }
 };
 
+int g_bits_begin;
+int g_entry_len;
+
+int cmpfunc (const void * a, const void * b) {
+   return SortOnDiskUtils::MemCmpBits((uint8_t *)a, (uint8_t *)b, g_entry_len, g_bits_begin);
+}
+
 class Disk {
  public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
+    virtual uint8_t *getBuf() = 0;
 };
 
 class FileDisk : public Disk {
  public:
-    inline explicit FileDisk(const std::string& filename) {
+    inline explicit FileDisk(const std::string& filename, bool mem = false) {
         filename_ = filename;
+        mem_ = mem;
+
+        if(mem_) {
+            buf = new uint8_t[1*1024*1024*1024];
+
+            return;
+        }
 
         // Opens the file for reading and writing
         f_=fopen(filename.c_str(), "w+b");
     }
 
     bool isOpen() {
+       if(mem_)
+           return true;
+
        return (f_!=NULL);
     }
 
     ~FileDisk() {
+        if(mem_) {
+            delete[] buf;
+        }
+
         if(f_!=NULL)
             fclose(f_);
     }
 
+    uint8_t *getBuf() {
+        return buf;
+    }
+
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
+        if(mem_) {
+            memcpy(memcache,&(buf[begin]),length);
+            return;
+        }
+
         // Seek, read, and replace into memcache
         uint64_t amtread;
         do {
@@ -122,6 +153,11 @@ class FileDisk : public Disk {
     }
 
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
+        if(mem_) {
+            memcpy(&(buf[begin]),memcache,length);
+            return;
+        }
+
         // Seek and write from memcache
         uint64_t amtwritten;
         do {
@@ -162,9 +198,13 @@ class FileDisk : public Disk {
     uint64_t writePos=0;
     uint64_t writeMax=0;
     bool bReading=true;
+    bool mem_;
 
     std::string filename_;
     FILE *f_;
+
+    uint8_t *buf;
+
 };
 
 // Store values bucketed by their leading bits into an array-like memcache.
@@ -478,358 +518,10 @@ class Sorting {
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
 
-        // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform quicksort if it
-        // fits in the memory (SortInMemory algorithm won't always perform well).
-        if (quicksort > 0 && total_size <= length) {
-            disk.Read(disk_begin, mem, total_size * entry_len);
-            QuickSort(mem, entry_len, total_size, bits_begin);
-            disk.Write(disk_begin, mem, total_size * entry_len);
-            return 0;
-        }
-        // Do SortInMemory algorithm if it fits in the memory
-        // (number of entries required * entry_len_memory) <= total memory available
-        if (quicksort == 0 && SortOnDiskUtils::RoundSize(total_size) * entry_len_memory <= mem_len) {
-            SortInMemory(disk, disk_begin, mem, entry_len, total_size, bits_begin);
-            return 0;
-        }
-
-        std::vector<uint64_t> bucket_begins;
-        bucket_begins.push_back(0);
-        uint64_t total = 0;
-
-        // The beginning of each bucket. The first entry from bucket i will always be written on disk on position
-        // disk_begin + bucket_begins[i] * entry_len, the second one will be written on position
-        // disk_begin + (bucket_begins[i] + 1) * entry_len and so on. This way, when all entries are written back
-        // to disk, they will be sorted by the first 4 bits (the bucket) at the end.
-        for (uint64_t i = 0; i < N_buckets - 1; i++) {
-            total += bucket_sizes[i];
-            bucket_begins.push_back(total);
-        }
-
-        uint32_t bucket_log = Util::GetSizeBits(N_buckets) - 1;
-
-        // Move the beginning of each bucket into the spare.
-        uint64_t spare_written = 0;
-        std::vector<uint64_t> consumed_per_bucket(N_buckets, 0);
-
-        // The spare stores about 5 * N_buckets * len(mem) entries.
-        uint64_t unit = length / N_buckets * 5;
-
-        for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
-            uint64_t b_size = bucket_sizes[i];
-            uint64_t to_consume = std::min(unit, b_size);
-
-            while (to_consume > 0) {
-                uint64_t next_amount = std::min(length, to_consume);
-                disk.Read(disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len,
-                    mem, next_amount * entry_len);
-                disk.Write(spare_begin + spare_written * entry_len,
-                    mem, next_amount * entry_len);
-                to_consume -= next_amount;
-                spare_written += next_amount;
-                consumed_per_bucket[i] += next_amount;
-            }
-        }
-
-        uint64_t spare_consumed = 0;
-        BucketStore bstore = BucketStore(mem, mem_len, entry_len, bits_begin, bucket_log, 100);
-        uint64_t read_pos=spare_begin;
-
-        uint8_t* buf = new uint8_t[entry_len];
-
-        // Populate BucketStore from spare.
-        while (!bstore.IsFull() && spare_consumed < spare_written) {
-            disk.Read(read_pos, buf, entry_len);
-            read_pos+=entry_len;
-            bstore.Store(buf, entry_len);
-            spare_consumed += 1;
-        }
-
-        // subbuckets[i][j] represents how many entries starting with prefix i has the next prefix equal to j.
-        // When we'll call recursively for all entries starting with the prefix i, bucket_sizes[] becomes
-        // subbucket_sizes[i].
-        std::vector<uint64_t> written_per_bucket(N_buckets, 0);
-        std::vector<std::vector<uint64_t> > subbucket_sizes;
-        for (uint64_t i = 0; i < N_buckets; i++) {
-            std::vector<uint64_t> col(N_buckets, 0);
-            subbucket_sizes.push_back(col);
-        }
-
-        while (!bstore.IsEmpty()) {
-            // Write from BucketStore the heaviest buckets first (so it empties faster)
-            for (uint64_t b : bstore.BucketsBySize()) {
-                if (written_per_bucket[b] >= consumed_per_bucket[b]) {
-                    continue;
-                }
-                // Write the content of the bucket in the right spot (beginning of the bucket + number of entries already written
-                // in that bucket).
-                uint64_t write_pos=disk_begin + (bucket_begins[b] + written_per_bucket[b]) * entry_len;
-                uint64_t size;
-                // Don't extract from the bucket more entries than the difference between read and written entries (this avoids
-                // overwritting entries that were not read yet).
-                uint64_t* bucket_handle = bstore.BucketHandle(b, consumed_per_bucket[b] - written_per_bucket[b], size);
-                uint32_t entry_size = entry_len / 8;
-                uint8_t last_size = (entry_len * 8) % 64;
-                if (last_size == 0)
-                    last_size = 64;
-                if (entry_len % 8)
-                    ++entry_size;
-                for (uint64_t i = 0; i < size; i += entry_size) {
-                    EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
-                    disk.Write(write_pos, buf, entry_len);
-                    write_pos+=entry_len;
-                    written_per_bucket[b] += 1;
-                    subbucket_sizes[b][SortOnDiskUtils::ExtractNum(buf, entry_len, bits_begin +
-                                                                   bucket_log, bucket_log)] += 1;
-                }
-                delete[] bucket_handle;
-            }
-
-            // Advance the read handle into buckets and move read entries to BucketStore. We read first from buckets
-            // with the smallest difference between read and write handles. The goal is to increase the smaller differences.
-            // The bigger the difference is, the better, as in the next step, we'll be able to extract more from the BucketStore.
-            std::vector<uint64_t> idx(bucket_sizes.size());
-            iota(idx.begin(), idx.end(), 0);
-            sort(idx.begin(), idx.end(),
-                [&consumed_per_bucket, &written_per_bucket](uint64_t i1, uint64_t i2) {
-                    return (consumed_per_bucket[i1] - written_per_bucket[i1] <
-                            consumed_per_bucket[i2] - written_per_bucket[i2]);
-                 });
-
-            bool broke = false;
-            for (uint64_t i : idx) {
-                if (consumed_per_bucket[i] == bucket_sizes[i]) {
-                    continue;
-                }
-                uint64_t read_pos=disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len;
-                while (!bstore.IsFull() && consumed_per_bucket[i] < bucket_sizes[i]) {
-                    disk.Read(read_pos, buf, entry_len);
-                    read_pos+=entry_len;
-                    bstore.Store(buf, entry_len);
-                    consumed_per_bucket[i] += 1;
-                }
-                if (bstore.IsFull()) {
-                    broke = true;
-                    break;
-                }
-            }
-
-            // If BucketStore still isn't full and we've read all entries from buckets, start populating from the spare space.
-            if (!broke) {
-                uint64_t read_pos=spare_begin + spare_consumed * entry_len;
-                while (!bstore.IsFull() && spare_consumed < spare_written) {
-                    disk.Read(read_pos, buf, entry_len);
-                    read_pos+=entry_len;
-                    bstore.Store(buf, entry_len);
-                    spare_consumed += 1;
-                }
-            }
-        }
-        delete[] buf;
-
-        // The last bucket that contains at least one entry.
-        uint8_t last_bucket = N_buckets - 1;
-        while (last_bucket > 0) {
-            bool all_zero = true;
-            for (uint64_t i = 0; i < N_buckets; i++)
-                if (subbucket_sizes[last_bucket][i] != 0)
-                    all_zero = false;
-            if (!all_zero)
-                break;
-            last_bucket--;
-        }
-        uint64_t max_spare_written = spare_written * entry_len;
-        for (uint32_t i = 0; i < bucket_sizes.size(); i++) {
-            // Do we have to do quicksort for the new partition?
-            int new_quicksort;
-            // If quicksort = 1, means all partitions must do the quicksort as their final step.
-            // Preserve that for the new call.
-            if (quicksort == 1) {
-                new_quicksort = 1;
-            } else {
-                // If this is not the last bucket, we use the SortInMemoryAlgorithm
-                if (i != last_bucket) {
-                    new_quicksort = 0;
-                } else {
-                    // ..otherwise, do quicksort, as the last bucket isn't guaranteed to have uniform distribution.
-                    new_quicksort = 2;
-                }
-            }
-            // At this point, all entries are sorted in increasing order by their buckets (4 bits prefixes).
-            // We recursively sort each chunk, this time starting with the next 4 bits to determine the buckets.
-            // (i.e. firstly, we sort entries starting with 0000, then entries starting with 0001, ..., then entries
-            // starting with 1111, at the end producing the correct ordering).
-            uint64_t bytes_written = SortOnDisk(disk, disk_begin + bucket_begins[i] * entry_len, spare_begin,
-                                                entry_len, bits_begin + bucket_log, subbucket_sizes[i], mem, mem_len,
-                                                new_quicksort);
-            // Keeps track of how much spare space we used for sorting
-            if (bytes_written > max_spare_written) {
-                max_spare_written = bytes_written;
-            }
-        }
-        return max_spare_written;
-    }
-
-    inline static void SortInMemory(Disk& disk, uint64_t disk_begin, uint8_t* memory, uint32_t entry_len,
-                                    uint64_t num_entries, uint32_t bits_begin) {
-        uint32_t entry_len_memory = entry_len - bits_begin / 8;
-        uint64_t memory_len = SortOnDiskUtils::RoundSize(num_entries) * entry_len_memory;
-        uint8_t* swap_space = new uint8_t[entry_len];
-        uint8_t* buffer = new uint8_t[BUF_SIZE];
-        uint8_t* common_prefix = new uint8_t[bits_begin / 8];
-        uint64_t bucket_length = 0;
-        bool set_prefix = false;
-        // The number of buckets needed (the smallest power of 2 greater than 2 * num_entries).
-        while ((1ULL << bucket_length) < 2 * num_entries)
-            bucket_length++;
-        memset(memory, 0, sizeof(memory[0])*memory_len);
-
-        uint64_t read_pos=disk_begin;
-        uint64_t buf_size = 0;
-        uint64_t buf_ptr = 0;
-        uint64_t swaps = 0;
-        for (uint64_t i = 0; i < num_entries; i++) {
-            if (buf_size == 0) {
-                // If read buffer is empty, read from disk and refill it.
-                buf_size = std::min((uint64_t) BUF_SIZE / entry_len, num_entries - i);
-                buf_ptr = 0;
-                disk.Read(read_pos, buffer, buf_size * entry_len);
-                read_pos+=buf_size * entry_len;
-                if (set_prefix == false) {
-                    // We don't store the common prefix of all entries in memory, instead just append it every time
-                    // in write buffer.
-                    memcpy(common_prefix, buffer, bits_begin / 8);
-                    set_prefix = true;
-                }
-            }
-            buf_size--;
-            // First unique bits in the entry give the expected position of it in the sorted array.
-            // We take 'bucket_length' bits starting with the first unique one.
-            uint64_t pos = SortOnDiskUtils::ExtractNum(buffer + buf_ptr, entry_len, bits_begin, bucket_length) * entry_len_memory;
-            // As long as position is occupied by a previous entry...
-            while (SortOnDiskUtils::IsPositionEmpty(memory + pos, entry_len_memory) == false && pos < memory_len) {
-                // ...store there the minimum between the two and continue to push the higher one.
-                if (SortOnDiskUtils::MemCmpBits(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory, 0) > 0) {
-                    // We always store the entry without the common prefix.
-                    memcpy(swap_space, memory + pos, entry_len_memory);
-                    memcpy(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory);
-                    memcpy(buffer + buf_ptr + bits_begin / 8, swap_space, entry_len_memory);
-                    swaps++;
-                }
-                pos += entry_len_memory;
-            }
-            // Push the entry in the first free spot.
-            memcpy(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory);
-            buf_ptr += entry_len;
-        }
-        uint64_t entries_written = 0;
-        buf_size = 0;
-        memset(buffer, 0, BUF_SIZE);
-        uint64_t write_pos=disk_begin;
-        // Search the memory buffer for occupied entries.
-        for (uint64_t pos = 0; entries_written < num_entries && pos < memory_len; pos += entry_len_memory) {
-            if (SortOnDiskUtils::IsPositionEmpty(memory + pos, entry_len_memory) == false) {
-                // We've fount an entry.
-                if (buf_size + entry_len >= BUF_SIZE) {
-                    // Write buffer is full, write it and clean it.
-                    disk.Write(write_pos, buffer, buf_size);
-                    write_pos+=buf_size;
-                    entries_written += buf_size / entry_len;
-                    buf_size = 0;
-                }
-                // Write first the common prefix of all entries.
-                memcpy(buffer + buf_size, common_prefix, bits_begin / 8);
-                // Then the stored entry itself.
-                memcpy(buffer + buf_size + bits_begin / 8, memory + pos, entry_len_memory);
-                buf_size += entry_len;
-            }
-        }
-        // We still have some entries left in the write buffer, write them as well.
-        if (buf_size > 0) {
-            disk.Write(write_pos, buffer, buf_size);
-            write_pos+=buf_size;
-            entries_written += buf_size / entry_len;
-        }
-
-        assert(entries_written == num_entries);
-        delete[] swap_space;
-        delete[] buffer;
-        delete[] common_prefix;
-    }
-
-    inline static void QuickSort(uint8_t* memory, uint32_t entry_len,
-                                uint64_t num_entries, uint32_t bits_begin) {
-        uint64_t memory_len = (uint64_t)entry_len * num_entries;
-        uint8_t * pivot_space = new uint8_t[entry_len];
-        QuickSortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries, pivot_space);
-        delete[] pivot_space;
-    }
-
-    inline static void CheckSortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
-                                  uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
-                                  uint8_t* mem, uint64_t mem_len, bool quicksort = false) {
-        uint64_t length = mem_len / entry_len;
-        uint64_t total_size = 0;
-        for (auto& n : bucket_sizes) total_size += n;
-
-        cout << "CheckSortOnDisk entry_len: " << entry_len << " length: " << length << " total size: " << total_size << endl;
-               disk.Read(disk_begin, mem, 20 * entry_len);
-
-        for(uint64_t i=0;i<20;i++) {
-            cout << i << ": " << Util::HexStr(mem + i * entry_len, entry_len) << endl;
-        }
-    }
-
- private:
-    inline static void QuickSortInner(uint8_t* memory, uint64_t memory_len,
-                                         uint32_t L, uint32_t bits_begin,
-                                         uint64_t begin, uint64_t end, uint8_t* pivot_space) {
-        if (end - begin <= 5) {
-            for (uint64_t i = begin + 1; i < end; i++) {
-                uint64_t j = i;
-                memcpy(pivot_space, memory + i * L, L);
-                while (j > begin && SortOnDiskUtils::MemCmpBits(memory + (j - 1) * L, pivot_space, L, bits_begin) > 0) {
-                    memcpy(memory + j * L, memory + (j - 1) * L, L);
-                    j--;
-                }
-                memcpy(memory + j * L, pivot_space, L);
-            }
-            return ;
-        }
-
-        uint64_t lo = begin;
-        uint64_t hi = end - 1;
-
-        memcpy(pivot_space, memory + (hi * L), L);
-        bool left_side = true;
-
-        while (lo < hi) {
-            if (left_side) {
-                if (SortOnDiskUtils::MemCmpBits(memory + lo * L, pivot_space, L, bits_begin) < 0) {
-                    ++lo;
-                } else {
-                    memcpy(memory + hi * L, memory + lo * L, L);
-                    --hi;
-                    left_side = false;
-                }
-            } else {
-                if (SortOnDiskUtils::MemCmpBits(memory + hi * L, pivot_space, L, bits_begin) > 0) {
-                    --hi;
-                } else {
-                    memcpy(memory + lo * L, memory + hi * L, L);
-                    ++lo;
-                    left_side = true;
-                }
-            }
-        }
-        memcpy(memory + lo * L, pivot_space, L);
-        if (lo - begin <= end - lo) {
-            QuickSortInner(memory, memory_len, L, bits_begin, begin, lo, pivot_space);
-            QuickSortInner(memory, memory_len, L, bits_begin, lo + 1, end, pivot_space);
-        } else {
-            QuickSortInner(memory, memory_len, L, bits_begin, lo + 1, end, pivot_space);
-            QuickSortInner(memory, memory_len, L, bits_begin, begin, lo, pivot_space);
-        }
+        g_entry_len=entry_len;
+        g_bits_begin=bits_begin;
+        qsort(&((disk.getBuf())[disk_begin]),total_size,entry_len,cmpfunc);
+        return 0;
     }
 };
 
