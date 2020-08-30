@@ -86,7 +86,6 @@ jobs:
           curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh
           && yes | sh cmake.sh | cat
           && rm -f /usr/bin/cmake
-          && yum -y install boost-devel lzip
           && which cmake
           && cmake --version
         CIBW_BEFORE_BUILD_LINUX: >
