@@ -55,7 +55,7 @@ jobs:
         pip install mypy
         mypy --config-file mypi.ini setup.py tests
 
-    - name: Build wheel and test
+    - name: Build wheels and test
       run: |
         source venv/bin/activate
         python -m cibuildwheel --output-dir dist

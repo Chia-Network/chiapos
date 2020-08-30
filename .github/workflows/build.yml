@@ -69,7 +69,7 @@ jobs:
         cmake --build . -- -j 6
         ./RunTests
 
-    - name: Build wheel and test
+    - name: Build wheels and test
       run: |
         python -m cibuildwheel --output-dir dist
       env:
@@ -90,8 +90,6 @@ jobs:
           && cmake --version
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
-        CIBW_BEFORE_ALL_MACOS: >
-          brew install boost
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
         CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.14
