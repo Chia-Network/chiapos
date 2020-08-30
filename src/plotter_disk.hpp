@@ -368,13 +368,13 @@ class DiskPlotter {
         write_pos+=1;
 
         uint8_t size_buffer[2];
-        Bits(kFormatDescription.size(), 16).ToBytes(size_buffer);
+        Util::IntToTwoBytes(size_buffer, kFormatDescription.size());
         plot_Disk.Write(write_pos, (size_buffer), 2);
         write_pos+=2;
         plot_Disk.Write(write_pos,(uint8_t *)kFormatDescription.data(), kFormatDescription.size());
         write_pos+=kFormatDescription.size();
 
-        Bits(memo_len, 16).ToBytes(size_buffer);
+        Util::IntToTwoBytes(size_buffer, memo_len);
         plot_Disk.Write(write_pos, (size_buffer), 2);
         write_pos+=2;
         plot_Disk.Write(write_pos, (memo), memo_len);
@@ -1212,9 +1212,9 @@ class DiskPlotter {
         std::vector<uint64_t> final_table_begin_pointers(12, 0);
         final_table_begin_pointers[1] = header_size;
 
-        uint8_t table_1_pointer_bytes[8*8];
-        Bits(final_table_begin_pointers[1], 8*8).ToBytes(table_1_pointer_bytes);
-        tmp2_disk.Write(header_size - 10*8, table_1_pointer_bytes, 8);
+        uint8_t table_pointer_bytes[8];
+        Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[1]);
+        tmp2_disk.Write(header_size - 10*8, table_pointer_bytes, 8);
 
         uint64_t final_entries_written = 0;
         uint32_t right_entry_size_bytes = 0;
@@ -1549,8 +1549,7 @@ class DiskPlotter {
                                                           + (park_index + 1) * park_size_bytes;
 
             final_table_writer=header_size - 8 * (10 - table_index);
-            uint8_t table_pointer_bytes[8*8];
-            Bits(final_table_begin_pointers[table_index + 1], 8*8).ToBytes(table_pointer_bytes);
+            Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[table_index + 1]);
             tmp2_disk.Write(final_table_writer, (table_pointer_bytes), 8);
             final_table_writer+=8;
 
@@ -1733,18 +1732,14 @@ class DiskPlotter {
         delete[] right_entry_buf;
 
         final_file_writer_1=res.header_size - 8 * 3;
-        uint8_t table_pointer_bytes[8*8];
+        uint8_t table_pointer_bytes[8];
 
         // Writes the pointers to the start of the tables, for proving
-        Bits(res.final_table_begin_pointers[8], 8*8).ToBytes(table_pointer_bytes);
-        tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
-        final_file_writer_1+=8;
-        Bits(res.final_table_begin_pointers[9], 8*8).ToBytes(table_pointer_bytes);
-        tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
-        final_file_writer_1+=8;
-        Bits(res.final_table_begin_pointers[10], 8*8).ToBytes(table_pointer_bytes);
-        tmp2_disk.Write(final_file_writer_1, (table_pointer_bytes), 8);
-        final_file_writer_1+=8;
+        for (int i = 8; i <= 10; i++) {
+            Util::IntToEightBytes(table_pointer_bytes, res.final_table_begin_pointers[i]);
+            tmp2_disk.Write(final_file_writer_1, table_pointer_bytes, 8);
+            final_file_writer_1 += 8;
+        }
 
         std::cout << "\tFinal table pointers:" << std::endl;
 
