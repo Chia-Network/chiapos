@@ -60,6 +60,15 @@ jobs:
         pip install pep517
         python -m pep517.build --source --out-dir dist .
 
+    - name: cmake and RunTests with MacOS
+      if: startsWith(matrix.os, 'mac')
+      run: |
+        mkdir build
+        cd build
+        cmake ../
+        cmake --build . -- -j 6
+        ./RunTests
+
     - name: Build wheel and test
       run: |
         python -m cibuildwheel --output-dir dist
