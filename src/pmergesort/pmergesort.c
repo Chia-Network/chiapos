@@ -199,7 +199,7 @@ void pmergesort_nCPU(int32_t ncpu)
  */
 
 int wjbflsl(size_t n) {
-    return 64 - __builtin_clzl(n);
+    return (sizeof(size_t)*8) - __builtin_clzll(n);
 /*
     int i = 0;
     while(n)
