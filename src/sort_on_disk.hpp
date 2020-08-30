@@ -42,7 +42,7 @@ class SortOnDiskUtils {
         if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
             take_bits = len_bytes * 8 - begin_bits;
         }
-        return Util::SliceInt64FromBytes(bytes, len_bytes, begin_bits, take_bits);
+        return Util::SliceInt64FromBytes(bytes, begin_bits, take_bits);
     }
 
     /*
