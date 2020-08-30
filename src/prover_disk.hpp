@@ -260,9 +260,7 @@ class DiskProver {
         uint16_t line_point_size_bits = DiskPlotter::CalculateLinePointSize(k) * 8;
         uint8_t * line_point_bin = new uint8_t[line_point_size_bits / 8];
         disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size_bits / 8);
-        uint128_t line_point = Bits(line_point_bin, line_point_size_bits / 8, line_point_size_bits)
-                            .Slice(0, k * 2)
-                            .GetValue128();
+        uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs
         uint32_t stubs_size_bits = DiskPlotter::CalculateStubsSize(k) * 8;
