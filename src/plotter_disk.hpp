@@ -545,25 +545,25 @@ class DiskPlotter {
 
                 if (table_index == 1) {
                     // For table 1, we only have y and metadata
-                    left_entry.y = Util::SliceInt64FromBytes(left_buf, entry_size_bytes,
+                    left_entry.y = Util::SliceInt64FromBytes(left_buf,
                                                              0, k + kExtraBits);
-                    left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
+                    left_entry.left_metadata = Util::SliceInt64FromBytes(left_buf,
                                                                           k + kExtraBits, metadata_size);
                 } else {
                     // For tables 2-6, we we also have pos and offset. We need to read this because this entry
                     // will be written again to the table without the y (and some entries are dropped).
-                    left_entry.y = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, 0, k + kExtraBits);
-                    left_entry.read_posoffset = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits, pos_size + kOffsetSize);
+                    left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
+                    left_entry.read_posoffset = Util::SliceInt64FromBytes(left_buf, k + kExtraBits, pos_size + kOffsetSize);
                     if (metadata_size <= 128) {
-                        left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
+                        left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf,
                                                                               k + kExtraBits + pos_size + kOffsetSize,
                                                                               metadata_size);
                     } else {
                         // Large metadatas that don't fit into 128 bits. (k > 32).
-                        left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
+                        left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf,
                                                                               k + kExtraBits + pos_size
                                                                                 + kOffsetSize, 128);
-                        left_entry.right_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
+                        left_entry.right_metadata = Util::SliceInt128FromBytes(left_buf,
                                                                                k + kExtraBits + pos_size
                                                                                  + kOffsetSize + 128,
                                                                                metadata_size - 128);
@@ -944,18 +944,18 @@ class DiskPlotter {
 
                             if (table_index == 7) {
                                 // This is actually y for table 7
-                                entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf,
                                                                            0, k);
-                                entry_pos = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_pos = Util::SliceInt64FromBytes(right_entry_buf,
                                                                       k, pos_size);
-                                entry_offset = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_offset = Util::SliceInt64FromBytes(right_entry_buf,
                                                                          k + pos_size, kOffsetSize);
                             } else {
-                                entry_pos = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_pos = Util::SliceInt64FromBytes(right_entry_buf,
                                                                       0, pos_size);
-                                entry_offset = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_offset = Util::SliceInt64FromBytes(right_entry_buf,
                                                                          pos_size, kOffsetSize);
-                                entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                                entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf,
                                                                            pos_size + kOffsetSize, k + 1);
                             }
                         } else if (cached_entry_pos == current_pos) {
@@ -1020,12 +1020,12 @@ class DiskPlotter {
 
                         if (table_index > 2) {
                             // For tables 2-6, the entry is: pos, offset
-                            entry_pos = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
+                            entry_pos = Util::SliceInt64FromBytes(left_entry_buf,
                                                                   0, pos_size);
-                            entry_offset = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
+                            entry_offset = Util::SliceInt64FromBytes(left_entry_buf,
                                                                      pos_size, kOffsetSize);
                         } else {
-                            entry_metadata = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
+                            entry_metadata = Util::SliceInt64FromBytes(left_entry_buf,
                                                                         0, left_metadata_size);
                         }
 
@@ -1296,11 +1296,11 @@ class DiskPlotter {
                             right_entry_buf=right_reader_buf+(right_reader_count%right_buf_entries)*right_entry_size_bytes;
                             right_reader_count++;
 
-                            entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                            entry_sort_key = Util::SliceInt64FromBytes(right_entry_buf,
                                                                        0, right_sort_key_size);
-                            entry_pos = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                            entry_pos = Util::SliceInt64FromBytes(right_entry_buf,
                                                                   right_sort_key_size, pos_size);
-                            entry_offset = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                            entry_offset = Util::SliceInt64FromBytes(right_entry_buf,
                                                                      right_sort_key_size + pos_size, kOffsetSize);
                         } else if (cached_entry_pos == current_pos) {
                             entry_sort_key = cached_entry_sort_key;
@@ -1350,11 +1350,11 @@ class DiskPlotter {
                     if (table_index == 1) {
                         // Only k bits, since this is x
                         left_new_pos[current_pos % kCachedPositionsSize]
-                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, 0, k);
+                                = Util::SliceInt64FromBytes(left_entry_disk_buf, 0, k);
                     } else {
                         // k+1 bits in case it overflows
                         left_new_pos[current_pos % kCachedPositionsSize]
-                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, k + 1, k + 1);
+                                = Util::SliceInt64FromBytes(left_entry_disk_buf, k + 1, k + 1);
                     }
                 }
 
@@ -1461,9 +1461,9 @@ class DiskPlotter {
                 right_reader_count++;
 
                 // Right entry is read as (line_point, sort_key)
-                uint128_t line_point = Util::SliceInt128FromBytes(right_entry_buf, right_entry_size_bytes,
+                uint128_t line_point = Util::SliceInt128FromBytes(right_entry_buf,
                                                                   0, 2*k);
-                uint64_t sort_key = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes,
+                uint64_t sort_key = Util::SliceInt64FromBytes(right_entry_buf,
                                                               2*k, right_sort_key_size);
 
                 // Write the new position (index) and the sort key
@@ -1637,8 +1637,8 @@ class DiskPlotter {
             (*tmp_1_disks[7]).Read(plot_file_reader, (right_entry_buf),
                                   right_entry_size_bytes);
             plot_file_reader+=right_entry_size_bytes;
-            uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes, 0, k);
-            uint64_t entry_new_pos = Util::SliceInt64FromBytes(right_entry_buf, right_entry_size_bytes, k, pos_size);
+            uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, 0, k);
+            uint64_t entry_new_pos = Util::SliceInt64FromBytes(right_entry_buf, k, pos_size);
 
             Bits entry_y_bits = Bits(entry_y, k);
 

@@ -203,7 +203,7 @@ class Util {
     }
 
     /* Note: requires start_bit % 8 + num_bits <= 64 */
-    inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes, uint32_t bytes_len,
+    inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes,
                                                uint32_t start_bit, const uint32_t num_bits) {
         uint64_t tmp;
 
@@ -220,14 +220,14 @@ class Util {
 
     static uint64_t SliceInt64FromBytesFull(const uint8_t *bytes, uint32_t start_bit, uint32_t num_bits) {
         uint32_t last_bit = start_bit + num_bits;
-        uint64_t r = SliceInt64FromBytes(bytes, 0, start_bit, num_bits);
+        uint64_t r = SliceInt64FromBytes(bytes, start_bit, num_bits);
         if (start_bit % 8 + num_bits > 64)
             r |= bytes[last_bit / 8] >> (8 - last_bit % 8);
         return r;
     }
 
 
-    inline static uint128_t SliceInt128FromBytes(const uint8_t* bytes, const uint32_t bytes_len,
+    inline static uint128_t SliceInt128FromBytes(const uint8_t* bytes,
                                                  const uint32_t start_bit, const uint32_t num_bits) {
         if (num_bits <= 64)
             return SliceInt64FromBytesFull(bytes, start_bit, num_bits);
