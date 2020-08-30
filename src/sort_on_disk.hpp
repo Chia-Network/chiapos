@@ -23,7 +23,7 @@
 #include <string>
 #include <algorithm>
 #include "./util.hpp"
-
+#include "pmergesort/pmergesort.h"
 
 class SortOnDiskUtils {
  public:
@@ -88,12 +88,12 @@ class Disk {
 
 class FileDisk : public Disk {
  public:
-    inline explicit FileDisk(const std::string& filename, bool mem = false) {
+    inline explicit FileDisk(const std::string& filename, uint32_t mem = 0) {
         filename_ = filename;
         mem_ = mem;
 
-        if(mem_) {
-            buf = new uint8_t[1*1024*1024*1024];
+        if(mem_!=0) {
+            buf = (uint8_t *)malloc((uint64_t)mem*1024*1024);
 
             return;
         }
@@ -103,27 +103,28 @@ class FileDisk : public Disk {
     }
 
     bool isOpen() {
-       if(mem_)
+       if(mem_!=0)
            return true;
 
        return (f_!=NULL);
     }
 
     ~FileDisk() {
-        if(mem_) {
-            delete[] buf;
+        if(mem_!=0) {
+            free(buf);
+	    return;
         }
 
         if(f_!=NULL)
             fclose(f_);
     }
 
-    uint8_t *getBuf() {
+    uint8_t *getBuf() override {
         return buf;
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
-        if(mem_) {
+        if(mem_!=0) {
             memcpy(memcache,&(buf[begin]),length);
             return;
         }
@@ -153,8 +154,11 @@ class FileDisk : public Disk {
     }
 
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
-        if(mem_) {
+        if(mem_!=0) {
             memcpy(&(buf[begin]),memcache,length);
+            writePos=begin+length;
+            if(writePos > writeMax)
+                writeMax = writePos;
             return;
         }
 
@@ -185,7 +189,10 @@ class FileDisk : public Disk {
     }
 
     inline std::string GetFileName() const noexcept {
-        return filename_;
+        if(mem_!=0)
+		return "RAM";
+	
+	return filename_;
     }
 
     inline uint64_t GetWriteMax() const noexcept {
@@ -198,7 +205,7 @@ class FileDisk : public Disk {
     uint64_t writePos=0;
     uint64_t writeMax=0;
     bool bReading=true;
-    bool mem_;
+    uint32_t mem_;
 
     std::string filename_;
     FILE *f_;
@@ -500,12 +507,10 @@ class Sorting {
                                       uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                       uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
 
-        uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
         // i.e. bucket_sizes[10] represents how many entries start with the prefix 1010.
         for (auto& n : bucket_sizes) total_size += n;
-        uint64_t N_buckets = bucket_sizes.size();
 
         assert(disk_begin + total_size * entry_len <= spare_begin);
 
@@ -516,11 +521,10 @@ class Sorting {
         // If we have enough memory to sort the entries, do it.
 
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
-        uint32_t entry_len_memory = entry_len - bits_begin / 8;
 
         g_entry_len=entry_len;
         g_bits_begin=bits_begin;
-        qsort(&((disk.getBuf())[disk_begin]),total_size,entry_len,cmpfunc);
+        symmergesort(&((disk.getBuf())[disk_begin]),total_size,entry_len,cmpfunc);
         return 0;
     }
 };
