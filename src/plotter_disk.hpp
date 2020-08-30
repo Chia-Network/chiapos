@@ -1741,18 +1741,13 @@ class DiskPlotter {
             final_file_writer_1 += 8;
         }
 
-        std::cout << "\tFinal table pointers:" << std::endl;
+        std::cout << "\tFinal table pointers:" << std::endl << std::hex;
 
-        std::cout << "\tP1: 0x" << std::hex << res.final_table_begin_pointers[1] << std::endl;
-        std::cout << "\tP2: 0x" << res.final_table_begin_pointers[2] << std::endl;
-        std::cout << "\tP3: 0x" << res.final_table_begin_pointers[3] << std::endl;
-        std::cout << "\tP4: 0x" << res.final_table_begin_pointers[4] << std::endl;
-        std::cout << "\tP5: 0x" << res.final_table_begin_pointers[5] << std::endl;
-        std::cout << "\tP6: 0x" << res.final_table_begin_pointers[6] << std::endl;
-        std::cout << "\tP7: 0x" << res.final_table_begin_pointers[7] << std::endl;
-        std::cout << "\tC1: 0x" << res.final_table_begin_pointers[8] << std::endl;
-        std::cout << "\tC2: 0x" << res.final_table_begin_pointers[9] << std::endl;
-        std::cout << "\tC3: 0x" << res.final_table_begin_pointers[10] << std::dec << std::endl;
+        for (int i = 1; i <= 10; i++) {
+            std::cout << "\t" << (i < 8 ? "P" : "C") << (i < 8 ? i : i - 7);
+            std::cout << ": 0x" << res.final_table_begin_pointers[i] << std::endl;
+        }
+        std::cout << std::dec;
     }
 };
 
