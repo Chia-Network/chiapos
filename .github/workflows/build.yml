@@ -60,8 +60,8 @@ jobs:
         pip install pep517
         python -m pep517.build --source --out-dir dist .
 
-    - name: cmake and RunTests with Ubuntu
-      if: startsWith(matrix.os, 'ubuntu')
+    - name: cmake and RunTests with MacOS
+      if: startsWith(matrix.os, 'mac')
       run: |
         mkdir build
         cd build
