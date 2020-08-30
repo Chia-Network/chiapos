@@ -208,7 +208,7 @@ TEST_CASE("Bits") {
         delete[] buf_2;
     }
 }
-
+/*
 class FakeDisk : public Disk {
  public:
     explicit FakeDisk(uint32_t size) : s(size, 'a') {
@@ -233,7 +233,7 @@ class FakeDisk : public Disk {
     std::string s;
     std::stringstream f_;
 };
-
+*/
 bool CheckMatch(int64_t yl, int64_t yr) {
     int64_t bl = yl / kBC;
     int64_t br = yr / kBC;
@@ -588,7 +588,7 @@ TEST_CASE("Sort on disk") {
         right[2] = 101;
         REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) < 0);
     }
-
+/*
     SECTION("Fake disk") {
         FakeDisk d = FakeDisk(10000);
         uint8_t buf[5] = {1, 2, 3, 5, 7};
@@ -599,7 +599,7 @@ TEST_CASE("Sort on disk") {
 
         REQUIRE(memcmp(buf, read_buf, 5) == 0);
     }
-
+*/
     SECTION("File disk") {
         FileDisk d = FileDisk("test_file.bin");
         uint8_t buf[5] = {1, 2, 3, 5, 7};
@@ -672,7 +672,7 @@ TEST_CASE("Sort on disk") {
 
         delete[] mem;
     }
-
+/*
     SECTION("Sort on disk") {
         uint32_t iters = 100000;
         uint32_t size = 32;
@@ -712,6 +712,6 @@ TEST_CASE("Sort on disk") {
 
         delete[] memory;
     }
-
+*/
 
 }
