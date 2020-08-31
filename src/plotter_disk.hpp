@@ -121,8 +121,7 @@ class DiskPlotter {
             return;
         }
         for (fs::path& p : tmp_1_filenames) {
-            bool r = fs::remove(p);
-            std::cout << "remove? " << p << " ? " << r << std::endl;
+            fs::remove(p);
         }
         fs::remove(tmp_2_filename);
         fs::remove(final_filename);
@@ -140,6 +139,8 @@ class DiskPlotter {
             FileDisk d4(tmp_1_filenames[4]);
             FileDisk d5(tmp_1_filenames[5]);
             FileDisk d6(tmp_1_filenames[6]);
+            FileDisk d7(tmp_1_filenames[7]);
+            tmp_1_disks.push_back(&d0);
             tmp_1_disks.push_back(&d1);
             tmp_1_disks.push_back(&d2);
             tmp_1_disks.push_back(&d3);
@@ -542,7 +543,6 @@ class DiskPlotter {
                     // Rewrite left entry with just pos and offset, to reduce working space
                     Bits new_left_entry = Bits(pos_read, pos_size);
                     new_left_entry += Bits(offset_read, kOffsetSize);
-                    // std::cout << "Read " << left_entry.y << " " << pos_read << " " << offset_read << std::endl;
                     new_left_entry.ToBytes(left_buf);
                     uint16_t to_write =  Util::ByteAlign(new_left_entry.GetSize()) / 8;
                     (*tmp_1_disks[table_index]).Write(left_writer, left_buf, compressed_entry_size_bytes);
@@ -889,7 +889,6 @@ class DiskPlotter {
                     if(left_reader_count%left_buf_entries==0) {
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
                             (table_sizes[table_index - 1] - left_reader_count) * left_entry_size_bytes);
-                        std::cout << "Starting to read " << (table_index - 1) << " num " << readAmt << "ts:" << table_sizes[table_index - 1] << std::endl;
                          (*tmp_1_disks[table_index - 1]).Read(left_reader, left_reader_buf,
                                 readAmt);
                          left_reader+=readAmt;
@@ -907,11 +906,6 @@ class DiskPlotter {
                                                                   0, pos_size);
                             entry_offset = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                      pos_size, kOffsetSize);
-                            if (current_pos < 5) {
-                                std::cout << (int)table_index << " pos " << (int)current_pos << " " << Bits(left_entry_buf, 7, 7*8) << std::endl;
-                                std::cout << (int)table_index << " pos/ offset " << (int)entry_pos << " " << (int)entry_offset << std::endl;
-                                // std::cout << (int)table_index << " Left entry size bytes: " << (int)left_entry_size_bytes << std::endl;
-                            }
                         } else {
                             entry_y = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                          0, k + kExtraBits);
@@ -931,9 +925,6 @@ class DiskPlotter {
                             new_left_entry += Bits(entry_pos, pos_size);
                             new_left_entry += Bits(entry_offset, kOffsetSize);
                             new_left_entry += Bits(left_entry_counter, k + 1);
-                            // if (current_pos < 20) {
-                            //     std::cout << (int)table_index << " Writing p/o: " << (int)entry_pos << " " << (int)entry_offset << std::endl;
-                            // }
 
                             // If we are not taking up all the bits, make sure they are zeroed
                             if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
@@ -943,7 +934,6 @@ class DiskPlotter {
                             // For table one entries, we don't care about sort key, only y and x.
                             new_left_entry += Bits(entry_y, k + kExtraBits);
                             new_left_entry += Bits(entry_metadata, left_metadata_size);
-                            // std::cout << "Writing X:" << entry_metadata.GetValue() << std::endl;
                         }
                         new_left_entry.ToBytes(new_left_entry_buf);
 
