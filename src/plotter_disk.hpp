@@ -19,6 +19,7 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
+#include <math.h>
 
 #include <iostream>
 #include <fstream>
@@ -190,7 +191,7 @@ class DiskPlotter {
 
             uint64_t total_working_space = 0;
             for (size_t i=1; i <=7; i++) {
-                total_working_space += max(GetMaxEntrySize(k, i, true), GetMaxEntrySize(k, i, false));
+                total_working_space += table_sizes[i] * GetMaxEntrySize(k, i, false);
             }
             std::cout << "Approximate working space used (without final file): " << static_cast<double>(total_working_space) / (1024*1024*1024) << " GiB" << std::endl;
 
@@ -211,7 +212,6 @@ class DiskPlotter {
                 removed_1 = false;
             }
         }
-        std::cout << "Removed all table temp files? " << removed_1 << std::endl;
 
         bool bCopied=false;
         bool bRenamed=false;
@@ -481,8 +481,11 @@ class DiskPlotter {
             uint64_t left_reader=0;
             uint64_t left_writer=0;
             uint64_t right_writer=0;
-            uint8_t *right_writer_buf=memory;
-            uint64_t right_buf_entries=memorySize/right_entry_size_bytes;
+            uint8_t *right_writer_buf=&(memory[0]);
+            uint8_t *left_writer_buf=&(memory[memorySize/2]);
+            uint64_t left_buf_entries=memorySize/2/compressed_entry_size_bytes;
+            uint64_t right_buf_entries=memorySize/2/right_entry_size_bytes;
+            uint64_t left_writer_count=0;
             uint64_t right_writer_count=0;
 
             FxCalculator f(k, table_index + 1);
@@ -498,13 +501,12 @@ class DiskPlotter {
             uint64_t matches = 0;  // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            uint8_t* left_buf = new uint8_t[entry_size_bytes];
+            uint8_t left_buf[entry_size_bytes];
             uint8_t* right_buf;
-            Bits zero_bits(0, metadata_size);
+            uint8_t* tmp_buf;
 
             uint64_t pos_offset_read = 0;
             Bits new_left_entry(0, pos_size + kOffsetSize);
-            uint16_t to_write = 0;
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
@@ -542,11 +544,14 @@ class DiskPlotter {
                     }
                     // Rewrite left entry with just pos and offset, to reduce working space
                     new_left_entry = Bits(pos_offset_read, pos_size + kOffsetSize);
-                    new_left_entry.ToBytes(left_buf);
-                    to_write =  Util::ByteAlign(new_left_entry.GetSize()) / 8;
-                    (*tmp_1_disks[table_index]).Write(left_writer, left_buf, to_write);
-                    assert(to_write <= compressed_entry_size_bytes);
-                    left_writer += compressed_entry_size_bytes;
+                    tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
+                    left_writer_count++;
+                    new_left_entry.ToBytes(tmp_buf);
+                     if(left_writer_count % left_buf_entries==0) {
+                        (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
+                                                          left_buf_entries*compressed_entry_size_bytes);
+                        left_writer+=left_buf_entries*compressed_entry_size_bytes;
+                     }
                 }
 
                 // This is not the pos that was read from disk,but the position of the entry we read, within L table.
@@ -642,7 +647,7 @@ class DiskPlotter {
             }
 
 
-            table_sizes[table_index + 1] = right_writer_count;
+            table_sizes[table_index + 1] = right_writer_count + 1;
 
             // Total matches found in the left table
             std::cout << "\tTotal matches: " << matches << ". Per bucket: "
@@ -651,6 +656,10 @@ class DiskPlotter {
             // Writes the 0 entry (EOT) for left table
             // Also truncates the file after the final write position, deleting no longer useful working space
             if (table_index > 1) {
+                (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
+                    (left_writer_count%left_buf_entries)*compressed_entry_size_bytes);
+                left_writer+=(left_writer_count%left_buf_entries)*compressed_entry_size_bytes;
+
                 memset(left_buf, 0x00, compressed_entry_size_bytes);
                 (*tmp_1_disks[table_index]).Write(left_writer, left_buf, compressed_entry_size_bytes);
                 left_writer += compressed_entry_size_bytes;
@@ -670,13 +679,8 @@ class DiskPlotter {
             bucket_sizes = right_bucket_sizes;
             right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
 
-            delete[] left_buf;
-
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
-        }
-        for (int i=1; i<=7; i++) {
-            std::cout << "Table sizes: " << i << " " << table_sizes[i] << std::endl;
         }
 
         return table_sizes;
@@ -1286,6 +1290,7 @@ class DiskPlotter {
                 }
                 current_pos += 1;
             }
+
             right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
             right_writer_count++;
 
@@ -1294,6 +1299,9 @@ class DiskPlotter {
             (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+
+            // Remove no longer needed file
+            (*tmp_1_disks[table_index]).Truncate(0);
 
             computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
             Timer sort_timer;
