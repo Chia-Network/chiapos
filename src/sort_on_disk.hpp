@@ -83,7 +83,7 @@ class Disk {
  public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
-    virtual void Truncate(uint64_t new_size);
+    virtual void Truncate(uint64_t new_size) = 0;
 };
 
 class FileDisk : public Disk {
@@ -164,7 +164,7 @@ class FileDisk : public Disk {
         return writeMax;
     }
 
-    inline void Truncate(uint64_t new_size) {
+    inline void Truncate(uint64_t new_size) override {
         fs::resize_file(filename_, new_size);
     }
 
