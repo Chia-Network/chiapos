@@ -426,10 +426,10 @@ class DiskPlotter {
                 break;
             }
         }
-        table_sizes[1] = x;
         // A zero entry is the end of table symbol.
         memset(buf, 0x00, entry_size_bytes);
-        (*tmp_1_disks[1]).Write(plot_file, (buf), entry_size_bytes);
+        (*tmp_1_disks[1]).Write(plot_file, buf, entry_size_bytes);
+        table_sizes[1] = x + 1;
         plot_file+=entry_size_bytes;
         delete[] buf;
 
@@ -502,8 +502,9 @@ class DiskPlotter {
             uint8_t* right_buf;
             Bits zero_bits(0, metadata_size);
 
-            uint64_t pos_read = 0;
-            uint8_t offset_read = 0;
+            uint64_t pos_offset_read = 0;
+            Bits new_left_entry(0, pos_size + kOffsetSize);
+            uint16_t to_write = 0;
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
@@ -524,8 +525,7 @@ class DiskPlotter {
                 } else {
                     // For tables 2-6, we we also have pos and offset, but we don't use it here.
                     left_entry.y = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, 0, k + kExtraBits);
-                    pos_read = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits, pos_size);
-                    offset_read = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits + pos_size, kOffsetSize);
+                    pos_offset_read = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits, pos_size + kOffsetSize);
                     if (metadata_size <= 128) {
                         left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
                                                                               k + kExtraBits + pos_size + kOffsetSize,
@@ -541,11 +541,10 @@ class DiskPlotter {
                                                                                metadata_size - 128);
                     }
                     // Rewrite left entry with just pos and offset, to reduce working space
-                    Bits new_left_entry = Bits(pos_read, pos_size);
-                    new_left_entry += Bits(offset_read, kOffsetSize);
+                    new_left_entry = Bits(pos_offset_read, pos_size + kOffsetSize);
                     new_left_entry.ToBytes(left_buf);
-                    uint16_t to_write =  Util::ByteAlign(new_left_entry.GetSize()) / 8;
-                    (*tmp_1_disks[table_index]).Write(left_writer, left_buf, compressed_entry_size_bytes);
+                    to_write =  Util::ByteAlign(new_left_entry.GetSize()) / 8;
+                    (*tmp_1_disks[table_index]).Write(left_writer, left_buf, to_write);
                     assert(to_write <= compressed_entry_size_bytes);
                     left_writer += compressed_entry_size_bytes;
                 }
@@ -658,13 +657,14 @@ class DiskPlotter {
                 (*tmp_1_disks[table_index]).Truncate(left_writer);
             }
 
-            right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-            right_writer_count++;
-            // Writes the 0 entry (EOT) for right table
-            memset(right_buf, 0x00, right_entry_size_bytes);
             (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+
+            // Writes the 0 entry (EOT) for right table
+            memset(right_writer_buf, 0x00, right_entry_size_bytes);
+            (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf, right_entry_size_bytes);
+
 
             // Resets variables
             bucket_sizes = right_bucket_sizes;
@@ -991,28 +991,29 @@ class DiskPlotter {
                 }
                 ++current_pos;
             }
-            new_table_sizes[table_index] = right_writer_count;
+            new_table_sizes[table_index - 1] = left_entry_counter + 1;
+            if (table_index == 7) {
+                new_table_sizes[7] = right_writer_count + 1;
+            }
             std::cout << "\tWrote left entries: " <<  left_entry_counter << std::endl;
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Total backpropagation time::");
-
-            right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-            right_writer_count++;
-
-            memset(right_entry_buf, 0x00, right_entry_size_bytes);
 
             (*tmp_1_disks[table_index]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
             right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
 
-            new_left_entry_buf=left_writer_buf+(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
-            left_writer_count++;
-
-            memset(new_left_entry_buf,0x00,left_entry_size_bytes);
+            // Writes the 0 entry (EOT) for right table
+            memset(right_writer_buf, 0x00, right_entry_size_bytes);
+            (*tmp_1_disks[table_index]).Write(right_writer, right_writer_buf, right_entry_size_bytes);
 
             (*tmp_1_disks[table_index - 1]).Write(left_writer, left_writer_buf,
                 (left_writer_count%new_left_buf_entries)*left_entry_size_bytes);
             left_writer+=(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
+
+            // Writes the 0 entry (EOT) for left table
+            memset(left_writer_buf, 0x00, left_entry_size_bytes);
+            (*tmp_1_disks[table_index - 1]).Write(left_writer, left_writer_buf, left_entry_size_bytes);
 
             bucket_sizes_pos = new_bucket_sizes_pos;
         }
