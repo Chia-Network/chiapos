@@ -22,6 +22,13 @@
 #include <fstream>
 #include <string>
 #include <algorithm>
+
+// Gulrak filesystem brings in Windows headers that cause some issues with std
+#define _HAS_STD_BYTE 0
+#define NOMINMAX
+
+#include "../lib/include/filesystem.hh"
+namespace fs = ghc::filesystem;
 #include "./util.hpp"
 
 
@@ -76,11 +83,12 @@ class Disk {
  public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
+    virtual void Truncate(uint64_t new_size);
 };
 
 class FileDisk : public Disk {
  public:
-    inline explicit FileDisk(const std::string& filename) {
+    inline explicit FileDisk(const fs::path& filename) {
         filename_ = filename;
 
         // Opens the file for reading and writing
@@ -156,6 +164,10 @@ class FileDisk : public Disk {
         return writeMax;
     }
 
+    inline void Truncate(uint64_t new_size) {
+        fs::resize_file(filename_, new_size);
+    }
+
 
  private:
     uint64_t readPos=0;
@@ -163,7 +175,7 @@ class FileDisk : public Disk {
     uint64_t writeMax=0;
     bool bReading=true;
 
-    std::string filename_;
+    fs::path filename_;
     FILE *f_;
 };
 
@@ -456,18 +468,16 @@ class Sorting {
         }
     }
 
-    inline static uint64_t SortOnDisk(Disk& disk, uint64_t disk_begin, uint64_t spare_begin,
+    inline static uint64_t SortOnDisk(Disk& disk, uint64_t disk_begin, Disk& spare,
                                       uint32_t entry_len, uint32_t bits_begin, std::vector<uint64_t> bucket_sizes,
                                       uint8_t* mem, uint64_t mem_len, int quicksort = 0) {
-
+        spare.Truncate(0);
         uint64_t length = mem_len / entry_len;
         uint64_t total_size = 0;
         // bucket_sizes[i] represent how many entries start with the prefix i (from 0000 to 1111).
         // i.e. bucket_sizes[10] represents how many entries start with the prefix 1010.
         for (auto& n : bucket_sizes) total_size += n;
         uint64_t N_buckets = bucket_sizes.size();
-
-        assert(disk_begin + total_size * entry_len <= spare_begin);
 
         if (bits_begin >= entry_len * 8) {
             return 0;
@@ -523,7 +533,7 @@ class Sorting {
                 uint64_t next_amount = std::min(length, to_consume);
                 disk.Read(disk_begin + (bucket_begins[i] + consumed_per_bucket[i]) * entry_len,
                     mem, next_amount * entry_len);
-                disk.Write(spare_begin + spare_written * entry_len,
+                spare.Write(spare_written * entry_len,
                     mem, next_amount * entry_len);
                 to_consume -= next_amount;
                 spare_written += next_amount;
@@ -533,13 +543,13 @@ class Sorting {
 
         uint64_t spare_consumed = 0;
         BucketStore bstore = BucketStore(mem, mem_len, entry_len, bits_begin, bucket_log, 100);
-        uint64_t read_pos=spare_begin;
+        uint64_t read_pos=0;
 
         uint8_t* buf = new uint8_t[entry_len];
 
         // Populate BucketStore from spare.
         while (!bstore.IsFull() && spare_consumed < spare_written) {
-            disk.Read(read_pos, buf, entry_len);
+            spare.Read(read_pos, buf, entry_len);
             read_pos+=entry_len;
             bstore.Store(buf, entry_len);
             spare_consumed += 1;
@@ -616,9 +626,9 @@ class Sorting {
 
             // If BucketStore still isn't full and we've read all entries from buckets, start populating from the spare space.
             if (!broke) {
-                uint64_t read_pos=spare_begin + spare_consumed * entry_len;
+                uint64_t read_pos=spare_consumed * entry_len;
                 while (!bstore.IsFull() && spare_consumed < spare_written) {
-                    disk.Read(read_pos, buf, entry_len);
+                    spare.Read(read_pos, buf, entry_len);
                     read_pos+=entry_len;
                     bstore.Store(buf, entry_len);
                     spare_consumed += 1;
@@ -626,6 +636,8 @@ class Sorting {
             }
         }
         delete[] buf;
+        // Ensure all spare disk space is cleared
+        spare.Truncate(0);
 
         // The last bucket that contains at least one entry.
         uint8_t last_bucket = N_buckets - 1;
@@ -659,7 +671,7 @@ class Sorting {
             // We recursively sort each chunk, this time starting with the next 4 bits to determine the buckets.
             // (i.e. firstly, we sort entries starting with 0000, then entries starting with 0001, ..., then entries
             // starting with 1111, at the end producing the correct ordering).
-            uint64_t bytes_written = SortOnDisk(disk, disk_begin + bucket_begins[i] * entry_len, spare_begin,
+            uint64_t bytes_written = SortOnDisk(disk, disk_begin + bucket_begins[i] * entry_len, spare,
                                                 entry_len, bits_begin + bucket_log, subbucket_sizes[i], mem, mem_len,
                                                 new_quicksort);
             // Keeps track of how much spare space we used for sorting
