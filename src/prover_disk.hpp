@@ -266,18 +266,6 @@ class DiskProver {
         uint32_t stubs_size_bits = DiskPlotter::CalculateStubsSize(k) * 8;
         uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
         disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
-        std::vector<uint64_t> stubs;
-        uint32_t start_bit = 0;
-        uint8_t stub_size = k - kStubMinusBits;
-
-        for (uint32_t i = 0; i < kEntriesPerPark - 1; i++) {
-            uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
-            stub <<= start_bit % 8;
-            stub >>= 64 - stub_size;
-            stubs.push_back(stub);
-
-            start_bit += stub_size;
-        }
 
         // Reads EPP deltas
         uint32_t max_deltas_size_bits = DiskPlotter::CalculateMaxDeltasSize(k, table_index) * 8;
@@ -306,11 +294,18 @@ class DiskProver {
              deltas = Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
+        uint32_t start_bit = 0;
+        uint8_t stub_size = k - kStubMinusBits;
         uint64_t sum_deltas = 0;
         uint64_t sum_stubs = 0;
         for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark), (uint32_t)deltas.size()); i++) {
+            uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
+            stub <<= start_bit % 8;
+            stub >>= 64 - stub_size;
+
+            sum_stubs += stub;
+            start_bit += stub_size;
             sum_deltas += deltas[i];
-            sum_stubs += stubs[i];
         }
 
         uint128_t big_delta = ((uint128_t)sum_deltas << stub_size) + sum_stubs;
