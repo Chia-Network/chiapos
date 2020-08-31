@@ -215,12 +215,16 @@ class FakeDisk : public Disk {
         f_ = std::stringstream(s, std::ios_base::in | std::ios_base::out);
     }
 
-    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) {
+    ~FakeDisk() {
+
+    }
+
+    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
         f_.seekg(begin);
         f_.read(reinterpret_cast<char*>(memcache), length);
     }
 
-    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) {
+    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         f_.seekp(begin);
         f_.write(reinterpret_cast<const char*>(memcache), length);
     }
@@ -506,50 +510,50 @@ TEST_CASE("Plotting") {
     SECTION("Disk plot 1") {
         PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1);
     }
-    SECTION("Disk plot 2") {
-        PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3);
-    }
-    SECTION("Disk plot 3") {
-        PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3);
-    }
+    // SECTION("Disk plot 2") {
+    //     PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3);
+    // }
+    // SECTION("Disk plot 3") {
+    //     PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3);
+    // }
 }
 
-TEST_CASE("Invalid plot") {
-    SECTION("File gets deleted") {
-        string filename = "invalid-plot.dat";
-        {
-        DiskPlotter plotter = DiskPlotter();
-        uint8_t memo[5] = {1, 2, 3, 4, 5};
-        uint8_t k = 22;
-        plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
-        DiskProver prover(filename);
-        uint8_t* proof_data = new uint8_t[8 * k];
-        uint8_t challenge[32];
-        size_t i;
-        memset(challenge, 155, 32);
-        vector<LargeBits> qualities;
-        for (i = 0; i < 50; i++) {
-            qualities = prover.GetQualitiesForChallenge(challenge);
-            if (qualities.size())
-                break;
-            challenge[0]++;
-        }
-        Verifier verifier = Verifier();
-        REQUIRE(qualities.size() > 0);
-        for (uint32_t index = 0; index < qualities.size(); index++) {
-            LargeBits proof = prover.GetFullProof(challenge, index);
-            proof.ToBytes(proof_data);
-            LargeBits quality = verifier.ValidateProof(plot_id_1, k, challenge, proof_data, k*8);
-            REQUIRE(quality == qualities[index]);
-        }
-        delete[] proof_data;
-        }
-        REQUIRE(remove(filename.c_str()) == 0);
-        REQUIRE_THROWS_WITH([&](){
-            DiskProver p(filename);
-        }(), "Invalid file " + filename);
-    }
-}
+// TEST_CASE("Invalid plot") {
+//     SECTION("File gets deleted") {
+//         string filename = "invalid-plot.dat";
+//         {
+//         DiskPlotter plotter = DiskPlotter();
+//         uint8_t memo[5] = {1, 2, 3, 4, 5};
+//         uint8_t k = 22;
+//         plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
+//         DiskProver prover(filename);
+//         uint8_t* proof_data = new uint8_t[8 * k];
+//         uint8_t challenge[32];
+//         size_t i;
+//         memset(challenge, 155, 32);
+//         vector<LargeBits> qualities;
+//         for (i = 0; i < 50; i++) {
+//             qualities = prover.GetQualitiesForChallenge(challenge);
+//             if (qualities.size())
+//                 break;
+//             challenge[0]++;
+//         }
+//         Verifier verifier = Verifier();
+//         REQUIRE(qualities.size() > 0);
+//         for (uint32_t index = 0; index < qualities.size(); index++) {
+//             LargeBits proof = prover.GetFullProof(challenge, index);
+//             proof.ToBytes(proof_data);
+//             LargeBits quality = verifier.ValidateProof(plot_id_1, k, challenge, proof_data, k*8);
+//             REQUIRE(quality == qualities[index]);
+//         }
+//         delete[] proof_data;
+//         }
+//         REQUIRE(remove(filename.c_str()) == 0);
+//         REQUIRE_THROWS_WITH([&](){
+//             DiskProver p(filename);
+//         }(), "Invalid file " + filename);
+//     }
+// }
 
 TEST_CASE("Sort on disk") {
     SECTION("ExtractNum") {

@@ -450,8 +450,6 @@ class DiskPlotter {
             uint32_t compressed_entry_size_bytes = GetMaxEntrySize(k, table_index, false);
             right_entry_size_bytes = GetMaxEntrySize(k, table_index + 1, true);
 
-            uint64_t table_end_byte = (entry_size_bytes * (total_table_entries + 1));
-
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
 
             total_table_entries = 0;
@@ -536,10 +534,13 @@ class DiskPlotter {
                     }
                     // Rewrite left entry with just pos and offset, to reduce working space
                     Bits new_left_entry = Bits(pos_read, pos_size);
-                    new_left_entry.AppendValue(offset_read, kOffsetSize);
+                    new_left_entry += Bits(offset_read, kOffsetSize);
+                    // std::cout << "Read " << left_entry.y << " " << pos_read << " " << offset_read << std::endl;
                     new_left_entry.ToBytes(left_buf);
-                    tmp_1_disks[table_index].Write(left_writer, left_buf, Util::ByteAlign(new_left_entry.GetSize()));
+                    tmp_1_disks[table_index].Write(left_writer, left_buf, Util::ByteAlign(new_left_entry.GetSize()) / 8);
                     left_writer += compressed_entry_size_bytes;
+                    // std::cout << "CEB " << (int)compressed_entry_size_bytes << std::endl;
+                    // std::cout << "Writing left " << (int)left_writer << std::endl;
                 }
 
                 // This is not the pos that was read from disk,but the position of the entry we read, within L table.
@@ -647,6 +648,8 @@ class DiskPlotter {
             left_writer += compressed_entry_size_bytes;
 
             // Truncates the file after the final write position, deleting no longer useful working space
+            std::cout << "Left writer: " << (int)left_writer << std::endl;
+            std::cout << tmp_1_disks[table_index].GetWriteMax() << std::endl;
             tmp_1_disks[table_index].Truncate(left_writer);
 
             right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
@@ -802,7 +805,7 @@ class DiskPlotter {
                             // Need to read another entry at the current position
                            if(right_reader_count%right_buf_entries==0) {
                                uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
-                                   table_sizes[table_index]-right_reader_count*right_entry_size_bytes);
+                                   (table_sizes[table_index]-right_reader_count)*right_entry_size_bytes);
 
                                tmp_1_disks[table_index].Read(right_reader, right_reader_buf,
                                               readAmt);
@@ -875,7 +878,7 @@ class DiskPlotter {
                     // ***Reads a left entry
                     if(left_reader_count%left_buf_entries==0) {
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
-                            table_sizes[table_index - 1] - left_reader_count*left_entry_size_bytes);
+                            (table_sizes[table_index - 1] - left_reader_count) * left_entry_size_bytes);
                          tmp_1_disks[table_index - 1].Read(left_reader, left_reader_buf,
                                 readAmt);
                          left_reader+=readAmt;
@@ -1161,7 +1164,7 @@ class DiskPlotter {
                             // The right entries are in the format from backprop, (sort_key, pos, offset)
                             if(right_reader_count%right_buf_entries==0) {
                                 uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
-                                    table_sizes[table_index + 1]-right_reader_count*right_entry_size_bytes);
+                                    (table_sizes[table_index + 1]-right_reader_count) * right_entry_size_bytes);
 
                                 tmp_1_disks[table_index + 1].Read(right_reader, right_reader_buf, readAmt);
                                 right_reader+=readAmt;
@@ -1209,7 +1212,7 @@ class DiskPlotter {
                     // The left entries are in the new format: (sort_key, new_pos), except for table 1: (y, x).
                     if(left_reader_count%left_buf_entries==0) {
                          uint64_t readAmt=std::min(left_buf_entries*left_entry_size_bytes,
-                            table_sizes[table_index]-left_reader_count*left_entry_size_bytes);
+                            (table_sizes[table_index]-left_reader_count) * left_entry_size_bytes);
 
                          tmp_1_disks[table_index].Read(left_reader, left_reader_buf,
                                 readAmt);

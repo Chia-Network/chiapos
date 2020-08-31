@@ -84,6 +84,7 @@ class Disk {
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
     virtual void Truncate(uint64_t new_size) = 0;
+    virtual ~Disk() {};
 };
 
 class FileDisk : public Disk {
