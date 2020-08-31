@@ -158,7 +158,7 @@ class FileDisk : public Disk {
     }
 
     inline std::string GetFileName() const noexcept {
-        return filename_;
+        return filename_.string();
     }
 
     inline uint64_t GetWriteMax() const noexcept {
@@ -171,6 +171,9 @@ class FileDisk : public Disk {
 
 
  private:
+    FileDisk(const FileDisk&);
+    FileDisk& operator=(const FileDisk&);
+
     uint64_t readPos=0;
     uint64_t writePos=0;
     uint64_t writeMax=0;
