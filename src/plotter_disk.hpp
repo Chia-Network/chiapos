@@ -515,7 +515,7 @@ class DiskPlotter {
             std::set<uint64_t> used_L_indeces;
             std::set<uint64_t> used_R_indeces;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
-            std::vector<PlotEntry> not_dropped;
+            std::vector<PlotEntry*> not_dropped;
             std::map<uint64_t, uint64_t> L_position_map;
             std::map<uint64_t, uint64_t> R_position_map;
 
@@ -573,9 +573,10 @@ class DiskPlotter {
                     // the result is written to the right table.
                     if (bucket_L.size() > 0) {
                         used_L_indeces.clear();
-                        used_R_indeces.clear();
-                        match_indexes.clear();
-                        not_dropped.clear();
+                        if (end_of_table) {
+                            used_R_indeces.clear();
+                        }
+                        not_dropped = std::vector<PlotEntry*>();
 
                         if (bucket_R.size() > 0) {
                             // Compute all matches between the two buckets, and return indeces into each bucket
@@ -583,35 +584,37 @@ class DiskPlotter {
 
                             for (auto& indeces : match_indexes) {
                                 used_L_indeces.insert(std::get<0>(indeces));
-                                used_R_indeces.insert(std::get<1>(indeces));
+                                if (end_of_table) {
+                                    used_R_indeces.insert(std::get<1>(indeces));
+                                }
                             }
                         }
 
                         for (uint16_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                             PlotEntry& L_entry = bucket_L[bucket_index];
                             if (L_entry.used || used_L_indeces.find(bucket_index) != used_L_indeces.end()) {
-                                not_dropped.push_back(L_entry);
+                                not_dropped.push_back(&bucket_L[bucket_index]);
                             }
                         }
                         if (end_of_table) {
                             for (auto index : used_R_indeces) {
-                                not_dropped.push_back(bucket_R[index]);
+                                not_dropped.push_back(&bucket_R[index]);
                             }
+                            std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry* &a, PlotEntry* &b){ return a->pos < b->pos; });
                         }
-                        std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry &a, PlotEntry &b){ return a.pos < b.pos; });
-                        L_position_map.clear();
+
                         L_position_map = R_position_map;
                         R_position_map.clear();
 
-                        for (PlotEntry& entry : not_dropped) {
+                        for (PlotEntry* entry : not_dropped) {
                             // Rewrite left entry with just pos and offset, to reduce working space
                             if (table_index == 1) {
-                                new_left_entry = Bits(entry.left_metadata, k);
+                                new_left_entry = Bits(entry->left_metadata, k);
                             } else {
-                                new_left_entry = Bits(entry.read_posoffset, pos_size + kOffsetSize);
+                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
-                            R_position_map[entry.pos] = left_writer_count;
+                            R_position_map[entry->pos] = left_writer_count;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -651,7 +654,7 @@ class DiskPlotter {
                             // Sets the R entry to used so that we don't drop in next iteration
                             R_entry.used = true;
                             // std::cout << "Matched entries " << L_entry.pos << " " << R_entry.pos << std::endl;
-                            future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
+                            future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
                         }
                         int final_current_entry_size = current_entries_to_write.size();
                         if (end_of_table) {
@@ -659,7 +662,7 @@ class DiskPlotter {
                             // std::cout << "end of table " << future_index_start << " " << future_entries_to_write.size() << std::endl;
                             current_entries_to_write.insert(current_entries_to_write.end(), future_entries_to_write.begin(), future_entries_to_write.end());
                         }
-                        for (int i=0; i < current_entries_to_write.size(); i++) {
+                        for (uint16_t i = 0; i < current_entries_to_write.size(); i++) {
                             auto& entry_tuple = current_entries_to_write[i];
                             PlotEntry& L_entry = std::get<0>(entry_tuple);
                             PlotEntry& R_entry = std::get<1>(entry_tuple);
@@ -806,9 +809,10 @@ class DiskPlotter {
             if (table_index != 7) {
                 std::cout << "\tSorting table " << int{table_index} << std::endl;
                 Timer sort_timer;
+                int do_quicksort = table_index == 6;
                 Sorting::SortOnDisk((*tmp_1_disks[table_index]), 0, *tmp_1_disks[0],
                                     right_entry_size_bytes,
-                                    0, bucket_sizes_pos, memory, memorySize);
+                                    0, bucket_sizes_pos, memory, memorySize, do_quicksort);
 
                 sort_timer.PrintElapsed("\tSort time:");
             }
