@@ -29,6 +29,7 @@
 #include <string>
 #include <utility>
 #include <unordered_set>
+#include <unordered_map>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -389,6 +390,7 @@ class DiskPlotter {
     // f functions are computed, and a sort on disk happens for each table.
     std::vector<uint64_t> WritePlotFile(uint8_t* memory, std::vector<FileDisk*>& tmp_1_disks, uint8_t k, const uint8_t* id,
                                         const uint8_t* memo, uint8_t memo_len) {
+        // memset(memory, 0, memorySize);
         uint64_t plot_file=0;
 
         std::cout << "Computing table 1" << std::endl;
@@ -514,12 +516,14 @@ class DiskPlotter {
             Bits new_left_entry(0, new_pos_size + kOffsetSize);
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
-            std::unordered_set<uint64_t> used_L_indeces;
-            std::unordered_set<uint64_t> used_R_indeces;
+            std::unordered_set<uint16_t> used_L_indeces;
+            std::unordered_set<uint16_t> used_R_indeces;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
             std::vector<PlotEntry*> not_dropped;
-            std::map<uint64_t, uint64_t> L_position_map;
-            std::map<uint64_t, uint64_t> R_position_map;
+            std::unordered_map<uint16_t, uint16_t> L_position_map;
+            std::unordered_map<uint16_t, uint16_t> R_position_map;
+            uint64_t L_position_base = 0;
+            uint64_t R_position_base = 0;
             uint64_t newlpos, newrpos;
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
@@ -593,7 +597,7 @@ class DiskPlotter {
                             }
                         }
 
-                        for (uint16_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
+                        for (size_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                             PlotEntry& L_entry = bucket_L[bucket_index];
                             if (L_entry.used || used_L_indeces.find(bucket_index) != used_L_indeces.end()) {
                                 not_dropped.emplace_back(&bucket_L[bucket_index]);
@@ -605,8 +609,9 @@ class DiskPlotter {
                             }
                             std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry* &a, PlotEntry* &b){ return a->pos < b->pos; });
                         }
-
+                        L_position_base = R_position_base;
                         L_position_map.swap(R_position_map);
+                        R_position_base = left_writer_count;
                         R_position_map.clear();
 
                         for (PlotEntry* &entry : not_dropped) {
@@ -618,7 +623,7 @@ class DiskPlotter {
                                 new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize).Slice(1);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
-                            R_position_map[entry->pos] = left_writer_count;
+                            R_position_map[entry->pos % (1<<16)] = left_writer_count - R_position_base;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -664,7 +669,7 @@ class DiskPlotter {
                             // For the final bucket, write them down now
                             current_entries_to_write.insert(current_entries_to_write.end(), future_entries_to_write.begin(), future_entries_to_write.end());
                         }
-                        for (uint16_t i = 0; i < current_entries_to_write.size(); i++) {
+                        for (size_t i = 0; i < current_entries_to_write.size(); i++) {
                             const auto& entry_tuple = current_entries_to_write[i];
                             const PlotEntry& L_entry = std::get<0>(entry_tuple);
                             const PlotEntry& R_entry = std::get<1>(entry_tuple);
@@ -673,11 +678,11 @@ class DiskPlotter {
                             // We only need k instead of k + kExtraBits bits for the last table
                             Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k) : std::get<0>(f_output);
                             if (!end_of_table || i < final_current_entry_size) {
-                                newlpos = L_position_map[L_entry.pos];
+                                newlpos = L_position_map[L_entry.pos % (1 << 16)] + L_position_base;
                             } else {
-                                newlpos = R_position_map[L_entry.pos];
+                                newlpos = R_position_map[L_entry.pos % (1 << 16)] + R_position_base;
                             }
-                            newrpos = R_position_map[R_entry.pos];
+                            newrpos = R_position_map[R_entry.pos % (1 << 16)] + R_position_base;
                             // Position in the previous table
                             if (table_index + 1 == 7) {
                                 assert(newlpos < (1 << new_pos_size));
@@ -766,6 +771,8 @@ class DiskPlotter {
         for (int i=0; i<=7; i++) {
             std::cout << "Table " << i << " " << table_sizes[i] << std::endl;
         }
+        // abort();
+        // exit(0);
         return table_sizes;
     }
 
@@ -1489,6 +1496,7 @@ class DiskPlotter {
                 }
                 last_line_point = line_point;
             }
+            Encoding::ANSFree(kRValues[table_index - 1]);
 
             (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
@@ -1645,6 +1653,8 @@ class DiskPlotter {
                 prev_y = entry_y;
             }
         }
+        Encoding::ANSFree(kC3R);
+
 
         // Writes the final park to disk
         memset(P7_entry_buf, 0, P7_park_size);
@@ -1663,6 +1673,7 @@ class DiskPlotter {
 
             tmp2_disk.Write(final_file_writer_2, (C3_entry_buf), size_C3);
             final_file_writer_2+=size_C3;
+            Encoding::ANSFree(kC3R);
         }
 
         Bits(0, Util::ByteAlign(k)).ToBytes(C1_entry_buf);
