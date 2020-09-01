@@ -265,7 +265,7 @@ static void __numCPU_initialize(_PMR_ONCE_ARG)
 #include "pmergesort-tpool.inl"
 /* -------------------------------------------------------------------------------------------------------------------------- */
 
-static __attribute__((noinline)) int numCPU()
+int numCPU()
 {
 static pthread_once_t _once = PTHREAD_ONCE_INIT;
 
