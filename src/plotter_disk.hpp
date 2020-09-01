@@ -267,7 +267,11 @@ class DiskPlotter {
         switch (table_index) {
             case 1:
                // Represents f1, x
-               return Util::ByteAlign(k + kExtraBits + k) / 8;
+               if (phase_1_size) {
+                    return Util::ByteAlign(k + kExtraBits + k) / 8;
+               } else {
+                    return Util::ByteAlign(k) / 8;
+               }
             case 2:
             case 3:
             case 4:
@@ -505,8 +509,15 @@ class DiskPlotter {
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
-            uint64_t pos_offset_read = 0;
             Bits new_left_entry(0, pos_size + kOffsetSize);
+            std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
+            std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
+            std::set<uint64_t> used_L_indeces;
+            std::set<uint64_t> used_R_indeces;
+            std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
+            std::vector<PlotEntry> not_dropped;
+            std::map<uint64_t, uint64_t> L_position_map;
+            std::map<uint64_t, uint64_t> R_position_map;
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
@@ -527,7 +538,7 @@ class DiskPlotter {
                 } else {
                     // For tables 2-6, we we also have pos and offset, but we don't use it here.
                     left_entry.y = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, 0, k + kExtraBits);
-                    pos_offset_read = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits, pos_size + kOffsetSize);
+                    left_entry.read_posoffset = Util::SliceInt64FromBytes(left_buf, entry_size_bytes, k + kExtraBits, pos_size + kOffsetSize);
                     if (metadata_size <= 128) {
                         left_entry.left_metadata = Util::SliceInt128FromBytes(left_buf, entry_size_bytes,
                                                                               k + kExtraBits + pos_size + kOffsetSize,
@@ -542,20 +553,11 @@ class DiskPlotter {
                                                                                  + kOffsetSize + 128,
                                                                                metadata_size - 128);
                     }
-                    // Rewrite left entry with just pos and offset, to reduce working space
-                    new_left_entry = Bits(pos_offset_read, pos_size + kOffsetSize);
-                    tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
-                    left_writer_count++;
-                    new_left_entry.ToBytes(tmp_buf);
-                     if(left_writer_count % left_buf_entries==0) {
-                        (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
-                                                          left_buf_entries*compressed_entry_size_bytes);
-                        left_writer+=left_buf_entries*compressed_entry_size_bytes;
-                     }
                 }
 
                 // This is not the pos that was read from disk,but the position of the entry we read, within L table.
                 left_entry.pos = pos;
+                left_entry.used = false;
 
                 end_of_table = (left_entry.y == 0 && left_entry.left_metadata == 0 && left_entry.right_metadata == 0);
                 uint64_t y_bucket = left_entry.y / kBC;
@@ -569,9 +571,59 @@ class DiskPlotter {
                     // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                     // so now we can compare entries in both buckets to find matches. If two entries match,
                     // the result is written to the right table.
-                    if (bucket_L.size() > 0 && bucket_R.size() > 0) {
-                        // Compute all matches between the two buckets, and return indeces into each bucket
-                        std::vector<std::pair<uint16_t, uint16_t> > match_indexes = f.FindMatches(bucket_L, bucket_R);
+                    if (bucket_L.size() > 0) {
+                        used_L_indeces.clear();
+                        used_R_indeces.clear();
+                        match_indexes.clear();
+                        not_dropped.clear();
+
+                        if (bucket_R.size() > 0) {
+                            // Compute all matches between the two buckets, and return indeces into each bucket
+                            match_indexes = f.FindMatches(bucket_L, bucket_R);
+
+                            for (auto& indeces : match_indexes) {
+                                used_L_indeces.insert(std::get<0>(indeces));
+                                used_R_indeces.insert(std::get<1>(indeces));
+                            }
+                        }
+
+                        for (uint16_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
+                            PlotEntry& L_entry = bucket_L[bucket_index];
+                            if (L_entry.used || used_L_indeces.find(bucket_index) != used_L_indeces.end()) {
+                                not_dropped.push_back(L_entry);
+                            }
+                        }
+                        if (end_of_table) {
+                            for (auto index : used_R_indeces) {
+                                not_dropped.push_back(bucket_R[index]);
+                            }
+                        }
+                        std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry &a, PlotEntry &b){ return a.pos < b.pos; });
+                        L_position_map.clear();
+                        L_position_map = R_position_map;
+                        R_position_map.clear();
+
+                        for (PlotEntry& entry : not_dropped) {
+                            // Rewrite left entry with just pos and offset, to reduce working space
+                            if (table_index == 1) {
+                                new_left_entry = Bits(entry.left_metadata, k);
+                            } else {
+                                new_left_entry = Bits(entry.read_posoffset, pos_size + kOffsetSize);
+                            }
+                            tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
+                            R_position_map[entry.pos] = left_writer_count;
+                            left_writer_count++;
+                            new_left_entry.ToBytes(tmp_buf);
+                            if(left_writer_count % left_buf_entries==0) {
+                                (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
+                                         left_buf_entries*compressed_entry_size_bytes);
+                                left_writer+=left_buf_entries*compressed_entry_size_bytes;
+                            }
+                        }
+
+                        current_entries_to_write.clear();
+                        current_entries_to_write = future_entries_to_write;
+                        future_entries_to_write.clear();
                         for (auto& indeces : match_indexes) {
                             PlotEntry& L_entry = bucket_L[std::get<0>(indeces)];
                             PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
@@ -593,21 +645,50 @@ class DiskPlotter {
                                                               + Bits(R_entry.right_metadata, metadata_size - 128));
                             }
                             // fx/y, which will be used for sorting and matching
-                            Bits& new_entry = std::get<0>(f_output);
                             ++matches;
                             ++total_table_entries;
 
+                            // Sets the R entry to used so that we don't drop in next iteration
+                            R_entry.used = true;
+                            // std::cout << "Matched entries " << L_entry.pos << " " << R_entry.pos << std::endl;
+                            future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
+                        }
+                        int final_current_entry_size = current_entries_to_write.size();
+                        if (end_of_table) {
+                            // For the final bucket, write them down now
+                            // std::cout << "end of table " << future_index_start << " " << future_entries_to_write.size() << std::endl;
+                            current_entries_to_write.insert(current_entries_to_write.end(), future_entries_to_write.begin(), future_entries_to_write.end());
+                        }
+                        for (int i=0; i < current_entries_to_write.size(); i++) {
+                            auto& entry_tuple = current_entries_to_write[i];
+                            PlotEntry& L_entry = std::get<0>(entry_tuple);
+                            PlotEntry& R_entry = std::get<1>(entry_tuple);
+
+                            std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
+                            Bits& new_entry = std::get<0>(f_output);
                             if (table_index + 1 == 7) {
                                 // We only need k instead of k + kExtraBits bits for the last table
                                 new_entry = new_entry.Slice(0, k);
                             }
-                            // Position in the previous table
-                            new_entry.AppendValue(L_entry.pos, pos_size);
-                            // Offset for matching entry
-                            if (R_entry.pos - L_entry.pos > (1U << kOffsetSize) * 97 / 100) {
-                                std::cout << "Offset: " <<  R_entry.pos - L_entry.pos << std::endl;
+                            // std::cout << "Pos offset bbefore map: " << L_entry.pos << " - " << R_entry.pos << std::endl;
+                            uint64_t newlpos, newrpos;
+                            if (!end_of_table || i < final_current_entry_size) {
+                                assert (L_position_map.find(L_entry.pos) != L_position_map.end());
+                                newlpos = L_position_map[L_entry.pos];
+                            } else {
+                                newlpos = R_position_map[L_entry.pos];
                             }
-                            new_entry.AppendValue(R_entry.pos - L_entry.pos, kOffsetSize);
+                            assert (R_position_map.find(R_entry.pos) != R_position_map.end());
+                            newrpos = R_position_map[R_entry.pos];
+                            // Position in the previous table
+                            new_entry.AppendValue(newlpos, pos_size);
+                            // std::cout << "Pos offset after map: " << newlpos << " - " << newrpos << std::endl;
+                            // Offset for matching entry
+                            if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
+                                std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
+                                abort();
+                            }
+                            new_entry.AppendValue(newrpos - newlpos, kOffsetSize);
                             // New metadata which will be used to compute the next f
                             new_entry += std::get<1>(f_output);
 
@@ -646,25 +727,24 @@ class DiskPlotter {
                 ++pos;
             }
 
-
-            table_sizes[table_index + 1] = right_writer_count + 1;
-
             // Total matches found in the left table
             std::cout << "\tTotal matches: " << matches << ". Per bucket: "
                       << (matches / num_buckets) << std::endl;
 
-            // Writes the 0 entry (EOT) for left table
-            // Also truncates the file after the final write position, deleting no longer useful working space
-            if (table_index > 1) {
-                (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
-                    (left_writer_count%left_buf_entries)*compressed_entry_size_bytes);
-                left_writer+=(left_writer_count%left_buf_entries)*compressed_entry_size_bytes;
-
-                memset(left_buf, 0x00, compressed_entry_size_bytes);
-                (*tmp_1_disks[table_index]).Write(left_writer, left_buf, compressed_entry_size_bytes);
-                left_writer += compressed_entry_size_bytes;
-                (*tmp_1_disks[table_index]).Truncate(left_writer);
+            table_sizes[table_index] = left_writer_count + 1;
+            if (table_index == 6) {
+                table_sizes[7] = right_writer_count + 1;
             }
+            // Finishes writing L table, and writes the 0 entry (EOT) for left table
+            // Also truncates the file after the final write position, deleting no longer useful working space
+            (*tmp_1_disks[table_index]).Write(left_writer, left_writer_buf,
+                (left_writer_count%left_buf_entries)*compressed_entry_size_bytes);
+            left_writer+=(left_writer_count%left_buf_entries)*compressed_entry_size_bytes;
+
+            memset(left_buf, 0x00, compressed_entry_size_bytes);
+            (*tmp_1_disks[table_index]).Write(left_writer, left_buf, compressed_entry_size_bytes);
+            left_writer += compressed_entry_size_bytes;
+            (*tmp_1_disks[table_index]).Truncate(left_writer);
 
             (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
@@ -682,7 +762,9 @@ class DiskPlotter {
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
         }
-
+        for (int i=0; i<=7; i++) {
+            std::cout << "Table " << i << " " << table_sizes[i] << std::endl;
+        }
         return table_sizes;
     }
 
@@ -913,9 +995,9 @@ class DiskPlotter {
                         } else {
                             entry_y = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                          0, k + kExtraBits);
-                            // For table1, the entry is: f, metadata
+                            // For table1, the entry is: metadata
                             entry_metadata = Util::SliceInt128FromBytes(left_entry_buf, left_entry_size_bytes,
-                                                                        k + kExtraBits, left_metadata_size);
+                                                                        0, left_metadata_size);
                         }
 
                         new_left_entry_buf=left_writer_buf+(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
@@ -935,8 +1017,7 @@ class DiskPlotter {
                                 memset(new_left_entry_buf, 0, left_entry_size_bytes);
                             }
                         } else {
-                            // For table one entries, we don't care about sort key, only y and x.
-                            new_left_entry += Bits(entry_y, k + kExtraBits);
+                            // For table one entries, we don't care about sort key, only x.
                             new_left_entry += Bits(entry_metadata, left_metadata_size);
                         }
                         new_left_entry.ToBytes(new_left_entry_buf);
@@ -1125,8 +1206,6 @@ class DiskPlotter {
 
             std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
 
-            uint32_t left_y_size = k + kExtraBits;
-
             // Sort key for table 7 is just y, which is k bits. For all other tables it can
             // be higher than 2^k and therefore k+1 bits are used.
             uint32_t right_sort_key_size = table_index == 6 ? k : k + 1;
@@ -1240,7 +1319,7 @@ class DiskPlotter {
                     if (table_index == 1) {
                         // Only k bits, since this is x
                         left_new_pos[current_pos % kCachedPositionsSize]
-                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, left_y_size, k);
+                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, 0, k);
                     } else {
                         // k+1 bits in case it overflows
                         left_new_pos[current_pos % kCachedPositionsSize]

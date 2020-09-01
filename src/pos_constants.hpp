@@ -21,7 +21,7 @@
 const uint32_t kIdLen = 32;
 
 // Must be set high enough to prevent attacks of fast plotting
-const uint32_t kMinPlotSize = 15;
+const uint32_t kMinPlotSize = 13;
 
 // Set to 50 since k + kExtraBits + k*4 must not exceed 256 (BLAKE3 output size)
 const uint32_t kMaxPlotSize = 50;
@@ -69,6 +69,8 @@ struct PlotEntry {
     uint64_t offset;
     uint128_t left_metadata;  // We only use left_metadata, unless metadata does not
     uint128_t right_metadata; // fit in 128 bits.
+    bool used; // Whether the entry was used in the next table of matches
+    uint64_t read_posoffset; // The combined pos and offset that this entry points to
 };
 
 #endif  // SRC_CPP_POS_CONSTANTS_HPP_
