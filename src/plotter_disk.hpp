@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <unordered_set>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -287,7 +288,7 @@ class DiskPlotter {
                     // phases 2 and 3. Represents either:
                     //    a:  sort_key, pos, offset        or
                     //    b:  line_point, sort_key
-                    return Util::ByteAlign(max(static_cast<uint32_t>(k + 1 + (k + 1) + kOffsetSize),
+                    return Util::ByteAlign(max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
                                                static_cast<uint32_t>(2 * k + k+1))) / 8;
             case 7:
             default:
@@ -445,6 +446,7 @@ class DiskPlotter {
         // Store positions to previous tables, in k+1 bits. This is because we may have
         // more than 2^k entries in some of the tables, so we need an extra bit.
         uint8_t pos_size = k + 1;
+        uint8_t new_pos_size = k;
         uint32_t right_entry_size_bytes = 0;
         uint64_t max_spare_written = 0;
 
@@ -509,15 +511,16 @@ class DiskPlotter {
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
-            Bits new_left_entry(0, pos_size + kOffsetSize);
+            Bits new_left_entry(0, new_pos_size + kOffsetSize);
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
-            std::set<uint64_t> used_L_indeces;
-            std::set<uint64_t> used_R_indeces;
+            std::unordered_set<uint64_t> used_L_indeces;
+            std::unordered_set<uint64_t> used_R_indeces;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
             std::vector<PlotEntry*> not_dropped;
             std::map<uint64_t, uint64_t> L_position_map;
             std::map<uint64_t, uint64_t> R_position_map;
+            uint64_t newlpos, newrpos;
 
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
@@ -593,25 +596,27 @@ class DiskPlotter {
                         for (uint16_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                             PlotEntry& L_entry = bucket_L[bucket_index];
                             if (L_entry.used || used_L_indeces.find(bucket_index) != used_L_indeces.end()) {
-                                not_dropped.push_back(&bucket_L[bucket_index]);
+                                not_dropped.emplace_back(&bucket_L[bucket_index]);
                             }
                         }
                         if (end_of_table) {
                             for (auto index : used_R_indeces) {
-                                not_dropped.push_back(&bucket_R[index]);
+                                not_dropped.emplace_back(&bucket_R[index]);
                             }
                             std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry* &a, PlotEntry* &b){ return a->pos < b->pos; });
                         }
 
-                        L_position_map = R_position_map;
+                        L_position_map.swap(R_position_map);
                         R_position_map.clear();
 
-                        for (PlotEntry* entry : not_dropped) {
+                        for (PlotEntry* &entry : not_dropped) {
                             // Rewrite left entry with just pos and offset, to reduce working space
                             if (table_index == 1) {
                                 new_left_entry = Bits(entry->left_metadata, k);
                             } else {
-                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
+                                assert(Bits(entry->read_posoffset, pos_size + kOffsetSize).s)
+                                assert(entry->read_posoffset & 1 == 0);
+                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize).Slice(1);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
                             R_position_map[entry->pos] = left_writer_count;
@@ -624,68 +629,63 @@ class DiskPlotter {
                             }
                         }
 
-                        current_entries_to_write.clear();
-                        current_entries_to_write = future_entries_to_write;
+                        current_entries_to_write.swap(future_entries_to_write);
                         future_entries_to_write.clear();
                         for (auto& indeces : match_indexes) {
                             PlotEntry& L_entry = bucket_L[std::get<0>(indeces)];
                             PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
-                            std::pair<Bits, Bits> f_output;
 
-                            // Computes the output pair (fx, new_metadata)
-                            if (metadata_size <= 128) {
-                                f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
-                                                             Bits(R_entry.y, k + kExtraBits),
-                                                             Bits(L_entry.left_metadata, metadata_size),
-                                                             Bits(R_entry.left_metadata, metadata_size));
-                            } else {
-                                // Metadata does not fit into 128 bits
-                                f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
-                                                             Bits(R_entry.y, k + kExtraBits),
-                                                             Bits(L_entry.left_metadata, 128)
-                                                              + Bits(L_entry.right_metadata, metadata_size - 128),
-                                                             Bits(R_entry.left_metadata, 128)
-                                                              + Bits(R_entry.right_metadata, metadata_size - 128));
-                            }
                             // fx/y, which will be used for sorting and matching
                             ++matches;
                             ++total_table_entries;
 
                             // Sets the R entry to used so that we don't drop in next iteration
                             R_entry.used = true;
-                            // std::cout << "Matched entries " << L_entry.pos << " " << R_entry.pos << std::endl;
-                            future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+
+                            // Computes the output pair (fx, new_metadata)
+                            if (metadata_size <= 128) {
+                                const std::pair<Bits, Bits>& f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
+                                                             Bits(R_entry.y, k + kExtraBits),
+                                                             Bits(L_entry.left_metadata, metadata_size),
+                                                             Bits(R_entry.left_metadata, metadata_size));
+                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                            } else {
+                                // Metadata does not fit into 128 bits
+                                const std::pair<Bits, Bits>& f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
+                                                                  Bits(R_entry.y, k + kExtraBits),
+                                                             Bits(L_entry.left_metadata, 128)
+                                                              + Bits(L_entry.right_metadata, metadata_size - 128),
+                                                             Bits(R_entry.left_metadata, 128)
+                                                              + Bits(R_entry.right_metadata, metadata_size - 128));
+                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                            }
                         }
-                        int final_current_entry_size = current_entries_to_write.size();
+                        uint16_t final_current_entry_size = current_entries_to_write.size();
                         if (end_of_table) {
                             // For the final bucket, write them down now
-                            // std::cout << "end of table " << future_index_start << " " << future_entries_to_write.size() << std::endl;
                             current_entries_to_write.insert(current_entries_to_write.end(), future_entries_to_write.begin(), future_entries_to_write.end());
                         }
                         for (uint16_t i = 0; i < current_entries_to_write.size(); i++) {
-                            auto& entry_tuple = current_entries_to_write[i];
-                            PlotEntry& L_entry = std::get<0>(entry_tuple);
-                            PlotEntry& R_entry = std::get<1>(entry_tuple);
+                            const auto& entry_tuple = current_entries_to_write[i];
+                            const PlotEntry& L_entry = std::get<0>(entry_tuple);
+                            const PlotEntry& R_entry = std::get<1>(entry_tuple);
 
-                            std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
-                            Bits& new_entry = std::get<0>(f_output);
-                            if (table_index + 1 == 7) {
-                                // We only need k instead of k + kExtraBits bits for the last table
-                                new_entry = new_entry.Slice(0, k);
-                            }
-                            // std::cout << "Pos offset bbefore map: " << L_entry.pos << " - " << R_entry.pos << std::endl;
-                            uint64_t newlpos, newrpos;
+                            const std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
+                            // We only need k instead of k + kExtraBits bits for the last table
+                            Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k) : std::get<0>(f_output);
                             if (!end_of_table || i < final_current_entry_size) {
-                                assert (L_position_map.find(L_entry.pos) != L_position_map.end());
                                 newlpos = L_position_map[L_entry.pos];
                             } else {
                                 newlpos = R_position_map[L_entry.pos];
                             }
-                            assert (R_position_map.find(R_entry.pos) != R_position_map.end());
                             newrpos = R_position_map[R_entry.pos];
                             // Position in the previous table
-                            new_entry.AppendValue(newlpos, pos_size);
-                            // std::cout << "Pos offset after map: " << newlpos << " - " << newrpos << std::endl;
+                            if (table_index + 1 == 7) {
+                                assert(newlpos < (1 << new_pos_size));
+                                new_entry.AppendValue(newlpos, new_pos_size);
+                            } else {
+                                new_entry.AppendValue(newlpos, pos_size);
+                            }
                             // Offset for matching entry
                             if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
                                 std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
@@ -698,9 +698,8 @@ class DiskPlotter {
                             right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
                             right_writer_count++;
 
-                            new_entry.ToBytes(right_buf);
                             // Writes the new entry into the right table
-
+                            new_entry.ToBytes(right_buf);
                             if(right_writer_count%right_buf_entries==0) {
                                 (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                                                                    right_buf_entries*right_entry_size_bytes);
@@ -779,7 +778,7 @@ class DiskPlotter {
                                         const uint8_t* id, const uint8_t* memo, uint32_t memo_len) {
         // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning, each table will
         // have 0.8*2^k or less entries).
-        uint8_t pos_size = k + 1;
+        uint8_t pos_size = k;
 
         std::vector<uint64_t> bucket_sizes_pos(kNumSortBuckets, 0);
         std::vector<uint64_t> new_table_sizes = std::vector<uint64_t>(8, 0);
@@ -988,7 +987,7 @@ class DiskPlotter {
 
                     // If this left entry is used, we rewrite it. If it's not used, we ignore it.
                     if (used_positions[current_pos % kCachedPositionsSize]) {
-                        uint64_t entry_y, entry_metadata;
+                        uint64_t entry_metadata;
 
                         if (table_index > 2) {
                             // For tables 2-6, the entry is: pos, offset
@@ -997,10 +996,7 @@ class DiskPlotter {
                             entry_offset = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                      pos_size, kOffsetSize);
                         } else {
-                            entry_y = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
-                                                                         0, k + kExtraBits);
-                            // For table1, the entry is: metadata
-                            entry_metadata = Util::SliceInt128FromBytes(left_entry_buf, left_entry_size_bytes,
+                            entry_metadata = Util::SliceInt64FromBytes(left_entry_buf, left_entry_size_bytes,
                                                                         0, left_metadata_size);
                         }
 
@@ -1179,7 +1175,7 @@ class DiskPlotter {
         // In this phase we open a new file, where the final contents of the plot will be stored.
         uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
-        uint8_t pos_size = k + 1;
+        uint8_t pos_size = k;
 
 
         std::vector<uint64_t> final_table_begin_pointers(12, 0);
@@ -1327,8 +1323,7 @@ class DiskPlotter {
                     } else {
                         // k+1 bits in case it overflows
                         left_new_pos[current_pos % kCachedPositionsSize]
-                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, k + 1,
-                                                            pos_size);
+                                = Util::SliceInt64FromBytes(left_entry_disk_buf, left_entry_size_bytes, k + 1, k + 1);
                     }
                 }
 
