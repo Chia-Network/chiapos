@@ -516,8 +516,6 @@ class DiskPlotter {
             Bits new_left_entry(0, new_pos_size + kOffsetSize);
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
-            std::unordered_set<uint16_t> used_L_indeces;
-            std::unordered_set<uint16_t> used_R_indeces;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
             std::vector<PlotEntry*> not_dropped;
             std::unordered_map<uint16_t, uint16_t> L_position_map;
@@ -579,10 +577,6 @@ class DiskPlotter {
                     // so now we can compare entries in both buckets to find matches. If two entries match,
                     // the result is written to the right table.
                     if (bucket_L.size() > 0) {
-                        used_L_indeces.clear();
-                        if (end_of_table) {
-                            used_R_indeces.clear();
-                        }
                         not_dropped = std::vector<PlotEntry*>();
 
                         if (bucket_R.size() > 0) {
@@ -590,29 +584,30 @@ class DiskPlotter {
                             match_indexes = f.FindMatches(bucket_L, bucket_R);
 
                             for (auto& indeces : match_indexes) {
-                                used_L_indeces.insert(std::get<0>(indeces));
+                                bucket_L[std::get<0>(indeces)].used = true;
                                 if (end_of_table) {
-                                    used_R_indeces.insert(std::get<1>(indeces));
+                                    bucket_R[std::get<1>(indeces)].used = true;
                                 }
                             }
                         }
 
                         for (size_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                             PlotEntry& L_entry = bucket_L[bucket_index];
-                            if (L_entry.used || used_L_indeces.find(bucket_index) != used_L_indeces.end()) {
+                            if (L_entry.used) {
                                 not_dropped.emplace_back(&bucket_L[bucket_index]);
                             }
                         }
                         if (end_of_table) {
-                            for (auto index : used_R_indeces) {
-                                not_dropped.emplace_back(&bucket_R[index]);
+                            for (size_t bucket_index = 0; bucket_index < bucket_R.size(); bucket_index++) {
+                                PlotEntry& R_entry = bucket_R[bucket_index];
+                                if (R_entry.used) {
+                                    not_dropped.emplace_back(&R_entry);
+                                }
                             }
-                            std::sort(not_dropped.begin(), not_dropped.end(), [](PlotEntry* &a, PlotEntry* &b){ return a->pos < b->pos; });
                         }
                         L_position_base = R_position_base;
                         L_position_map.swap(R_position_map);
                         R_position_base = left_writer_count;
-                        R_position_map.clear();
 
                         for (PlotEntry* &entry : not_dropped) {
                             // Rewrite left entry with just pos and offset, to reduce working space
