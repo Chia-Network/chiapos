@@ -120,6 +120,10 @@ class DiskProver {
     ~DiskProver() {
         std::lock_guard<std::mutex> l(_mtx);
         delete[] this->memo;
+        for (int i=0; i<6; i++) {
+            Encoding::ANSFree(kRValues[i]);
+        }
+        Encoding::ANSFree(kC3R);
     }
 
     void GetMemo(uint8_t* buffer) {
@@ -317,7 +321,6 @@ class DiskProver {
         delete[] line_point_bin;
         delete[] stubs_bin;
         delete[] deltas_bin;
-        Encoding::ANSFree(kRValues[table_index - 1]);
 
         return final_line_point;
     }
@@ -329,7 +332,6 @@ class DiskProver {
         std::vector<uint8_t> deltas = Encoding::ANSDecodeDeltas(bit_mask, encoded_size,
                                                                 kCheckpoint1Interval, kC3R);
         std::vector<uint64_t> p7_positions;
-        Encoding::ANSFree(kC3R);
         for (uint8_t delta : deltas) {
             if (curr_f7 > f7) {
                 break;
