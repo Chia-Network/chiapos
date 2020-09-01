@@ -577,7 +577,7 @@ class DiskPlotter {
                     // so now we can compare entries in both buckets to find matches. If two entries match,
                     // the result is written to the right table.
                     if (bucket_L.size() > 0) {
-                        not_dropped = std::vector<PlotEntry*>();
+                        not_dropped.clear();
 
                         if (bucket_R.size() > 0) {
                             // Compute all matches between the two buckets, and return indeces into each bucket
@@ -618,7 +618,7 @@ class DiskPlotter {
                                 new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize).Slice(1);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
-                            R_position_map[entry->pos % (1<<16)] = left_writer_count - R_position_base;
+                            R_position_map[entry->pos % (1<<10)] = left_writer_count - R_position_base;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -673,11 +673,11 @@ class DiskPlotter {
                             // We only need k instead of k + kExtraBits bits for the last table
                             Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k) : std::get<0>(f_output);
                             if (!end_of_table || i < final_current_entry_size) {
-                                newlpos = L_position_map[L_entry.pos % (1 << 16)] + L_position_base;
+                                newlpos = L_position_map.at(L_entry.pos % (1 << 10)) + L_position_base;
                             } else {
-                                newlpos = R_position_map[L_entry.pos % (1 << 16)] + R_position_base;
+                                newlpos = R_position_map.at(L_entry.pos % (1 << 10)) + R_position_base;
                             }
-                            newrpos = R_position_map[R_entry.pos % (1 << 16)] + R_position_base;
+                            newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
                             // Position in the previous table
                             if (table_index + 1 == 7) {
                                 assert(newlpos < (1 << new_pos_size));
