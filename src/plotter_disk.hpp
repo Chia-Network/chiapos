@@ -191,7 +191,7 @@ class DiskPlotter {
             WriteCTables(k, k + 1, tmp2_disk, tmp_1_disks, res);
             p4.PrintElapsed("Time for phase 4 =");
 
-            uint64_t total_working_space = 0;
+            uint64_t total_working_space = table_sizes[0];
             for (size_t i=1; i <=7; i++) {
                 total_working_space += table_sizes[i] * GetMaxEntrySize(k, i, false);
             }
@@ -763,11 +763,7 @@ class DiskPlotter {
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
         }
-        for (int i=0; i<=7; i++) {
-            std::cout << "Table " << i << " " << table_sizes[i] << std::endl;
-        }
-        // abort();
-        // exit(0);
+        table_sizes[0] = max_spare_written;
         return table_sizes;
     }
 
