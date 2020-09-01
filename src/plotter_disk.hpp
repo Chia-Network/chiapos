@@ -614,7 +614,6 @@ class DiskPlotter {
                             if (table_index == 1) {
                                 new_left_entry = Bits(entry->left_metadata, k);
                             } else {
-                                assert(Bits(entry->read_posoffset, pos_size + kOffsetSize).s)
                                 assert(entry->read_posoffset & 1 == 0);
                                 new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize).Slice(1);
                             }
@@ -808,10 +807,9 @@ class DiskPlotter {
             if (table_index != 7) {
                 std::cout << "\tSorting table " << int{table_index} << std::endl;
                 Timer sort_timer;
-                int do_quicksort = table_index == 6;
                 Sorting::SortOnDisk((*tmp_1_disks[table_index]), 0, *tmp_1_disks[0],
                                     right_entry_size_bytes,
-                                    0, bucket_sizes_pos, memory, memorySize, do_quicksort);
+                                    0, bucket_sizes_pos, memory, memorySize);
 
                 sort_timer.PrintElapsed("\tSort time:");
             }
