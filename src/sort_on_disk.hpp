@@ -166,7 +166,7 @@ class FileDisk : public Disk {
     }
 
     inline void Truncate(uint64_t new_size) override {
-        fs::resize_file(filename_, new_size);
+//        fs::resize_file(filename_, new_size);
     }
 
 
