@@ -515,7 +515,7 @@ class DiskPlotter {
             uint64_t matches = 0;  // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            uint8_t left_buf[entry_size_bytes];
+            uint8_t *left_buf = new uint8_t[entry_size_bytes];
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
@@ -788,6 +788,8 @@ class DiskPlotter {
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
+
+            delete[] left_buf;
         }
         table_sizes[0] = max_spare_written;
         return table_sizes;
