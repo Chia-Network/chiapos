@@ -291,14 +291,13 @@ class DiskPlotter {
                 if (phase_1_size)
                     // If we are in phase 1, use the max size, with metadata.
                     // Represents f, pos, offset, and metadata
-                    return Util::ByteAlign(k + kExtraBits + (k + 1) + kOffsetSize +
+                    return Util::ByteAlign(k + kExtraBits + (k) + kOffsetSize +
                                            k * kVectorLens[table_index + 1]) / 8;
                 else
                     // If we are past phase 1, we can use a smaller size, the smaller between
                     // phases 2 and 3. Represents either:
                     //    a:  sort_key, pos, offset        or
                     //    b:  line_point, sort_key
-                    // Note that positions are k+1 bits in phase 1, but k bits in other phases.
                     return Util::ByteAlign(max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
                                                static_cast<uint32_t>(2 * k + k+1))) / 8;
             case 7:
@@ -454,12 +453,8 @@ class DiskPlotter {
         // Total number of entries in the current table (f1)
         uint64_t total_table_entries = ((uint64_t)1) << k;
 
-        // Store positions to previous tables, in k+1 bits. This is because we may have
-        // more than 2^k entries in some of the tables, so we need an extra bit. New pos size
-        // is the size of positions after the left table is rewritten. Since we drop entries, we no
-        // longer surpass 2^k.
-        uint8_t pos_size = k + 1;
-        uint8_t new_pos_size = k;
+        // Store positions to previous tables, in k bits.
+        uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
         uint64_t max_spare_written = 0;
 
@@ -524,7 +519,7 @@ class DiskPlotter {
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
-            Bits new_left_entry(0, new_pos_size + kOffsetSize);
+            Bits new_left_entry(0, pos_size + kOffsetSize);
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
@@ -642,8 +637,8 @@ class DiskPlotter {
                                 new_left_entry = Bits(entry->left_metadata, k);
                             } else {
                                 assert(entry->read_posoffset & 1 == 0);
-                                // Other tables goes from (f1, pos, offset, metadata) to just (pos, offset), and 1 less bit in pos
-                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize).Slice(1);
+                                // Other tables goes from (f1, pos, offset, metadata) to just (pos, offset)
+                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
                             // The new position for this entry = the total amount of thing written to L so far. Since we only
@@ -714,12 +709,8 @@ class DiskPlotter {
                             }
                             newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
                             // Position in the previous table
-                            if (table_index + 1 == 7) {
-                                assert(newlpos < (1 << new_pos_size));
-                                new_entry.AppendValue(newlpos, new_pos_size);
-                            } else {
-                                new_entry.AppendValue(newlpos, pos_size);
-                            }
+                            new_entry.AppendValue(newlpos, pos_size);
+
                             // Offset for matching entry
                             if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
                                 std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
