@@ -166,7 +166,7 @@ class DiskPlotter {
             assert(id_len == kIdLen);
 
             // Memory to be used for sorting and buffers
-            uint8_t* memory = new uint8_t[memorySize];
+            uint8_t* memory = new uint8_t[memorySize]();
 
             std::cout << std::endl << "Starting phase 1/4: Forward Propagation into table tmp files... " << Timer::GetNow();
 
@@ -1517,7 +1517,6 @@ class DiskPlotter {
                 }
                 last_line_point = line_point;
             }
-            Encoding::ANSFree(kRValues[table_index - 1]);
 
             (*tmp_1_disks[table_index + 1]).Write(right_writer, right_writer_buf,
                 (right_writer_count%right_buf_entries)*right_entry_size_bytes);
@@ -1537,6 +1536,7 @@ class DiskPlotter {
                 final_entries_written += (park_stubs.size() + 1);
             }
 
+            Encoding::ANSFree(kRValues[table_index - 1]);
             std::cout << "\tWrote " << final_entries_written << " entries" << std::endl;
 
             final_table_begin_pointers[table_index + 1] = final_table_begin_pointers[table_index]
