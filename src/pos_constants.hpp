@@ -21,7 +21,7 @@
 const uint32_t kIdLen = 32;
 
 // Must be set high enough to prevent attacks of fast plotting
-const uint32_t kMinPlotSize = 13;
+const uint32_t kMinPlotSize = 15;
 
 // Set to 50 since k + kExtraBits + k*4 must not exceed 256 (BLAKE3 output size)
 const uint32_t kMaxPlotSize = 50;
