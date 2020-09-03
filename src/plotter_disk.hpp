@@ -527,8 +527,9 @@ class DiskPlotter {
 
             // Stores map of old positions to new positions (positions after dropping entries from L table that did not match)
             // Map ke
-            std::unordered_map<uint16_t, uint16_t> L_position_map;
-            std::unordered_map<uint16_t, uint16_t> R_position_map;
+            uint16_t position_map_size = 2000;
+            uint16_t* L_position_map = new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
+            uint16_t* R_position_map = new uint16_t[position_map_size];
             uint64_t L_position_base = 0;
             uint64_t R_position_base = 0;
             uint64_t newlpos, newrpos;
@@ -626,8 +627,10 @@ class DiskPlotter {
                         // We keep maps from old positions to new positions. We only need two maps, one for L bucket and one
                         // for R bucket, and we cycle through them. Map keys are stored as positions % 2^10 for efficiency.
                         // Map values are stored as offsets from the base position for that bucket, for efficiency.
+                        uint16_t* tmp = L_position_map;
+                        L_position_map = R_position_map;
+                        R_position_map = tmp;
                         L_position_base = R_position_base;
-                        L_position_map.swap(R_position_map);
                         R_position_base = left_writer_count;
 
                         for (PlotEntry* &entry : not_dropped) {
@@ -643,7 +646,7 @@ class DiskPlotter {
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
                             // The new position for this entry = the total amount of thing written to L so far. Since we only
                             // write entries in not_dropped, about 14% of entries are dropped.
-                            R_position_map[entry->pos % (1<<10)] = left_writer_count - R_position_base;
+                            R_position_map[entry->pos % position_map_size] = left_writer_count - R_position_base;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -703,11 +706,11 @@ class DiskPlotter {
                             // Maps the new positions. If we hit end of pos, we must write things in both final_entries to write
                             // and current_entries_to_write, which are in both position maps.
                             if (!end_of_table || i < final_current_entry_size) {
-                                newlpos = L_position_map.at(L_entry.pos % (1 << 10)) + L_position_base;
+                                newlpos = L_position_map[L_entry.pos % position_map_size] + L_position_base;
                             } else {
-                                newlpos = R_position_map.at(L_entry.pos % (1 << 10)) + R_position_base;
+                                newlpos = R_position_map[L_entry.pos % position_map_size] + R_position_base;
                             }
-                            newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
+                            newrpos = R_position_map[R_entry.pos % position_map_size] + R_position_base;
                             // Position in the previous table
                             new_entry.AppendValue(newlpos, pos_size);
 
@@ -790,6 +793,8 @@ class DiskPlotter {
             table_timer.PrintElapsed("Forward propagation table time:");
 
             delete[] left_buf;
+            delete[] L_position_map;
+            delete[] R_position_map;
         }
         table_sizes[0] = max_spare_written;
         return table_sizes;
