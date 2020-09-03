@@ -713,11 +713,11 @@ class DiskPlotter {
                             newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
                             // Position in the previous table
                             new_entry.AppendValue(newlpos, pos_size);
-
+                            std::cout << "Old positions:" << L_entry.pos << " " << R_entry.pos << std::endl;
+                            std::cout << "New positions:" << newlpos << " " << newrpos << std::endl;
                             // Offset for matching entry
                             if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
-                                std::cout << "Old positions:" << L_entry.pos << " " << R_entry.pos << std::endl;
-                                std::cout << "New positions:" << newlpos << " " << newrpos << std::endl;
+
                                 std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
                                 abort();
                             }
