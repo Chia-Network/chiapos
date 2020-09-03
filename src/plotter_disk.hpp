@@ -212,11 +212,8 @@ class DiskPlotter {
         std::cin.tie (prevstr);
         std::ios_base::sync_with_stdio(true);
 
-        bool removed_1 = true;
         for (fs::path p : tmp_1_filenames) {
-            if (!fs::remove(p)) {
-                removed_1 = false;
-            }
+            fs::remove(p);
         }
 
         bool bCopied=false;
@@ -638,7 +635,6 @@ class DiskPlotter {
                                 // Table 1 goes from (f1, x) to just (x)
                                 new_left_entry = Bits(entry->left_metadata, k);
                             } else {
-                                assert(entry->read_posoffset & 1 == 0);
                                 // Other tables goes from (f1, pos, offset, metadata) to just (pos, offset)
                                 new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                             }
