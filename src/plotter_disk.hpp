@@ -681,7 +681,7 @@ class DiskPlotter {
                                                              Bits(R_entry.y, k + kExtraBits),
                                                              Bits(L_entry.left_metadata, metadata_size),
                                                              Bits(R_entry.left_metadata, metadata_size));
-                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
                             } else {
                                 // Metadata does not fit into 128 bits
                                 const std::pair<Bits, Bits>& f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
@@ -690,7 +690,7 @@ class DiskPlotter {
                                                               + Bits(L_entry.right_metadata, metadata_size - 128),
                                                              Bits(R_entry.left_metadata, 128)
                                                               + Bits(R_entry.right_metadata, metadata_size - 128));
-                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
                             }
                         }
                         std::cout << "Matches: " << future_entries_to_write.size() << std::endl;
@@ -706,7 +706,7 @@ class DiskPlotter {
                             const PlotEntry& L_entry = std::get<0>(entry_tuple);
                             const PlotEntry& R_entry = std::get<1>(entry_tuple);
 
-                            const std::pair<Bits, Bits> f_output = std::get<2>(entry_tuple);
+                            const std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
                             // We only need k instead of k + kExtraBits bits for the last table
                             Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k) : std::get<0>(f_output);
 
