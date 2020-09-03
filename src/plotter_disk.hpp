@@ -523,7 +523,7 @@ class DiskPlotter {
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > current_entries_to_write;
             std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>> > future_entries_to_write;
             std::vector<std::pair<uint16_t, uint16_t> > match_indexes;
-            std::vector<PlotEntry> not_dropped;  // Pointers are stored to avoid copying entries
+            std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
 
             // Stores map of old positions to new positions (positions after dropping entries from L table that did not match)
             // Map ke
@@ -588,6 +588,7 @@ class DiskPlotter {
                     // the result is written to the right table. However the writing happens in the next iteration
                     // of the loop, since we need to remap positions.
                     if (bucket_L.size() > 0) {
+                        std::cout << "Read pos " << left_entry.pos << " " << "Bucket L at" << bucket_L[0].pos << std::endl;
                         not_dropped.clear();
 
                         if (bucket_R.size() > 0) {
@@ -609,7 +610,7 @@ class DiskPlotter {
                         for (size_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                             PlotEntry& L_entry = bucket_L[bucket_index];
                             if (L_entry.used) {
-                                not_dropped.emplace_back(bucket_L[bucket_index]);
+                                not_dropped.emplace_back(&bucket_L[bucket_index]);
                             }
                         }
                         if (end_of_table) {
@@ -619,7 +620,7 @@ class DiskPlotter {
                             for (size_t bucket_index = 0; bucket_index < bucket_R.size(); bucket_index++) {
                                 PlotEntry& R_entry = bucket_R[bucket_index];
                                 if (R_entry.used) {
-                                    not_dropped.emplace_back(R_entry);
+                                    not_dropped.emplace_back(&R_entry);
                                 }
                             }
                         }
@@ -630,20 +631,20 @@ class DiskPlotter {
                         L_position_map.swap(R_position_map);
                         R_position_base = left_writer_count;
 
-                        for (PlotEntry &entry : not_dropped) {
+                        for (PlotEntry* &entry : not_dropped) {
                             // Rewrite left entry with just pos and offset, to reduce working space
                             if (table_index == 1) {
                                 // Table 1 goes from (f1, x) to just (x)
-                                new_left_entry = Bits(entry.left_metadata, k);
+                                new_left_entry = Bits(entry->left_metadata, k);
                             } else {
-                                assert(entry.read_posoffset & 1 == 0);
+                                assert(entry->read_posoffset & 1 == 0);
                                 // Other tables goes from (f1, pos, offset, metadata) to just (pos, offset)
-                                new_left_entry = Bits(entry.read_posoffset, pos_size + kOffsetSize);
+                                new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                             }
                             tmp_buf=left_writer_buf + (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
                             // The new position for this entry = the total amount of thing written to L so far. Since we only
                             // write entries in not_dropped, about 14% of entries are dropped.
-                            R_position_map[entry.pos % (1<<10)] = left_writer_count - R_position_base;
+                            R_position_map[entry->pos % (1<<12)] = left_writer_count - R_position_base;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -703,16 +704,18 @@ class DiskPlotter {
                             // Maps the new positions. If we hit end of pos, we must write things in both final_entries to write
                             // and current_entries_to_write, which are in both position maps.
                             if (!end_of_table || i < final_current_entry_size) {
-                                newlpos = L_position_map.at(L_entry.pos % (1 << 10)) + L_position_base;
+                                newlpos = L_position_map.at(L_entry.pos % (1 << 12)) + L_position_base;
                             } else {
-                                newlpos = R_position_map.at(L_entry.pos % (1 << 10)) + R_position_base;
+                                newlpos = R_position_map.at(L_entry.pos % (1 << 12)) + R_position_base;
                             }
-                            newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
+                            newrpos = R_position_map.at(R_entry.pos % (1 << 12)) + R_position_base;
                             // Position in the previous table
                             new_entry.AppendValue(newlpos, pos_size);
 
                             // Offset for matching entry
                             if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
+                                std::cout << "Old positions:" << L_entry.pos << " " << R_entry.pos << std::endl;
+                                std::cout << "New positions:" << newlpos << " " << newrpos << std::endl;
                                 std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
                                 abort();
                             }
