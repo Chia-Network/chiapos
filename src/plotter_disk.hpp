@@ -463,6 +463,7 @@ class DiskPlotter {
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
+
         for (uint8_t table_index = 1; table_index < 7; table_index++) {
             Timer table_timer;
             uint8_t metadata_size = kVectorLens[table_index + 1] * k;
@@ -536,6 +537,9 @@ class DiskPlotter {
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
             while (!end_of_table) {
+                if (pos > 100 && table_index == 2) {
+                    exit(0);
+                }
                 PlotEntry left_entry;
                 left_entry.right_metadata = 0;
                 // Reads a left entry from disk
@@ -568,6 +572,9 @@ class DiskPlotter {
                                                                                  + kOffsetSize + 128,
                                                                                metadata_size - 128);
                     }
+                }
+                if (table_index == 2) {
+                    std::cout << "Read " << Bits(left_entry.read_posoffset, pos_size).GetValue() << " " << Bits(left_entry.read_posoffset, pos_size + kOffsetSize).Slice(pos_size).GetValue() << " " << (int)left_entry.y << std::endl;
                 }
 
                 // This is not the pos that was read from disk,but the position of the entry we read, within L table.
