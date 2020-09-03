@@ -645,6 +645,7 @@ class DiskPlotter {
                             // The new position for this entry = the total amount of thing written to L so far. Since we only
                             // write entries in not_dropped, about 14% of entries are dropped.
                             R_position_map[entry->pos % (1<<10)] = left_writer_count - R_position_base;
+                            std::cout << "Mapping " << entry->pos << " to " << left_writer_count << std::endl;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
