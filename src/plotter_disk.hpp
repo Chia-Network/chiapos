@@ -706,7 +706,7 @@ class DiskPlotter {
                             const PlotEntry& L_entry = std::get<0>(entry_tuple);
                             const PlotEntry& R_entry = std::get<1>(entry_tuple);
 
-                            const std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
+                            const std::pair<Bits, Bits> f_output = std::get<2>(entry_tuple);
                             // We only need k instead of k + kExtraBits bits for the last table
                             Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k) : std::get<0>(f_output);
 
@@ -731,6 +731,7 @@ class DiskPlotter {
                             new_entry.AppendValue(newrpos - newlpos, kOffsetSize);
                             // New metadata which will be used to compute the next f
                             new_entry += std::get<1>(f_output);
+                            std::cout << "Wrotey " << std::get<0>(f_output).GetValue() << " " << newrpos << " " << (newrpos - newlpos) << " " << std::endl;
 
                             right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
                             right_writer_count++;
