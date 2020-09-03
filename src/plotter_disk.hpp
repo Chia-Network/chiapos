@@ -672,7 +672,7 @@ class DiskPlotter {
                                                              Bits(R_entry.y, k + kExtraBits),
                                                              Bits(L_entry.left_metadata, metadata_size),
                                                              Bits(R_entry.left_metadata, metadata_size));
-                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
                             } else {
                                 // Metadata does not fit into 128 bits
                                 const std::pair<Bits, Bits>& f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
@@ -681,7 +681,7 @@ class DiskPlotter {
                                                               + Bits(L_entry.right_metadata, metadata_size - 128),
                                                              Bits(R_entry.left_metadata, 128)
                                                               + Bits(R_entry.right_metadata, metadata_size - 128));
-                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
+                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
                             }
                         }
                         // At this point, future_entries_to_write contains the matches of buckets L and R, and current_entries_to_write
