@@ -13,6 +13,9 @@ class TestPythonBindings(unittest.TestCase):
                                   10, 11, 129, 139, 171, 15, 23])
 
         pl = DiskPlotter()
+
+        pl.create_plot_disk(".", ".", ".", "myplot.dat", 17, bytes([1, 2, 3, 4, 5]), plot_seed, 2*1024)
+
         pl.create_plot_disk(".", ".", ".", "myplot.dat", 21, bytes([1, 2, 3, 4, 5]), plot_seed, 2*1024)
         pl = None
 
