@@ -463,7 +463,6 @@ class DiskPlotter {
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
-
         for (uint8_t table_index = 1; table_index < 7; table_index++) {
             Timer table_timer;
             uint8_t metadata_size = kVectorLens[table_index + 1] * k;
@@ -537,9 +536,6 @@ class DiskPlotter {
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
             while (!end_of_table) {
-                if (pos > 100 && table_index == 2) {
-                    exit(0);
-                }
                 PlotEntry left_entry;
                 left_entry.right_metadata = 0;
                 // Reads a left entry from disk
@@ -573,9 +569,6 @@ class DiskPlotter {
                                                                                metadata_size - 128);
                     }
                 }
-                if (table_index == 2) {
-                    std::cout << "Read " << Bits(left_entry.read_posoffset, pos_size).GetValue() << " " << Bits(left_entry.read_posoffset, pos_size + kOffsetSize).Slice(pos_size).GetValue() << " " << (int)left_entry.y << std::endl;
-                }
 
                 // This is not the pos that was read from disk,but the position of the entry we read, within L table.
                 left_entry.pos = pos;
@@ -595,7 +588,6 @@ class DiskPlotter {
                     // the result is written to the right table. However the writing happens in the next iteration
                     // of the loop, since we need to remap positions.
                     if (bucket_L.size() > 0) {
-                        std::cout << "Read pos " << left_entry.pos << " " << "Bucket L at" << bucket_L[0].pos << std::endl;
                         not_dropped.clear();
 
                         if (bucket_R.size() > 0) {
@@ -652,7 +644,6 @@ class DiskPlotter {
                             // The new position for this entry = the total amount of thing written to L so far. Since we only
                             // write entries in not_dropped, about 14% of entries are dropped.
                             R_position_map[entry->pos % (1<<10)] = left_writer_count - R_position_base;
-                            std::cout << "Mapping " << entry->pos << " to " << left_writer_count << std::endl;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
                             if(left_writer_count % left_buf_entries==0) {
@@ -681,7 +672,7 @@ class DiskPlotter {
                                                              Bits(R_entry.y, k + kExtraBits),
                                                              Bits(L_entry.left_metadata, metadata_size),
                                                              Bits(R_entry.left_metadata, metadata_size));
-                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
+                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
                             } else {
                                 // Metadata does not fit into 128 bits
                                 const std::pair<Bits, Bits>& f_output = f.CalculateBucket(Bits(L_entry.y, k + kExtraBits),
@@ -690,10 +681,9 @@ class DiskPlotter {
                                                               + Bits(L_entry.right_metadata, metadata_size - 128),
                                                              Bits(R_entry.left_metadata, 128)
                                                               + Bits(R_entry.right_metadata, metadata_size - 128));
-                                future_entries_to_write.push_back(std::make_tuple(L_entry, R_entry, f_output));
+                                future_entries_to_write.emplace_back(std::make_tuple(std::move(L_entry), std::move(R_entry), std::move(f_output)));
                             }
                         }
-                        std::cout << "Matches: " << future_entries_to_write.size() << std::endl;
                         // At this point, future_entries_to_write contains the matches of buckets L and R, and current_entries_to_write
                         // contains the matches of L and the bucket left of L. These are the ones that we will write.
                         uint16_t final_current_entry_size = current_entries_to_write.size();
@@ -720,18 +710,15 @@ class DiskPlotter {
                             newrpos = R_position_map.at(R_entry.pos % (1 << 10)) + R_position_base;
                             // Position in the previous table
                             new_entry.AppendValue(newlpos, pos_size);
-                            std::cout << "Old positions:" << L_entry.pos << " " << R_entry.pos << std::endl;
-                            std::cout << "New positions:" << newlpos << " " << newrpos << std::endl;
+
                             // Offset for matching entry
                             if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
-
                                 std::cout << "Offset: " <<  newrpos - newlpos << std::endl;
                                 abort();
                             }
                             new_entry.AppendValue(newrpos - newlpos, kOffsetSize);
                             // New metadata which will be used to compute the next f
                             new_entry += std::get<1>(f_output);
-                            std::cout << "Wrotey " << std::get<0>(f_output).GetValue() << " " << newrpos << " " << (newrpos - newlpos) << " " << std::endl;
 
                             right_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
                             right_writer_count++;
