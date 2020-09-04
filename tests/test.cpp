@@ -215,14 +215,25 @@ class FakeDisk : public Disk {
         f_ = std::stringstream(s, std::ios_base::in | std::ios_base::out);
     }
 
-    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) {
+    ~FakeDisk() {
+
+    }
+
+    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
         f_.seekg(begin);
         f_.read(reinterpret_cast<char*>(memcache), length);
     }
 
-    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) {
+    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
         f_.seekp(begin);
         f_.write(reinterpret_cast<const char*>(memcache), length);
+    }
+    void Truncate(uint64_t new_size) override {
+        if (new_size <= s.size()) {
+            s = s.substr(0, new_size);
+        } else {
+            s = s + std::string(new_size - s.size(), 0);
+        }
     }
 
  private:
@@ -701,6 +712,7 @@ TEST_CASE("Sort on disk") {
         vector<Bits> input;
         uint32_t begin = 1000;
         FakeDisk disk = FakeDisk(5000000);
+        FakeDisk spare = FakeDisk(5000000);
 
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -720,7 +732,7 @@ TEST_CASE("Sort on disk") {
 
         const uint32_t memory_len = 100000;
         uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortOnDisk(disk, begin, 3600000, size, 0, bucket_sizes, memory, memory_len);
+        Sorting::SortOnDisk(disk, begin, spare, size, 0, bucket_sizes, memory, memory_len);
 
 
         sort(input.begin(), input.end());

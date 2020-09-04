@@ -120,6 +120,10 @@ class DiskProver {
     ~DiskProver() {
         std::lock_guard<std::mutex> l(_mtx);
         delete[] this->memo;
+        for (int i=0; i<6; i++) {
+            Encoding::ANSFree(kRValues[i]);
+        }
+        Encoding::ANSFree(kC3R);
     }
 
     void GetMemo(uint8_t* buffer) {

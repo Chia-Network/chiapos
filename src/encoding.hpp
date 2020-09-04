@@ -137,6 +137,17 @@ class Encoding {
                                         deltas.size(), CT_MEMO[R]);
     }
 
+    static void ANSFree(double R) {
+        if (CT_MEMO.find(R) != CT_MEMO.end()) {
+            FSE_freeCTable(CT_MEMO[R]);
+            CT_MEMO.erase(R);
+        }
+        if (DT_MEMO.find(R) != DT_MEMO.end()) {
+            FSE_freeDTable(DT_MEMO[R]);
+            DT_MEMO.erase(R);
+        }
+    }
+
     static std::vector<uint8_t> ANSDecodeDeltas(const uint8_t *inp, size_t inp_size, int numDeltas, double R) {
         if (DT_MEMO.find(R) == DT_MEMO.end()) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);

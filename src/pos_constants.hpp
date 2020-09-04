@@ -69,6 +69,8 @@ struct PlotEntry {
     uint64_t offset;
     uint128_t left_metadata;  // We only use left_metadata, unless metadata does not
     uint128_t right_metadata; // fit in 128 bits.
+    bool used; // Whether the entry was used in the next table of matches
+    uint64_t read_posoffset; // The combined pos and offset that this entry points to
 };
 
 #endif  // SRC_CPP_POS_CONSTANTS_HPP_
