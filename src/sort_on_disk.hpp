@@ -96,6 +96,12 @@ class FileDisk : public Disk {
         f_=fopen(filename.c_str(), "w+b");
     }
 
+    FileDisk(FileDisk&& fd) {
+        filename_ = fd.filename_;
+        f_ = fd.f_;
+        fd.f_ = NULL;
+    }
+
     bool isOpen() {
        return (f_!=NULL);
     }
@@ -144,7 +150,7 @@ class FileDisk : public Disk {
             }
             amtwritten = fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
             writePos=begin+amtwritten;
-	    if(writePos > writeMax)
+            if(writePos > writeMax)
                 writeMax = writePos;
             if(amtwritten != length) {
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset " << begin << " to " << filename_ << "with length " << writeMax << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
