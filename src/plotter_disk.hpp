@@ -168,20 +168,20 @@ class DiskPlotter {
             // Memory to be used for sorting and buffers
             uint8_t* memory = new uint8_t[memorySize]();
 
-            std::cout << std::endl << "Starting phase 1/4: Forward Propagation into table tmp files... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 1/4: Forward Propagation into tmp files... " << Timer::GetNow();
 
             Timer p1;
             Timer all_phases;
             std::vector<uint64_t> table_sizes = WritePlotFile(memory, tmp_1_disks, k, id, memo, memo_len);
             p1.PrintElapsed("Time for phase 1 =");
 
-            std::cout << std::endl << "Starting phase 2/4: Backpropagation into table tmp files... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 2/4: Backpropagation into tmp files... " << Timer::GetNow();
 
             Timer p2;
             std::vector<uint64_t> backprop_table_sizes = Backpropagate(memory, tmp_1_disks, table_sizes, k, id, memo, memo_len);
             p2.PrintElapsed("Time for phase 2 =");
 
-            std::cout << std::endl << "Starting phase 3/4: Compression from table tmp files into " << tmp_2_filename << " ... " << Timer::GetNow();
+            std::cout << std::endl << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename << " ... " << Timer::GetNow();
             Timer p3;
             Phase3Results res = CompressTables(memory, k, tmp2_disk, tmp_1_disks, backprop_table_sizes, id, memo, memo_len);
             p3.PrintElapsed("Time for phase 3 =");
