@@ -15,16 +15,22 @@
 #ifndef SRC_CPP_VERIFIER_HPP_
 #define SRC_CPP_VERIFIER_HPP_
 
-#include <vector>
 #include <utility>
+#include <vector>
+
 #include "calculate_bucket.hpp"
 
 class Verifier {
- public:
+public:
     // Gets the quality string from a proof in proof ordering. The quality string is two
     // adjacent values, determined by the quality index (1-32), and the proof in plot
     // ordering.
-    static LargeBits GetQualityString(uint8_t k, LargeBits proof, uint16_t quality_index, const uint8_t* challenge) {
+    static LargeBits GetQualityString(
+        uint8_t k,
+        LargeBits proof,
+        uint16_t quality_index,
+        const uint8_t* challenge)
+    {
         // Converts the proof from proof ordering to plot ordering
         for (uint8_t table_index = 1; table_index < 7; table_index++) {
             LargeBits new_proof;
@@ -49,10 +55,15 @@ class Verifier {
         return LargeBits(hash.data(), 32, 256);
     }
 
-    // Validates a proof of space, and returns the quality string if the proof is valid for the given
-    // k and challenge. If the proof is invalid, it returns an empty LargeBits().
-    LargeBits ValidateProof(const uint8_t* id, uint8_t k, const uint8_t* challenge,
-                            const uint8_t* proof_bytes, uint16_t proof_size) {
+    // Validates a proof of space, and returns the quality string if the proof is valid for the
+    // given k and challenge. If the proof is invalid, it returns an empty LargeBits().
+    LargeBits ValidateProof(
+        const uint8_t* id,
+        uint8_t k,
+        const uint8_t* challenge,
+        const uint8_t* proof_bytes,
+        uint16_t proof_size)
+    {
         LargeBits proof_bits = LargeBits(proof_bytes, proof_size, proof_size * 8);
         if (k * 64 != proof_bits.GetSize()) {
             return LargeBits();
@@ -82,7 +93,7 @@ class Verifier {
                 PlotEntry l_plot_entry;
                 PlotEntry r_plot_entry;
                 l_plot_entry.y = ys[i].GetValue();
-                r_plot_entry.y = ys[i+1].GetValue();
+                r_plot_entry.y = ys[i + 1].GetValue();
                 vector<PlotEntry> bucket_L = {l_plot_entry};
                 vector<PlotEntry> bucket_R = {r_plot_entry};
 
@@ -94,8 +105,8 @@ class Verifier {
                     return LargeBits();
                 }
 
-                std::pair<Bits, Bits> results = f.CalculateBucket(ys[i], ys[i+1],
-                                                                  metadata[i], metadata[i+1]);
+                std::pair<Bits, Bits> results =
+                    f.CalculateBucket(ys[i], ys[i + 1], metadata[i], metadata[i + 1]);
                 new_ys.push_back(std::get<0>(results));
                 new_metadata.push_back(std::get<1>(results));
             }
@@ -109,7 +120,7 @@ class Verifier {
             metadata = new_metadata;
         }
 
-        Bits challenge_bits = Bits(challenge, 256/8, 256);
+        Bits challenge_bits = Bits(challenge, 256 / 8, 256);
         uint16_t quality_index = challenge_bits.Slice(256 - 5).GetValue() << 1;
 
         // Makes sure the output is equal to the first k bits of the challenge
@@ -121,10 +132,11 @@ class Verifier {
         }
     }
 
- private:
+private:
     // Compares two lists of k values, a and b. a > b iff max(a) > max(b),
     // if there is a tie, the next largest value is compared.
-    static bool CompareProofBits(LargeBits left, LargeBits right, uint8_t k) {
+    static bool CompareProofBits(LargeBits left, LargeBits right, uint8_t k)
+    {
         uint16_t size = left.GetSize() / k;
         assert(left.GetSize() == right.GetSize());
         for (int16_t i = size - 1; i >= 0; i--) {

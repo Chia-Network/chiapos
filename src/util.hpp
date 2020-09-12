@@ -15,23 +15,23 @@
 #ifndef SRC_CPP_UTIL_HPP_
 #define SRC_CPP_UTIL_HPP_
 
-#include <random>
-#include <iostream>
-#include <fstream>
-#include <iomanip>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <numeric>
-#include <cstring>
-#include <utility>
 #include <cassert>
 #include <chrono>
-#include <set>
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <map>
+#include <numeric>
 #include <queue>
+#include <random>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
-#define CDIV(a, b) (((a) + (b) - 1) / (b))
+#define CDIV(a, b) (((a) + (b)-1) / (b))
 
 #ifdef _WIN32
 #include "uint128_t.h"
@@ -41,9 +41,10 @@
 typedef __uint128_t uint128_t;
 
 // Allows printing of uint128_t
-std::ostream &operator<<(std::ostream & strm, uint128_t const & v) {
-    strm << "uint128(" << (uint64_t)(v >> 64) << ","
-         << (uint64_t)(v & (((uint128_t)1 << 64) - 1)) << ")";
+std::ostream& operator<<(std::ostream& strm, uint128_t const& v)
+{
+    strm << "uint128(" << (uint64_t)(v >> 64) << "," << (uint64_t)(v & (((uint128_t)1 << 64) - 1))
+         << ")";
     return strm;
 }
 #endif
@@ -65,70 +66,70 @@ std::ostream &operator<<(std::ostream & strm, uint128_t const & v) {
 #include <byteswap.h>
 #endif
 
-
 class Timer {
- public:
-    Timer() :
-        wall_clock_time_start_(std::chrono::steady_clock::now()),
-        cpu_time_start_(clock())
-    {
-    }
+public:
+    Timer() : wall_clock_time_start_(std::chrono::steady_clock::now()), cpu_time_start_(clock()) {}
 
     static char* GetNow()
     {
         auto now = std::chrono::system_clock::now();
         auto tt = std::chrono::system_clock::to_time_t(now);
-        return ctime(&tt); // ctime includes newline
+        return ctime(&tt);  // ctime includes newline
     }
 
-    void PrintElapsed(const std::string& name) const {
+    void PrintElapsed(const std::string& name) const
+    {
         auto end = std::chrono::steady_clock::now();
         auto wall_clock_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             end - this->wall_clock_time_start_).count();
+                                 end - this->wall_clock_time_start_)
+                                 .count();
 
-        double cpu_time_ms =  1000.0 * (static_cast<double>(clock()) - this->cpu_time_start_) / CLOCKS_PER_SEC;
+        double cpu_time_ms =
+            1000.0 * (static_cast<double>(clock()) - this->cpu_time_start_) / CLOCKS_PER_SEC;
 
         double cpu_ratio = static_cast<int>(10000 * (cpu_time_ms / wall_clock_ms)) / 100.0;
 
-        std::cout << name << " " << (wall_clock_ms / 1000.0)  << " seconds. CPU (" << cpu_ratio << "%) " << Timer::GetNow();
+        std::cout << name << " " << (wall_clock_ms / 1000.0) << " seconds. CPU (" << cpu_ratio
+                  << "%) " << Timer::GetNow();
     }
 
- private:
-  std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
-  clock_t cpu_time_start_;
+private:
+    std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
+    clock_t cpu_time_start_;
 };
 
-
 class Util {
- public:
+public:
     template <typename X>
-    static inline X Mod(X i, X n) {
+    static inline X Mod(X i, X n)
+    {
         return (i % n + n) % n;
     }
 
-    static uint32_t ByteAlign(uint32_t num_bits) {
-        return (num_bits + (8 - ((num_bits) % 8)) % 8);
-    }
+    static uint32_t ByteAlign(uint32_t num_bits) { return (num_bits + (8 - ((num_bits) % 8)) % 8); }
 
-    static std::string HexStr(const uint8_t* data, size_t len) {
+    static std::string HexStr(const uint8_t* data, size_t len)
+    {
         std::stringstream s;
         s << std::hex;
-        for (size_t i=0; i < len; ++i)
+        for (size_t i = 0; i < len; ++i)
             s << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
         s << std::dec;
         return s.str();
     }
 
-    static void WriteZeroesHeap(std::ofstream &file, uint32_t num_bytes) {
+    static void WriteZeroesHeap(std::ofstream& file, uint32_t num_bytes)
+    {
         uint8_t* buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
         file.write(reinterpret_cast<char*>(buf), num_bytes);
         delete[] buf;
     }
 
-    static void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes) {
+    static void WriteZeroesStack(std::ofstream& file, uint32_t num_bytes)
+    {
 #ifdef _WIN32
-        uint8_t *buf = new uint8_t[num_bytes];
+        uint8_t* buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
         file.write(reinterpret_cast<char*>(buf), num_bytes);
         delete[] buf;
@@ -139,18 +140,21 @@ class Util {
 #endif
     }
 
-    static void IntToTwoBytes(uint8_t* result, const uint16_t input) {
+    static void IntToTwoBytes(uint8_t* result, const uint16_t input)
+    {
         uint16_t r = bswap_16(input);
         memcpy(result, &r, sizeof(r));
     }
 
     // Used to encode deltas object size
-    static void IntToTwoBytesLE(uint8_t* result, const uint16_t input) {
+    static void IntToTwoBytesLE(uint8_t* result, const uint16_t input)
+    {
         result[0] = input & 0xff;
         result[1] = input >> 8;
     }
 
-    static uint16_t TwoBytesToInt(const uint8_t *bytes) {
+    static uint16_t TwoBytesToInt(const uint8_t* bytes)
+    {
         uint16_t i;
         memcpy(&i, bytes, sizeof(i));
         return bswap_16(i);
@@ -159,7 +163,8 @@ class Util {
     /*
      * Converts a 32 bit int to bytes.
      */
-    static void IntToFourBytes(uint8_t* result, const uint32_t input) {
+    static void IntToFourBytes(uint8_t* result, const uint32_t input)
+    {
         uint32_t r = bswap_32(input);
         memcpy(result, &r, sizeof(r));
     }
@@ -167,7 +172,8 @@ class Util {
     /*
      * Converts a byte array to a 32 bit int.
      */
-    static uint32_t FourBytesToInt(const uint8_t* bytes) {
+    static uint32_t FourBytesToInt(const uint8_t* bytes)
+    {
         uint32_t i;
         memcpy(&i, bytes, sizeof(i));
         return bswap_32(i);
@@ -176,7 +182,8 @@ class Util {
     /*
      * Converts a 64 bit int to bytes.
      */
-    static void IntToEightBytes(uint8_t* result, const uint64_t input) {
+    static void IntToEightBytes(uint8_t* result, const uint64_t input)
+    {
         uint64_t r = bswap_64(input);
         memcpy(result, &r, sizeof(r));
     }
@@ -184,7 +191,8 @@ class Util {
     /*
      * Converts a byte array to a 64 bit int.
      */
-    static uint64_t EightBytesToInt(const uint8_t* bytes) {
+    static uint64_t EightBytesToInt(const uint8_t* bytes)
+    {
         uint64_t i;
         memcpy(&i, bytes, sizeof(i));
         return bswap_64(i);
@@ -193,7 +201,8 @@ class Util {
     /*
      * Retrieves the size of an integer, in Bits.
      */
-    static uint8_t GetSizeBits(uint128_t value) {
+    static uint8_t GetSizeBits(uint128_t value)
+    {
         uint8_t count = 0;
         while (value) {
             count++;
@@ -203,8 +212,11 @@ class Util {
     }
 
     /* Note: requires start_bit % 8 + num_bits <= 64 */
-    inline static uint64_t SliceInt64FromBytes(const uint8_t* bytes,
-                                               uint32_t start_bit, const uint32_t num_bits) {
+    inline static uint64_t SliceInt64FromBytes(
+        const uint8_t* bytes,
+        uint32_t start_bit,
+        const uint32_t num_bits)
+    {
         uint64_t tmp;
 
         if (start_bit + num_bits > 64) {
@@ -218,7 +230,11 @@ class Util {
         return tmp;
     }
 
-    static uint64_t SliceInt64FromBytesFull(const uint8_t *bytes, uint32_t start_bit, uint32_t num_bits) {
+    static uint64_t SliceInt64FromBytesFull(
+        const uint8_t* bytes,
+        uint32_t start_bit,
+        uint32_t num_bits)
+    {
         uint32_t last_bit = start_bit + num_bits;
         uint64_t r = SliceInt64FromBytes(bytes, start_bit, num_bits);
         if (start_bit % 8 + num_bits > 64)
@@ -226,9 +242,11 @@ class Util {
         return r;
     }
 
-
-    inline static uint128_t SliceInt128FromBytes(const uint8_t* bytes,
-                                                 const uint32_t start_bit, const uint32_t num_bits) {
+    inline static uint128_t SliceInt128FromBytes(
+        const uint8_t* bytes,
+        const uint32_t start_bit,
+        const uint32_t num_bits)
+    {
         if (num_bits <= 64)
             return SliceInt64FromBytesFull(bytes, start_bit, num_bits);
 
@@ -238,7 +256,8 @@ class Util {
         return ((uint128_t)high << 64) | low;
     }
 
-    static void GetRandomBytes(uint8_t* buf, uint32_t num_bytes) {
+    static void GetRandomBytes(uint8_t* buf, uint32_t num_bytes)
+    {
         std::random_device rd;
         std::mt19937 mt(rd());
         std::uniform_int_distribution<int> dist(0, 255);
@@ -247,7 +266,8 @@ class Util {
         }
     }
 
-    static uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges) {
+    static uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges)
+    {
         std::map<uint64_t, std::vector<uint64_t> > edge_indeces;
         for (uint64_t edge_index = 0; edge_index < edges.size(); edge_index++) {
             edge_indeces[edges[edge_index].first].push_back(edge_index);

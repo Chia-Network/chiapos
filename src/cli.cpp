@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <set>
 #include <ctime>
+#include <set>
 
-#include "../lib/include/picosha2.hpp"
 #include "../lib/include/cxxopts.hpp"
-
+#include "../lib/include/picosha2.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
 
-void HexToBytes(const string& hex, uint8_t* result) {
+void HexToBytes(const string &hex, uint8_t *result)
+{
     for (uint32_t i = 0; i < hex.length(); i += 2) {
         string byteString = hex.substr(i, 2);
-        uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
-        result[i/2] = byte;
-  }
+        uint8_t byte = (uint8_t)strtol(byteString.c_str(), NULL, 16);
+        result[i / 2] = byte;
+    }
 }
 
-vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
+vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
+{
     vector<unsigned char> arrayOfByte(numBytes, 0);
     for (uint32_t i = 0; paramInt > 0; i++) {
         arrayOfByte[numBytes - i - 1] = paramInt & 0xff;
@@ -39,14 +40,16 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
     return arrayOfByte;
 }
 
-string Strip0x(const string& hex) {
+string Strip0x(const string &hex)
+{
     if (hex.substr(0, 2) == "0x" || hex.substr(0, 2) == "0X") {
         return hex.substr(2);
     }
     return hex;
 }
 
-void HelpAndQuit(cxxopts::Options options) {
+void HelpAndQuit(cxxopts::Options options)
+{
     cout << options.help({""}) << endl;
     cout << "./ProofOfSpace generate" << endl;
     cout << "./ProofOfSpace prove <challenge>" << endl;
@@ -55,11 +58,13 @@ void HelpAndQuit(cxxopts::Options options) {
     exit(0);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     try {
-        cxxopts::Options options("ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
+        cxxopts::Options options(
+            "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
         options.positional_help("(generate/prove/verify/check) param1 param2 ")
-               .show_positional_help();
+            .show_positional_help();
 
         // Default values
         uint8_t k = 20;
@@ -68,21 +73,21 @@ int main(int argc, char *argv[]) {
         string tempdir2 = ".";
         string finaldir = ".";
         string operation = "help";
-        string memo  = "0102030405";
+        string memo = "0102030405";
         string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
-        uint32_t buffmegabytes = 2*1024; // 2 gigabytes
+        uint32_t buffmegabytes = 2 * 1024;  // 2 gigabytes
 
-        options.allow_unrecognised_options()
-               .add_options()
-                ("k, size", "Plot size", cxxopts::value<uint8_t>(k))
-                ("t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))
-                ("2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))
-                ("d, finaldir", "Final directory", cxxopts::value<string>(finaldir))
-                ("f, file", "Filename", cxxopts::value<string>(filename))
-                ("m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))
-                ("i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))
-                ("b, buffer", "Megabytes to be used as buffer for sorting and plotting", cxxopts::value<uint32_t>(buffmegabytes))
-                ("help", "Print help");
+        options.allow_unrecognised_options().add_options()(
+            "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
+            "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
+            "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
+            "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
+            "f, file", "Filename", cxxopts::value<string>(filename))(
+            "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
+            "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
+            "b, buffer",
+            "Megabytes to be used as buffer for sorting and plotting",
+            cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
 
         auto result = options.parse(argc, argv);
 
@@ -95,8 +100,9 @@ int main(int argc, char *argv[]) {
         if (operation == "help") {
             HelpAndQuit(options);
         } else if (operation == "generate") {
-            cout << "Generating plot for k=" << static_cast<int>(k) << " filename="
-                 << filename << " id=" << id << endl << endl;
+            cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
+                 << " id=" << id << endl
+                 << endl;
             if (id.size() != 64) {
                 cout << "Invalid ID, should be 32 bytes" << endl;
                 exit(1);
@@ -110,13 +116,24 @@ int main(int argc, char *argv[]) {
             HexToBytes(id, id_bytes);
 
             DiskPlotter plotter = DiskPlotter();
-            plotter.CreatePlotDisk(tempdir, tempdir2, finaldir, filename, k, memo_bytes, memo.size() / 2, id_bytes, 32, buffmegabytes);
+            plotter.CreatePlotDisk(
+                tempdir,
+                tempdir2,
+                finaldir,
+                filename,
+                k,
+                memo_bytes,
+                memo.size() / 2,
+                id_bytes,
+                32,
+                buffmegabytes);
             delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {
                 HelpAndQuit(options);
             }
-            cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl << endl;
+            cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl
+                 << endl;
             string challenge = Strip0x(argv[2]);
             if (challenge.size() != 64) {
                 cout << "Invalid challenge, should be 32 bytes" << endl;
@@ -161,8 +178,9 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
             k = proof.size() / 16;
-            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3] << " and k="
-                 << static_cast<int>(k) << endl << endl;
+            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3]
+                 << " and k=" << static_cast<int>(k) << endl
+                 << endl;
             uint8_t id_bytes[32];
             uint8_t challenge_bytes[32];
             uint8_t *proof_bytes = new uint8_t[proof.size() / 2];
@@ -170,7 +188,8 @@ int main(int argc, char *argv[]) {
             HexToBytes(challenge, challenge_bytes);
             HexToBytes(proof, proof_bytes);
 
-            LargeBits quality = verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k*8);
+            LargeBits quality =
+                verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
             if (quality.GetSize() == 256) {
                 cout << "Proof verification suceeded. Quality: " << quality << endl;
             } else {
@@ -194,7 +213,7 @@ int main(int argc, char *argv[]) {
 
             for (uint32_t num = 0; num < iterations; num++) {
                 vector<unsigned char> hash_input = intToBytes(num, 4);
-                hash_input.insert(hash_input.end(),&id_bytes[0],&id_bytes[32]);
+                hash_input.insert(hash_input.end(), &id_bytes[0], &id_bytes[32]);
 
                 vector<unsigned char> hash(picosha2::k_digest_size);
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
@@ -207,7 +226,8 @@ int main(int argc, char *argv[]) {
                     cout << "i: " << num << std::endl;
                     cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                     cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
-                    LargeBits quality = verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k*8);
+                    LargeBits quality =
+                        verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
                     if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
                         cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
@@ -219,13 +239,13 @@ int main(int argc, char *argv[]) {
                     delete[] proof_data;
                 }
             }
-            std::cout << "Total success: " << success << "/" << iterations << ", " <<
-                         (success*100/static_cast<double>(iterations)) << "%." << std::endl;
+            std::cout << "Total success: " << success << "/" << iterations << ", "
+                      << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
         } else {
             cout << "Invalid operation. Use generate/prove/verify/check" << endl;
         }
         exit(0);
-    } catch (const cxxopts::OptionException& e) {
+    } catch (const cxxopts::OptionException &e) {
         cout << "error parsing options: " << e.what() << endl;
         exit(1);
     }
