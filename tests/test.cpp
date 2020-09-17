@@ -257,6 +257,10 @@ public:
         }
     }
 
+    uint8_t *getBuf() override {
+        return NULL;
+    }
+
 private:
     std::string s;
     std::stringstream f_;

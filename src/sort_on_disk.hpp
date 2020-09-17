@@ -30,6 +30,7 @@
 #include "../lib/include/filesystem.hh"
 namespace fs = ghc::filesystem;
 #include "./util.hpp"
+#include "../lib/pmergesort/pmergesort.h"
 
 class SortOnDiskUtils {
 public:
@@ -90,11 +91,19 @@ public:
     }
 };
 
+int g_bits_begin;
+int g_entry_len;
+
+int cmpfunc (const void * a, const void * b) {
+   return SortOnDiskUtils::MemCmpBits((uint8_t *)a, (uint8_t *)b, g_entry_len, g_bits_begin);
+}
+
 class Disk {
 public:
     virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
     virtual void Truncate(uint64_t new_size) = 0;
+    virtual uint8_t *getBuf() = 0;
     virtual ~Disk(){};
 };
 
@@ -145,6 +154,10 @@ public:
 
         if (f_ != NULL)
             fclose(f_);
+    }
+
+    uint8_t *getBuf() override {
+        return buf;
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
@@ -253,6 +266,7 @@ private:
     fs::path filename_;
     FILE* f_;
 
+public:
     uint8_t* buf;
 };
 
@@ -595,6 +609,14 @@ public:
         uint64_t N_buckets = bucket_sizes.size();
 
         if (bits_begin >= entry_len * 8) {
+            return 0;
+        }
+
+        if(disk.getBuf() != NULL)
+        {
+            g_entry_len=entry_len;
+            g_bits_begin=bits_begin;
+            symmergesort(&((disk.getBuf())[disk_begin]),total_size,entry_len,cmpfunc);
             return 0;
         }
 
