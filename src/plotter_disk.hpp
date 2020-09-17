@@ -81,8 +81,8 @@ extern "C" {
 int numCPU();
 }
 
-#define NUMTHREADS (numCPU())
 #define STRIPESIZE 4096
+#define NUMTHREADS 1 // (numCPU())
 
 typedef struct {
     int index;
@@ -120,7 +120,6 @@ void* thread(void* arg)
     uint8_t metadata_size = ptd->metadata_size;
     uint32_t entry_size_bytes = ptd->entry_size_bytes;
     uint8_t pos_size = ptd->pos_size;
-    uint64_t total_table_entries = 0;
     uint64_t prevtableentries = ptd->prevtableentries;
     uint8_t* memory = ptd->memory;
     uint64_t memorySize = ptd->memorySize;
@@ -130,13 +129,10 @@ void* thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_writer = 0;
-    uint64_t right_writer = 0;
     uint8_t* right_writer_buf = &(memory[0]);
     uint8_t* left_writer_buf = &(memory[memorySize / 2]);
     uint64_t left_buf_entries = memorySize / 2 / compressed_entry_size_bytes;
     uint64_t right_buf_entries = memorySize / 2 / right_entry_size_bytes;
-    uint64_t left_writer_count = 0;
 
     FxCalculator f(k, table_index + 1);
 
@@ -179,6 +175,7 @@ void* thread(void* arg)
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
+    uint64_t left_writer_count = 0;
         uint64_t right_writer_count = 0;
         uint64_t ignorebucket = 0xffffffffffffffff;
         bool bMatch = false;
@@ -237,7 +234,7 @@ void* thread(void* arg)
                 ignorebucket = y_bucket;
             } else {
                 if ((y_bucket != ignorebucket) && !bMatch) {
-                    // cout << "matching " << y_bucket << endl;
+                    cout << "matching " << y_bucket << endl;
                     bucket = y_bucket;
                     bMatch = true;
                 }
@@ -325,13 +322,6 @@ void* thread(void* arg)
                             left_writer_count - R_position_base;
                         left_writer_count++;
                         new_left_entry.ToBytes(tmp_buf);
-                        if (left_writer_count % left_buf_entries == 0) {
-                            (*ptmp_1_disks)[table_index].Write(
-                                left_writer,
-                                left_writer_buf,
-                                left_buf_entries * compressed_entry_size_bytes);
-                            left_writer += left_buf_entries * compressed_entry_size_bytes;
-                        }
                     }
 
                     // Two vectors to keep track of things from previous iteration and from this
@@ -344,7 +334,6 @@ void* thread(void* arg)
                         PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
 
                         ++matches;
-                        ++total_table_entries;
 
                         // Sets the R entry to used so that we don't drop in next iteration
                         R_entry.used = true;
@@ -421,13 +410,6 @@ void* thread(void* arg)
 
                         // Writes the new entry into the right table
                         new_entry.ToBytes(right_buf);
-                        if (right_writer_count % right_buf_entries == 0) {
-                            (*ptmp_1_disks)[table_index + 1].Write(
-                                right_writer,
-                                right_writer_buf,
-                                right_buf_entries * right_entry_size_bytes);
-                            right_writer += right_buf_entries * right_entry_size_bytes;
-                        }
 
                         // Computes sort bucket, so we can sort the table by y later, more
                         // easily
@@ -473,8 +455,8 @@ void* thread(void* arg)
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
         (*ptmp_1_disks)[table_index].Write(
-            g_left_writer, left_writer_buf, left_writer_count * entry_size_bytes);
-        g_left_writer += left_writer_count * entry_size_bytes;
+            g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
+        g_left_writer += left_writer_count * compressed_entry_size_bytes;
         g_left_writer_count += left_writer_count;
 
         (*ptmp_1_disks)[table_index + 1].Write(
