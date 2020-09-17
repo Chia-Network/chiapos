@@ -100,9 +100,18 @@ public:
 
 class FileDisk : public Disk {
 public:
-    inline explicit FileDisk(const fs::path& filename)
+    inline explicit FileDisk(const fs::path& filename, uint32_t mem = 0)
     {
         filename_ = filename;
+        mem_ = mem;
+
+        if (mem_ != 0) {
+            buf = (uint8_t*)malloc((uint64_t)mem * 1024 * 1024);
+            if (buf == NULL)
+                std::cout << "Could not allocate memory for FileDisk" << std::endl;
+
+            return;
+        }
 
         // Opens the file for reading and writing
         f_ = fopen(filename.c_str(), "w+b");
@@ -113,18 +122,38 @@ public:
         filename_ = fd.filename_;
         f_ = fd.f_;
         fd.f_ = NULL;
+        mem_ = fd.mem_;
+        fd.mem_ = 0;
+        buf = fd.buf;
+        fd.buf = NULL;
     }
 
-    bool isOpen() { return (f_ != NULL); }
+    bool isOpen()
+    {
+        if (mem_ != 0)
+            return true;
+
+        return (f_ != NULL);
+    }
 
     ~FileDisk()
     {
+        if (mem_ != 0) {
+            free(buf);
+            return;
+        }
+
         if (f_ != NULL)
             fclose(f_);
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
     {
+        if (mem_ != 0) {
+            memcpy(memcache, &(buf[begin]), length);
+            return;
+        }
+
         // Seek, read, and replace into memcache
         uint64_t amtread;
         do {
@@ -153,6 +182,14 @@ public:
 
     inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override
     {
+        if (mem_ != 0) {
+            memcpy(&(buf[begin]), memcache, length);
+            writePos = begin + length;
+            if (writePos > writeMax)
+                writeMax = writePos;
+            return;
+        }
+
         // Seek and write from memcache
         uint64_t amtwritten;
         do {
@@ -182,12 +219,21 @@ public:
         } while (amtwritten != length);
     }
 
-    inline std::string GetFileName() const noexcept { return filename_.string(); }
+    inline std::string GetFileName() const noexcept
+    {
+        if (mem_ != 0)
+            return "RAM";
+
+        return filename_;
+    }
 
     inline uint64_t GetWriteMax() const noexcept { return writeMax; }
 
     inline void Truncate(uint64_t new_size) override
     {
+        if (mem_ != 0)
+            return;
+
         if (f_ != NULL)
             fclose(f_);
         fs::resize_file(filename_, new_size);
@@ -202,9 +248,12 @@ private:
     uint64_t writePos = 0;
     uint64_t writeMax = 0;
     bool bReading = true;
+    uint32_t mem_;
 
     fs::path filename_;
     FILE* f_;
+
+    uint8_t* buf;
 };
 
 // Store values bucketed by their leading bits into an array-like memcache.

@@ -149,7 +149,7 @@ public:
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
             for (int i = 0; i <= 7; i++) {
-                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i]));
+                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i],300));
             }
 
             FileDisk tmp2_disk(tmp_2_filename);
