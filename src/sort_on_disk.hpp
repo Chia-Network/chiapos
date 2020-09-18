@@ -612,6 +612,8 @@ public:
             return 0;
         }
 
+	cout << "total_size " << total_size << endl;
+
         if(disk.getBuf() != NULL)
         {
             g_entry_len=entry_len;

@@ -36,8 +36,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z")
-set (CMAKE_C_FLAGS "-g -O3 -Wall")
+set (CMAKE_CXX_FLAGS "-g -Wall -std=c++1z")
+set (CMAKE_C_FLAGS "-g -Wall")
 
 set(BLAKE3_SRC
     src/b3/blake3.c
@@ -82,7 +82,7 @@ elseif (WIN32)
   target_link_libraries(ProofOfSpace fse)
   target_link_libraries(RunTests fse)
 else()
-  target_link_libraries(chiapos PRIVATE fse stdc++fs)
-  target_link_libraries(ProofOfSpace fse stdc++fs)
-  target_link_libraries(RunTests fse stdc++fs)
+  target_link_libraries(chiapos PRIVATE rt pthread fse stdc++fs)
+  target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
+  target_link_libraries(RunTests rt pthread fse stdc++fs)
 endif()
