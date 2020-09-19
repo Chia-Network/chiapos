@@ -478,6 +478,8 @@ if(bTwo)
                                                            right_entry_size_bytes;
                         right_writer_count++;
 
+               memset(right_buf,0x00,right_entry_size_bytes);
+
                         // Writes the new entry into the right table
                         new_entry.ToBytes(right_buf);
 
@@ -540,29 +542,59 @@ print_buf(right_buf,right_entry_size_bytes);
         sem_wait(ptd->theirs);
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
-       cout << "g_left_writer " << g_left_writer << endl;
-
-/*if(g_left_writer+left_writer_count * compressed_entry_size_bytes>7272)
-{
-        FILE *f_ = fopen("foo", "w+b");
-        fwrite(left_writer_buf, sizeof(uint8_t), left_writer_count * compressed_entry_size_bytes, f_);
-        fclose(f_);
-exit(0);}
-*/
-
-        (*ptmp_1_disks)[table_index].Write(
-            g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
-        g_left_writer += left_writer_count * compressed_entry_size_bytes;
-        g_left_writer_count += left_writer_count;
-
        cout << "g_right_writer " << g_right_writer << " right_writer_count " << right_writer_count << " right_buf_entries " << right_buf_entries << endl;
 
 print_buf(right_writer_buf,right_writer_count * right_entry_size_bytes);
 
+for(int i=0;i<right_writer_count;i++)
+{
+PlotEntry left_entry;
+
+//cout << "k + kExtraBits " << k + kExtraBits << " pos_size " << (int)pos_size << " kOffsetSize " << kOffsetSize << " metadata_size " << (int)metadata_size << endl;
+
+
+                left_entry.y = Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, 0, k + kExtraBits);
+                uint64_t position =
+                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, k + kExtraBits, pos_size );
+                uint64_t offset =
+                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, k + kExtraBits + pos_size, kOffsetSize );
+
+                if (right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize <= 128) {
+                    left_entry.left_metadata = Util::SliceInt128FromBytes( 
+                        right_writer_buf+i*right_entry_size_bytes, k + kExtraBits + pos_size + kOffsetSize, right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize);
+                } else {
+                    // Large metadatas that don't fit into 128 bits. (k > 32).
+                    left_entry.left_metadata = Util::SliceInt128FromBytes( 
+                        right_writer_buf+i*right_entry_size_bytes, k - kExtraBits - pos_size - kOffsetSize, 128);
+                    left_entry.right_metadata = Util::SliceInt128FromBytes(
+                        right_writer_buf+i*right_entry_size_bytes,
+                        k + kExtraBits + pos_size + kOffsetSize + 128,
+                        right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize - 128);
+                }
+
+cout << "adding " << g_left_writer_count << " to " << position << endl;
+
+position=position+g_left_writer_count;
+
+Bits new_entry;
+new_entry.AppendValue(left_entry.y,k + kExtraBits);
+new_entry.AppendValue(position,pos_size);
+new_entry.AppendValue(offset,kOffsetSize);
+if (right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize <= 128) {
+new_entry.AppendValue(left_entry.left_metadata,right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize);
+} else {
+new_entry.AppendValue(left_entry.left_metadata,128);
+new_entry.AppendValue(left_entry.right_metadata,right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize - 128);
+}
+memset(right_writer_buf+i*right_entry_size_bytes,0x00,right_entry_size_bytes);
+new_entry.ToBytes(right_writer_buf+i*right_entry_size_bytes);
+
+
         (*ptmp_1_disks)[table_index + 1].Write(
-            g_right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
-        g_right_writer += right_writer_count * right_entry_size_bytes;
-	g_right_writer_count += right_writer_count;
+            g_right_writer, right_writer_buf+i*right_entry_size_bytes, right_entry_size_bytes);
+        g_right_writer += right_entry_size_bytes;
+	g_right_writer_count ++;
+}
 cout << "g_right_writer " << g_right_writer << endl;
         cout << " g_right_writer_count " << g_right_writer_count << endl;
 
@@ -570,6 +602,14 @@ cout << "g_right_writer " << g_right_writer << endl;
         fwrite(right_writer_buf, sizeof(uint8_t), right_writer_count * right_entry_size_bytes, f_);
         fclose(f_);
 //exit(0);
+
+       cout << "g_left_writer " << g_left_writer << endl;
+
+        (*ptmp_1_disks)[table_index].Write(
+            g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
+        g_left_writer += left_writer_count * compressed_entry_size_bytes;
+        g_left_writer_count += left_writer_count;
+
 
         g_matches += matches;
         cout << " g_matches " << g_matches << endl;
