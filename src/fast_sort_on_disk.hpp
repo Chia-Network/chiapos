@@ -35,7 +35,7 @@ namespace fs = ghc::filesystem;
 
 class SortManager {
   public:
-    SortManager(uint8_t* memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets, uint16_t entry_size, fs::path tmp_dirname, Disk* output_file, Disk* spare, uint32_t begin_bits) {
+    SortManager(uint8_t* memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets, uint16_t entry_size, std::string tmp_dirname, std::string filename, Disk* output_file, Disk* spare, uint32_t begin_bits) {
         this->memory_start = memory;
         this->memory_size = memory_size;
         this->output_file = output_file;
@@ -54,7 +54,7 @@ class SortManager {
             this->mem_bucket_sizes.push_back(0);
             this->bucket_write_pointers.push_back(0);
             this->sub_bucket_sizes.push_back(std::vector<uint64_t>(num_buckets, 0));
-            fs::path bucket_filename = tmp_dirname / fs::path("sort_bucket_" + to_string(bucket_i) + ".tmp");
+            fs::path bucket_filename = fs::path(tmp_dirname) / fs::path(filename + ".sort_bucket_" + to_string(bucket_i) + ".tmp");
             fs::remove(bucket_filename);
             this->bucket_files.push_back(FileDisk(bucket_filename));
         }
@@ -91,7 +91,7 @@ class SortManager {
 
         for (uint16_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
             // Reads an entire bucket into memory
-            std::cout << "Total bytes reading into memory: " << to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0)) << std::endl;
+            // std::cout << "Total bytes reading into memory: " << to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0)) << std::endl;
             if (this->bucket_write_pointers[bucket_i] > this->memory_size) {
                 std::cout << "Not enough memory. Need to sort " + to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) + "GiB" << std::endl;
             }

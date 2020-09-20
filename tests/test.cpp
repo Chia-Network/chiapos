@@ -723,58 +723,18 @@ TEST_CASE("Sort on disk") {
         delete[] mem;
     }
 
-    SECTION("Sort on disk") {
+  SECTION("Sort on disk") {
         uint32_t iters = 100000;
         uint32_t size = 32;
         vector<Bits> input;
-        uint32_t begin = 1000;
-        FakeDisk disk = FakeDisk(5000000);
-        FakeDisk spare = FakeDisk(5000000);
-
-        for (uint32_t i = 0; i < iters; i ++) {
-            vector<unsigned char> hash_input = intToBytes(i, 4);
-            vector<unsigned char> hash(picosha2::k_digest_size);
-            picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-
-            disk.Write(begin + i * size, hash.data(), size);
-            input.emplace_back(Bits(hash.data(), size, size*8));
-        }
-
-        vector<uint64_t> bucket_sizes(16, 0);
-        uint8_t buf[size];
-        for (Bits& x : input) {
-            x.ToBytes(buf);
-            bucket_sizes[Util::ExtractNum(buf, size, 0, 4)] += 1;
-        }
-
-        const uint32_t memory_len = 100000;
-        uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortOnDisk(disk, disk, begin, begin, spare, size, 0, bucket_sizes, memory, memory_len);
-
-
-        sort(input.begin(), input.end());
-
-        uint8_t buf2[size];
-        for (uint32_t i = 0; i < iters; i++) {
-            disk.Read(begin + i * size, buf2, size);
-            input[i].ToBytes(buf);
-            REQUIRE(memcmp(buf, buf2, size) == 0);
-        }
-
-        delete[] memory;
-    }
-
-    SECTION("Sort on disk fast") {
-        uint32_t iters = 100000;
-        uint32_t size = 32;
-        vector<Bits> input;
-        uint32_t begin = 1000;
+        uint32_t begin = 0;
         FakeDisk disk = FakeDisk(5000000);
         FakeDisk disk_2 = FakeDisk(5000000);
         FakeDisk spare = FakeDisk(5000000);
-        const uint32_t memory_len = 100000;
+        FakeDisk spare_2 = FakeDisk(5000000);
+        const uint32_t memory_len = 10000;
         uint8_t* memory = new uint8_t[memory_len];
-        SortManager manager = SortManager(memory, memory_len, 16, 4, size, fs::path("test_tmp"), &disk, &spare, 0);
+        SortManager manager = SortManager(memory, memory_len, 16, 4, size, ".", "test-files", &disk_2, &spare_2, 0);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -787,7 +747,9 @@ TEST_CASE("Sort on disk") {
             input.emplace_back(to_write);
             manager.AddToCache(to_write);
         }
+        std::cout << "executing" << std::endl;
         int total_written_2 = manager.ExecuteSort();
+        std::cout << "executed" << std::endl;
         REQUIRE(total_written_1 == total_written_2);
 
         vector<uint64_t> bucket_sizes(16, 0);

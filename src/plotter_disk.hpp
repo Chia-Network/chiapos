@@ -160,7 +160,7 @@ class DiskPlotter {
 
             Timer p1;
             Timer all_phases;
-            std::vector<uint64_t> table_sizes = WritePlotFile(memory, tmp_1_disks, k, id, memo, memo_len, fs::path(tmp_dirname));
+            std::vector<uint64_t> table_sizes = WritePlotFile(memory, tmp_1_disks, k, id, memo, memo_len, tmp_dirname, filename);
             p1.PrintElapsed("Time for phase 1 =");
 
             std::cout << std::endl << "Starting phase 2/4: Backpropagation into tmp files... " << Timer::GetNow();
@@ -383,7 +383,7 @@ class DiskPlotter {
     // ChaCha8, and each encryption provides multiple output values. Then, the rest of the
     // f functions are computed, and a sort on disk happens for each table.
     std::vector<uint64_t> WritePlotFile(uint8_t* memory, std::vector<FileDisk>& tmp_1_disks, uint8_t k, const uint8_t* id,
-                                        const uint8_t* memo, uint8_t memo_len, fs::path tmp_dirname) {
+                                        const uint8_t* memo, uint8_t memo_len, std::string tmp_dirname, std::string filename) {
         std::cout << "Computing table 1" << std::endl;
         Timer f1_start_time;
         F1Calculator f1(k, id);
@@ -398,7 +398,7 @@ class DiskPlotter {
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
-        SortManager sorting = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, entry_size_bytes, tmp_dirname, &tmp_1_disks[1], &tmp_1_disks[0], 0);
+        SortManager sorting = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[1], &tmp_1_disks[0], 0);
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
@@ -452,7 +452,7 @@ class DiskPlotter {
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
 
             total_table_entries = 0;
-            SortManager sort_manager = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0);
+            SortManager sort_manager = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0);
 
             Timer computation_pass_timer;
 
