@@ -37,9 +37,9 @@ class UniformSort {
                             uint64_t num_entries, uint32_t bits_begin) {
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
         uint64_t memory_len = Util::RoundSize(num_entries) * entry_len_memory;
-        uint8_t* swap_space = new uint8_t[entry_len];
-        uint8_t* buffer = new uint8_t[BUF_SIZE];
-        uint8_t* common_prefix = new uint8_t[bits_begin / 8];
+        auto swap_space = new uint8_t[entry_len];
+        auto buffer = new uint8_t[BUF_SIZE];
+        auto common_prefix = new uint8_t[bits_begin / 8];
         uint64_t bucket_length = 0;
         bool set_prefix = false;
         // The number of buckets needed (the smallest power of 2 greater than 2 * num_entries).
@@ -52,14 +52,13 @@ class UniformSort {
         uint64_t buf_ptr = 0;
         uint64_t swaps = 0;
         for (uint64_t i = 0; i < num_entries; i++) {
-            // std::cout << "REAding " << i <<std::endl;
             if (buf_size == 0) {
                 // If read buffer is empty, read from disk and refill it.
                 buf_size = std::min((uint64_t) BUF_SIZE / entry_len, num_entries - i);
                 buf_ptr = 0;
                 input_disk.Read(read_pos, buffer, buf_size * entry_len);
                 read_pos+=buf_size * entry_len;
-                if (set_prefix == false) {
+                if (!set_prefix) {
                     // We don't store the common prefix of all entries in memory, instead just append it every time
                     // in write buffer.
                     memcpy(common_prefix, buffer, bits_begin / 8);
@@ -71,7 +70,7 @@ class UniformSort {
             // We take 'bucket_length' bits starting with the first unique one.
             uint64_t pos = Util::ExtractNum(buffer + buf_ptr, entry_len, bits_begin, bucket_length) * entry_len_memory;
             // As long as position is occupied by a previous entry...
-            while (IsPositionEmpty(memory + pos, entry_len_memory) == false && pos < memory_len) {
+            while (!IsPositionEmpty(memory + pos, entry_len_memory) && pos < memory_len) {
                 // ...store there the minimum between the two and continue to push the higher one.
                 if (Util::MemCmpBits(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory, 0) > 0) {
                     // We always store the entry without the common prefix.
@@ -92,8 +91,7 @@ class UniformSort {
         uint64_t write_pos=output_disk_begin;
         // Search the memory buffer for occupied entries.
         for (uint64_t pos = 0; entries_written < num_entries && pos < memory_len; pos += entry_len_memory) {
-            // std::cout << "Wrigin " << pos <<std::endl;
-            if (IsPositionEmpty(memory + pos, entry_len_memory) == false) {
+            if (!IsPositionEmpty(memory + pos, entry_len_memory)) {
                 // We've fount an entry.
                 if (buf_size + entry_len >= BUF_SIZE) {
                     // Write buffer is full, write it and clean it.
@@ -123,7 +121,7 @@ class UniformSort {
     }
 
  private:
-    inline static bool IsPositionEmpty(uint8_t* memory, uint32_t entry_len) {
+    inline static bool IsPositionEmpty(const uint8_t* memory, uint32_t entry_len) {
         for (uint32_t i = 0; i < entry_len; i++)
             if (memory[i] != 0)
                 return false;

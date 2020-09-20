@@ -748,7 +748,7 @@ TEST_CASE("Sort on disk") {
             manager.AddToCache(to_write);
         }
         std::cout << "executing" << std::endl;
-        int total_written_2 = manager.ExecuteSort();
+        int total_written_2 = manager.ExecuteSort(memory, memory_len);
         std::cout << "executed" << std::endl;
         REQUIRE(total_written_1 == total_written_2);
 

@@ -419,7 +419,7 @@ class DiskPlotter {
                 break;
             }
         }
-        uint64_t end_of_file_i = sorting.ExecuteSort();
+        uint64_t end_of_file_i = sorting.ExecuteSort(memory, memorySize);
         std::cout << "End of file " << end_of_file_i << std::endl;
         // A zero entry is the end of table symbol.
         memset(buf, 0x00, entry_size_bytes);
@@ -438,6 +438,7 @@ class DiskPlotter {
         // Number of buckets that y values will be put into.
         double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
 
+
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
         for (uint8_t table_index = 1; table_index < 7; table_index++) {
@@ -452,7 +453,8 @@ class DiskPlotter {
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
 
             total_table_entries = 0;
-            SortManager sort_manager = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0);
+
+
 
             Timer computation_pass_timer;
 
@@ -463,11 +465,16 @@ class DiskPlotter {
             uint64_t left_writer=0;
             uint64_t right_writer=0;
             uint8_t *right_writer_buf=&(memory[0]);
+            uint64_t right_writer_buf_size = memorySize/2;
             uint8_t *left_writer_buf=&(memory[memorySize/2]);
             uint64_t left_buf_entries=memorySize/2/compressed_entry_size_bytes;
             uint64_t right_buf_entries=memorySize/2/right_entry_size_bytes;
             uint64_t left_writer_count=0;
             uint64_t right_writer_count=0;
+
+            SortManager sort_manager = table_index < 6 ?
+                                       SortManager(right_writer_buf, right_writer_buf_size, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0)
+                                                       : SortManager();
 
             FxCalculator f(k, table_index + 1);
 
@@ -482,7 +489,7 @@ class DiskPlotter {
             uint64_t matches = 0;  // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            uint8_t *left_buf = new uint8_t[entry_size_bytes + 7];
+            auto *left_buf = new uint8_t[entry_size_bytes + 7];
             uint8_t* right_buf;
             uint8_t* tmp_buf;
 
@@ -495,8 +502,8 @@ class DiskPlotter {
             // Stores map of old positions to new positions (positions after dropping entries from L table that did not match)
             // Map ke
             uint16_t position_map_size = 2000;
-            uint16_t* L_position_map = new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
-            uint16_t* R_position_map = new uint16_t[position_map_size];
+            auto L_position_map = new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
+            auto R_position_map = new uint16_t[position_map_size];
             uint64_t L_position_base = 0;
             uint64_t R_position_base = 0;
             uint64_t newlpos, newrpos;
@@ -504,7 +511,7 @@ class DiskPlotter {
             // Start at left table pos = 0 and iterate through the whole table. Note that the left table
             // will already be sorted by y
             while (!end_of_table) {
-                PlotEntry left_entry;
+                PlotEntry left_entry = PlotEntry();
                 left_entry.right_metadata = 0;
                 // Reads a left entry from disk
                 tmp_1_disks[table_index].Read(left_reader, left_buf, entry_size_bytes);
@@ -547,18 +554,18 @@ class DiskPlotter {
 
                 // Keep reading left entries into bucket_L and R, until we run out of things
                 if (y_bucket == bucket) {
-                    bucket_L.emplace_back(std::move(left_entry));
+                    bucket_L.emplace_back(left_entry);
                 } else if (y_bucket == bucket + 1) {
-                    bucket_R.emplace_back(std::move(left_entry));
+                    bucket_R.emplace_back(left_entry);
                 } else {
                     // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                     // so now we can compare entries in both buckets to find matches. If two entries match,
                     // the result is written to the right table. However the writing happens in the next iteration
                     // of the loop, since we need to remap positions.
-                    if (bucket_L.size() > 0) {
+                    if (!bucket_L.empty()) {
                         not_dropped.clear();
 
-                        if (bucket_R.size() > 0) {
+                        if (!bucket_R.empty()) {
                             // Compute all matches between the two buckets and save indeces.
                             match_indexes = f.FindMatches(bucket_L, bucket_R);
 
@@ -743,13 +750,14 @@ class DiskPlotter {
             tmp_1_disks[table_index].Truncate(left_writer);
 
             if (table_index < 6) {
-                // Performs a sort on the right table,
+                // Performs a sort on the right table. Table 7 does not need sorting, since we don't need to compute
+                // matches
                 Timer sort_timer;
                 std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
-                right_writer = sort_manager.ExecuteSort();
+                right_writer = sort_manager.ExecuteSort(memory, memorySize);
                 sort_timer.PrintElapsed("\tSort time:");
             } else {
-                // Writes remaining entries
+                // Writes remaining entries. In tables 2-6, entries are written using the sort manager instead
                 tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
                     (right_writer_count%right_buf_entries)*right_entry_size_bytes);
                 right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
