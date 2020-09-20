@@ -397,8 +397,6 @@ class DiskPlotter {
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
-        std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
-        std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
         SortManager sorting = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, entry_size_bytes, tmp_dirname, &tmp_1_disks[1], &tmp_1_disks[0], 0);
 
@@ -436,7 +434,6 @@ class DiskPlotter {
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
-        uint64_t max_spare_written = 0;
 
         // Number of buckets that y values will be put into.
         double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
@@ -455,21 +452,7 @@ class DiskPlotter {
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
 
             total_table_entries = 0;
-
-
-            // Performs a sort on the left table,
-            Timer sort_timer;
-            if (table_index > 1) {
-                std::cout << "\tSorting table " << int{table_index} << std::endl;
-                uint64_t spare_written = Sorting::SortOnDisk(tmp_1_disks[table_index], tmp_1_disks[table_index], 0, 0, tmp_1_disks[0], entry_size_bytes,
-                                                            0, bucket_sizes, memory, memorySize);
-
-                if (spare_written > max_spare_written) {
-                    max_spare_written = spare_written;
-                }
-
-                sort_timer.PrintElapsed("\tSort time:");
-            }
+            SortManager sort_manager = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0);
 
             Timer computation_pass_timer;
 
@@ -710,16 +693,16 @@ class DiskPlotter {
                             right_writer_count++;
 
                             // Writes the new entry into the right table
-                            new_entry.ToBytes(right_buf);
-                            if(right_writer_count%right_buf_entries==0) {
-                                tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                                                                   right_buf_entries*right_entry_size_bytes);
-                                right_writer+=right_buf_entries*right_entry_size_bytes;
+                            if (table_index < 6) {
+                                sort_manager.AddToCache(new_entry);
+                            } else {
+                                new_entry.ToBytes(right_buf);
+                                if(right_writer_count%right_buf_entries==0) {
+                                    tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
+                                                                    right_buf_entries*right_entry_size_bytes);
+                                    right_writer+=right_buf_entries*right_entry_size_bytes;
+                                }
                             }
-
-                            // Computes sort bucket, so we can sort the table by y later, more easily
-                            right_bucket_sizes[Util::ExtractNum(right_buf, right_entry_size_bytes, 0,
-                                                                kLogNumSortBuckets)] += 1;
                         }
                     }
                     if (y_bucket == bucket + 2) {
@@ -759,18 +742,22 @@ class DiskPlotter {
             left_writer += compressed_entry_size_bytes;
             tmp_1_disks[table_index].Truncate(left_writer);
 
-            tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                (right_writer_count%right_buf_entries)*right_entry_size_bytes);
-            right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+            if (table_index < 6) {
+                // Performs a sort on the right table,
+                Timer sort_timer;
+                std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
+                right_writer = sort_manager.ExecuteSort();
+                sort_timer.PrintElapsed("\tSort time:");
+            } else {
+                // Writes remaining entries
+                tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
+                    (right_writer_count%right_buf_entries)*right_entry_size_bytes);
+                right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+            }
 
             // Writes the 0 entry (EOT) for right table
             memset(right_writer_buf, 0x00, right_entry_size_bytes);
             tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf, right_entry_size_bytes);
-
-
-            // Resets variables
-            bucket_sizes = right_bucket_sizes;
-            right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
@@ -779,7 +766,8 @@ class DiskPlotter {
             delete[] L_position_map;
             delete[] R_position_map;
         }
-        table_sizes[0] = max_spare_written;
+
+        table_sizes[0] = 0;
         return table_sizes;
     }
 
