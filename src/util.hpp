@@ -247,6 +247,39 @@ class Util {
         }
     }
 
+    inline static uint64_t ExtractNum(uint8_t* bytes, uint32_t len_bytes, uint32_t begin_bits, uint32_t take_bits) {
+        if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
+            take_bits = len_bytes * 8 - begin_bits;
+        }
+        return Util::SliceInt64FromBytes(bytes, begin_bits, take_bits);
+    }
+
+    // The number of memory entries required to do the custom SortInMemory algorithm, given the total number of entries to be sorted.
+    inline static uint64_t RoundSize(uint64_t size) {
+        size *= 2;
+        uint64_t result = 1;
+        while (result < size)
+            result *= 2;
+        return result + 50;
+    }
+
+    /*
+     * Like memcmp, but only compares starting at a certain bit.
+     */
+    inline static int MemCmpBits(uint8_t* left_arr, uint8_t* right_arr, uint32_t len, uint32_t bits_begin) {
+        uint32_t start_byte = bits_begin / 8;
+        uint8_t mask = ((1 << (8 - (bits_begin % 8))) - 1);
+        if ((left_arr[start_byte] & mask) != (right_arr[start_byte] & mask)) {
+            return (left_arr[start_byte] & mask) - (right_arr[start_byte] & mask);
+        }
+
+        for (uint32_t i = start_byte + 1; i < len; i++) {
+            if (left_arr[i] != right_arr[i])
+                return left_arr[i] - right_arr[i];
+        }
+        return 0;
+    }
+
     static uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges) {
         std::map<uint64_t, std::vector<uint64_t> > edge_indeces;
         for (uint64_t edge_index = 0; edge_index < edges.size(); edge_index++) {

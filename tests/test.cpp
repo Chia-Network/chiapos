@@ -19,6 +19,7 @@
 
 #include "calculate_bucket.hpp"
 #include "plotter_disk.hpp"
+#include "disk.hpp"
 #include "sort_on_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
@@ -246,6 +247,9 @@ class FakeDisk : public Disk {
         } else {
             s = s + std::string(new_size - s.size(), 0);
         }
+    }
+    inline std::string GetFileName() override {
+        return "fakedisk";
     }
 
  private:
@@ -573,11 +577,11 @@ TEST_CASE("Sort on disk") {
             uint8_t buf[15];
             Bits((uint128_t)27 << i, 15*8).ToBytes(buf);
 
-            REQUIRE(SortOnDiskUtils::ExtractNum(buf, 15, 15*8 - 4 - i, 3) == 5);
+            REQUIRE(Util::ExtractNum(buf, 15, 15*8 - 4 - i, 3) == 5);
         }
         uint8_t buf[16];
         Bits((uint128_t)27 << 5, 128).ToBytes(buf);
-        REQUIRE(SortOnDiskUtils::ExtractNum(buf, 16, 100, 200) == 864);
+        REQUIRE(Util::ExtractNum(buf, 16, 100, 200) == 864);
     }
 
     SECTION("MemCmpBits") {
@@ -591,21 +595,21 @@ TEST_CASE("Sort on disk") {
         right[1] = 10;
         right[2] = 100;
 
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) == 0);
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 10) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 10) == 0);
 
         right[1] = 11;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) < 0);
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 16) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) < 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 16) == 0);
 
         right[1] = 9;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) > 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) > 0);
 
         right[1] = 10;
 
         // Last bit differs
         right[2] = 101;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) < 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) < 0);
     }
 
     SECTION("Quicksort") {
@@ -625,7 +629,7 @@ TEST_CASE("Sort on disk") {
             memcpy(hashes_bytes + i * 16, to_insert.data(), to_insert.length());
         }
         sort(hashes.begin(), hashes.end());
-        Sorting::QuickSort(hashes_bytes, 16, iters, 0);
+        QuickSort::Sort(hashes_bytes, 16, iters, 0);
 
         for (uint32_t i = 0; i < iters; i++) {
             std::string str(reinterpret_cast<char*>(hashes_bytes) + i * 16, 16);
@@ -697,7 +701,7 @@ TEST_CASE("Sort on disk") {
                 Sorting::EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
                 Bits x(buf, size, size*8);
                 REQUIRE(iset.find(x) != iset.end());
-                REQUIRE(SortOnDiskUtils::ExtractNum((uint8_t*)buf, size, 0, 4) == m);
+                REQUIRE(Util::ExtractNum((uint8_t*)buf, size, 0, 4) == m);
                 output.push_back(x);
             }
             if (bs.IsEmpty()) {
@@ -739,12 +743,12 @@ TEST_CASE("Sort on disk") {
         uint8_t buf[size];
         for (Bits& x : input) {
             x.ToBytes(buf);
-            bucket_sizes[SortOnDiskUtils::ExtractNum(buf, size, 0, 4)] += 1;
+            bucket_sizes[Util::ExtractNum(buf, size, 0, 4)] += 1;
         }
 
         const uint32_t memory_len = 100000;
         uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortOnDisk(disk, begin, spare, size, 0, bucket_sizes, memory, memory_len);
+        Sorting::SortOnDisk(disk, disk, begin, begin, spare, size, 0, bucket_sizes, memory, memory_len);
 
 
         sort(input.begin(), input.end());
@@ -775,9 +779,9 @@ TEST_CASE("Sort on disk") {
             input.emplace_back(Bits(hash.data(), size, size*8));
         }
 
-        const uint32_t memory_len = SortOnDiskUtils::RoundSize(iters) * 30;
+        const uint32_t memory_len = Util::RoundSize(iters) * 30;
         uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortInMemory(disk, begin, memory, size, iters, 16);
+        UniformSort::Sort(disk, disk, begin, begin, memory, size, iters, 16);
 
         sort(input.begin(), input.end());
         uint8_t buf[size];
