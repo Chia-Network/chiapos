@@ -35,9 +35,7 @@ namespace fs = ghc::filesystem;
 
 class SortManager {
   public:
-    SortManager() {}
-
-    SortManager(uint8_t* memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets, uint16_t entry_size, std::string tmp_dirname, std::string filename, Disk* output_file, Disk* spare, uint32_t begin_bits) {
+    SortManager(uint8_t* memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets, uint16_t entry_size, const std::string& tmp_dirname, const std::string& filename, Disk* output_file, Disk* spare, uint32_t begin_bits) {
         this->memory_start = memory;
         this->memory_size = memory_size;
         this->output_file = output_file;
@@ -83,7 +81,7 @@ class SortManager {
         mem_bucket_sizes[bucket_index] += 1;
     }
 
-    inline uint64_t ExecuteSort(uint8_t* sort_memory, uint64_t memory_len) {
+    inline uint64_t ExecuteSort(uint8_t* sort_memory, uint64_t memory_len, bool quicksort=0) {
         if (this->done) {
             throw std::string("Already finished.");
         }
@@ -107,20 +105,28 @@ class SortManager {
                                 this->entry_size,
                                 this->begin_bits + this->log_num_buckets,
                                 this->sub_bucket_sizes[bucket_i],
-                                sort_memory, memory_len);
+                                sort_memory, memory_len, quicksort);
 
             // Deletes the bucket file
             fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
 
             output_file_written += this->bucket_write_pointers[bucket_i];
         }
+        Close();
         return output_file_written;
     }
 
-    ~SortManager() {
+    void Close() {
+        for (FileDisk& fd : this->bucket_files) {
+            fd.Close();
+        }
         for (auto& fd : this->bucket_files) {
             fs::remove(fs::path(fd.GetFileName()));
         }
+    }
+
+    ~SortManager() {
+        Close();
     }
 
   private:

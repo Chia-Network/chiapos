@@ -160,18 +160,18 @@ class DiskPlotter {
 
             Timer p1;
             Timer all_phases;
-            std::vector<uint64_t> table_sizes = WritePlotFile(memory, tmp_1_disks, k, id, memo, memo_len, tmp_dirname, filename);
+            std::vector<uint64_t> table_sizes = WritePlotFile(memory, tmp_1_disks, k, id, tmp_dirname, filename);
             p1.PrintElapsed("Time for phase 1 =");
 
             std::cout << std::endl << "Starting phase 2/4: Backpropagation into tmp files... " << Timer::GetNow();
 
             Timer p2;
-            std::vector<uint64_t> backprop_table_sizes = Backpropagate(memory, tmp_1_disks, table_sizes, k, id, memo, memo_len);
+            std::vector<uint64_t> backprop_table_sizes = Backpropagate(memory, tmp_1_disks, table_sizes, k, id, tmp_dirname, filename);
             p2.PrintElapsed("Time for phase 2 =");
 
             std::cout << std::endl << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename << " ... " << Timer::GetNow();
             Timer p3;
-            Phase3Results res = CompressTables(memory, k, tmp2_disk, tmp_1_disks, backprop_table_sizes, id, memo, memo_len);
+            Phase3Results res = CompressTables(memory, k, tmp2_disk, tmp_1_disks, backprop_table_sizes, id, memo, memo_len, tmp_dirname, filename);
             p3.PrintElapsed("Time for phase 3 =");
 
             std::cout << std::endl << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename << " ... " << Timer::GetNow();
@@ -382,14 +382,13 @@ class DiskPlotter {
     // proofs of space in it. First, F1 is computed, which is special since it uses
     // ChaCha8, and each encryption provides multiple output values. Then, the rest of the
     // f functions are computed, and a sort on disk happens for each table.
-    std::vector<uint64_t> WritePlotFile(uint8_t* memory, std::vector<FileDisk>& tmp_1_disks, uint8_t k, const uint8_t* id,
-                                        const uint8_t* memo, uint8_t memo_len, std::string tmp_dirname, std::string filename) {
+    std::vector<uint64_t> WritePlotFile(uint8_t* memory, std::vector<FileDisk>& tmp_1_disks, uint8_t k, const uint8_t* id, std::string tmp_dirname, std::string filename) {
         std::cout << "Computing table 1" << std::endl;
         Timer f1_start_time;
         F1Calculator f1(k, id);
         uint64_t x = 0;
 
-        uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
+        uint32_t t1_entry_size_bytes = GetMaxEntrySize(k, 1, true);
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
@@ -398,7 +397,7 @@ class DiskPlotter {
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
-        SortManager sorting = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[1], &tmp_1_disks[0], 0);
+        SortManager sorting = SortManager(memory, memorySize, kNumSortBuckets, kLogNumSortBuckets, t1_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[1], &tmp_1_disks[0], 0);
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
@@ -422,8 +421,8 @@ class DiskPlotter {
         uint64_t end_of_file_i = sorting.ExecuteSort(memory, memorySize);
         std::cout << "End of file " << end_of_file_i << std::endl;
         // A zero entry is the end of table symbol.
-        memset(buf, 0x00, entry_size_bytes);
-        tmp_1_disks[1].Write(end_of_file_i, buf, entry_size_bytes);
+        memset(buf, 0x00, t1_entry_size_bytes);
+        tmp_1_disks[1].Write(end_of_file_i, buf, t1_entry_size_bytes);
         table_sizes[1] = x + 1;
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
@@ -436,7 +435,7 @@ class DiskPlotter {
         uint32_t right_entry_size_bytes = 0;
 
         // Number of buckets that y values will be put into.
-        double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
+        double num_buckets = (((uint64_t)1) << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
 
 
         // For tables 1 through 6, sort the table, calculate matches, and write
@@ -472,9 +471,7 @@ class DiskPlotter {
             uint64_t left_writer_count=0;
             uint64_t right_writer_count=0;
 
-            SortManager sort_manager = table_index < 6 ?
-                                       SortManager(right_writer_buf, right_writer_buf_size, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0)
-                                                       : SortManager();
+            SortManager sort_manager(right_writer_buf, right_writer_buf_size, kNumSortBuckets, kLogNumSortBuckets, right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1], &tmp_1_disks[0], 0);
 
             FxCalculator f(k, table_index + 1);
 
@@ -784,12 +781,11 @@ class DiskPlotter {
     // to final values in f7, to minimize disk usage. A sort on disk is applied to each table,
     // so that they are sorted by position.
     std::vector<uint64_t> Backpropagate(uint8_t* memory, std::vector<FileDisk>& tmp_1_disks, std::vector<uint64_t> table_sizes, uint8_t k,
-                                        const uint8_t* id, const uint8_t* memo, uint32_t memo_len) {
+                                        const uint8_t* id, const std::string& tmp_dirname, const std::string& filename) {
         // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning, each table will
         // have 0.8*2^k or less entries).
         uint8_t pos_size = k;
 
-        std::vector<uint64_t> bucket_sizes_pos(kNumSortBuckets, 0);
         std::vector<uint64_t> new_table_sizes = std::vector<uint64_t>(8, 0);
         new_table_sizes[7] = table_sizes[7];
 
@@ -800,8 +796,6 @@ class DiskPlotter {
 
             std::cout << "Backpropagating on table " << int{table_index} << std::endl;
 
-            std::vector<uint64_t> new_bucket_sizes_pos(kNumSortBuckets, 0);
-
             uint16_t left_metadata_size = kVectorLens[table_index] * k;
 
             // The entry that we are reading (no metadata)
@@ -811,19 +805,7 @@ class DiskPlotter {
             // been pruned in previous iteration)
             uint16_t right_entry_size_bytes = GetMaxEntrySize(k, table_index, false);
 
-            // Doesn't sort table 7, since it's already sorted by pos6 (position into table 6).
-            // The reason we sort, is so we can iterate through both tables at once. For example,
-            // if we read a right entry (pos, offset) = (456, 2), the next one might be (458, 19),
-            // and in the left table, we are reading entries around pos 450, etc..
-            if (table_index != 7) {
-                std::cout << "\tSorting table " << int{table_index} << std::endl;
-                Timer sort_timer;
-                Sorting::SortOnDisk(tmp_1_disks[table_index], tmp_1_disks[table_index], 0, 0, tmp_1_disks[0],
-                                    right_entry_size_bytes,
-                                    0, bucket_sizes_pos, memory, memorySize);
 
-                sort_timer.PrintElapsed("\tSort time:");
-            }
             Timer computation_pass_timer;
 
             uint64_t left_reader=0;
@@ -841,6 +823,10 @@ class DiskPlotter {
             uint64_t right_reader_count=0;
             uint64_t left_writer_count=0;
             uint64_t right_writer_count=0;
+
+            SortManager sort_manager(left_writer_buf, memorySize/4, kNumSortBuckets, kLogNumSortBuckets,
+                                     left_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index - 1],
+                                     &tmp_1_disks[0], 0);
 
             // We will divide by 2, so it must be even.
             assert(kCachedPositionsSize % 2 == 0);
@@ -1006,10 +992,11 @@ class DiskPlotter {
                                                                      pos_size, kOffsetSize);
                         } else {
                             entry_metadata = Util::SliceInt64FromBytes(left_entry_buf,
-                                                                        0, left_metadata_size);
+                                                                       0, left_metadata_size);
                         }
 
-                        new_left_entry_buf=left_writer_buf+(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
+                        new_left_entry_buf =
+                                left_writer_buf + (left_writer_count % new_left_buf_entries) * left_entry_size_bytes;
                         left_writer_count++;
 
                         Bits new_left_entry;
@@ -1025,20 +1012,19 @@ class DiskPlotter {
                             if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
                                 memset(new_left_entry_buf, 0, left_entry_size_bytes);
                             }
+                            sort_manager.AddToCache(new_left_entry);
                         } else {
                             // For table one entries, we don't care about sort key, only x.
+                            // Also, we don't use the sort manager, since we won't sort it.
                             new_left_entry += Bits(entry_metadata, left_metadata_size);
+                            new_left_entry.ToBytes(new_left_entry_buf);
+                            if (left_writer_count % new_left_buf_entries == 0) {
+                                tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf,
+                                                                   new_left_buf_entries * left_entry_size_bytes);
+                                left_writer += new_left_buf_entries * left_entry_size_bytes;
+                            }
                         }
-                        new_left_entry.ToBytes(new_left_entry_buf);
 
-                        if(left_writer_count%new_left_buf_entries==0) {
-                            tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf,
-                                new_left_buf_entries*left_entry_size_bytes);
-                            left_writer+=new_left_buf_entries*left_entry_size_bytes;
-                        }
-
-                        new_bucket_sizes_pos[Util::ExtractNum(new_left_entry_buf, left_entry_size_bytes,
-                                                              0, kLogNumSortBuckets)] += 1;
                         // Mapped positions, so we can rewrite the R entry properly
                         new_positions[current_pos % kCachedPositionsSize] = left_entry_counter;
 
@@ -1101,24 +1087,35 @@ class DiskPlotter {
             right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index].Truncate(right_writer);
 
-            tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf,
-                (left_writer_count%new_left_buf_entries)*left_entry_size_bytes);
-            left_writer+=(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
+            if (table_index > 2) {
+                // Sorts the left table by position
+                // For example sorts table6 by pos5 (position into table 5).
+                // The reason we sort, is so we can iterate through both tables at once. For example,
+                // if we read a right entry (pos, offset) = (456, 2), the next one might be (458, 19),
+                // and in the left table, we are reading entries around pos 450, etc..
+                std::cout << "\tSorting table " << int{table_index - 1} << std::endl;
+                Timer sort_timer;
+                left_writer = sort_manager.ExecuteSort(memory, memorySize);
+                sort_timer.PrintElapsed("\tSort time:");
+            } else {
+                // Writes remaining entries for table1
+                tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf,
+                    (left_writer_count%new_left_buf_entries)*left_entry_size_bytes);
+                left_writer+=(left_writer_count%new_left_buf_entries)*left_entry_size_bytes;
+            }
 
             // Writes the 0 entry (EOT) for left table
             memset(left_writer_buf, 0x00, left_entry_size_bytes);
             tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf, left_entry_size_bytes);
             left_writer += left_entry_size_bytes;
             tmp_1_disks[table_index - 1].Truncate(left_writer);
-
-            bucket_sizes_pos = new_bucket_sizes_pos;
         }
         return new_table_sizes;
     }
 
     // This writes a number of entries into a file, in the final, optimized format. The park contains
-    // a checkpoint value (whicch is a 2k bits line point), as well as EPP (entries per park) entries.
-    // These entries are each divded into stub and delta section. The stub bits are encoded as is, but
+    // a checkpoint value (which is a 2k bits line point), as well as EPP (entries per park) entries.
+    // These entries are each divided into stub and delta section. The stub bits are encoded as is, but
     // the delta bits are optimized into a variable encoding scheme. Since we have many entries in each
     // park, we can approximate how much space each park with take.
     // Format is: [2k bits of first_line_point]  [EPP-1 stubs] [Deltas size] [EPP-1 deltas]....  [first_line_point] ...
@@ -1134,7 +1131,7 @@ class DiskPlotter {
         first_line_point_bits.ToBytes(index);
         index+=CalculateLinePointSize(k);
 
-        // We use ParkBits insted of Bits since it allows storing more data
+        // We use ParkBits instead of Bits since it allows storing more data
         ParkBits park_stubs_bits;
         for (uint64_t stub : park_stubs) {
             park_stubs_bits.AppendValue(stub, (k - kStubMinusBits));
@@ -1182,7 +1179,7 @@ class DiskPlotter {
     // document for more details on the algorithm.
     Phase3Results CompressTables(uint8_t* memory, uint8_t k, FileDisk& tmp2_disk /*filename*/,
                                  std::vector<FileDisk>& tmp_1_disks /*plot_filename*/, std::vector<uint64_t> table_sizes, const uint8_t* id, const uint8_t* memo,
-                                 uint32_t memo_len) {
+                                 uint32_t memo_len, const std::string& tmp_dirname, const std::string& filename) {
         // In this phase we open a new file, where the final contents of the plot will be stored.
         uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
@@ -1234,7 +1231,10 @@ class DiskPlotter {
             uint64_t right_buf_entries=memorySize/3/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
-            uint64_t right_writer_count=0;
+
+            SortManager sort_manager(right_writer_buf, memorySize/3, kNumSortBuckets, kLogNumSortBuckets,
+                                     right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1],
+                                     &tmp_1_disks[0], 0);
 
             bool should_read_entry = true;
             std::vector<uint64_t> left_new_pos(kCachedPositionsSize);
@@ -1251,7 +1251,6 @@ class DiskPlotter {
             uint64_t greatest_pos = 0;
 
             uint8_t* right_entry_buf;
-            uint8_t* right_entry_buf_out;
             uint8_t* left_entry_disk_buf;
             uint64_t entry_sort_key, entry_pos, entry_offset;
             uint64_t cached_entry_sort_key = 0;
@@ -1362,45 +1361,27 @@ class DiskPlotter {
                         Bits to_write = Bits(line_point, 2*k);
                         to_write += Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], right_sort_key_size);
 
-                        right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-                        right_writer_count++;
-
-                        to_write.ToBytes(right_entry_buf);
-
-                        if(right_writer_count%right_buf_entries==0) {
-                            tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                                right_buf_entries*right_entry_size_bytes);
-                            right_writer+=right_buf_entries*right_entry_size_bytes;
-                        }
-
-                        bucket_sizes[Util::ExtractNum(right_entry_buf, right_entry_size_bytes, 0,
-                                                      kLogNumSortBuckets)] += 1;
+                        sort_manager.AddToCache(to_write);
                     }
                 }
                 current_pos += 1;
             }
+            computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
 
-            right_entry_buf=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-            right_writer_count++;
+            Timer sort_timer;
+            std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
+            right_writer = sort_manager.ExecuteSort(memory, memorySize, 1);
+            sort_timer.PrintElapsed("\tSort time:");
 
-            memset(right_entry_buf, 0x00, right_entry_size_bytes);
-
-            tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                (right_writer_count%right_buf_entries)*right_entry_size_bytes);
-            right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
+            uint8_t zero_buf[right_entry_size_bytes];
+            memset(zero_buf, 0x00, right_entry_size_bytes);
+            tmp_1_disks[table_index + 1].Write(right_writer, zero_buf, right_entry_size_bytes);
+            right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(right_writer);
 
             // Remove no longer needed file
             tmp_1_disks[table_index].Truncate(0);
 
-            computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
-            Timer sort_timer;
-            std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
-
-            Sorting::SortOnDisk(tmp_1_disks[table_index + 1], tmp_1_disks[table_index + 1], 0, 0, tmp_1_disks[0],
-                                right_entry_size_bytes, 0, bucket_sizes, memory, memorySize, /*quicksort=*/1);
-
-            sort_timer.PrintElapsed("\tSort time:");
             Timer computation_pass_2_timer;
 
             right_reader=0;
@@ -1409,12 +1390,14 @@ class DiskPlotter {
             right_writer_buf=&(memory[memorySize/2]);
             right_buf_entries=memorySize/2/right_entry_size_bytes;
             right_reader_count=0;
-            right_writer_count=0;
             uint64_t final_table_writer=final_table_begin_pointers[table_index];
 
             final_entries_written = 0;
 
-            std::vector<uint64_t> new_bucket_sizes(kNumSortBuckets, 0);
+            SortManager sort_manager_2(right_writer_buf, memorySize/2, kNumSortBuckets, kLogNumSortBuckets,
+                                     right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1],
+                                     &tmp_1_disks[0], 0);
+
             std::vector<uint8_t> park_deltas;
             std::vector<uint64_t> park_stubs;
             uint128_t checkpoint_line_point = 0;
@@ -1450,22 +1433,8 @@ class DiskPlotter {
                 Bits to_write = Bits(sort_key, right_sort_key_size);
                 to_write += Bits(index, k + 1);
 
-                // Calculate right entry pointer for output
-                right_entry_buf_out=right_writer_buf+(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-                right_writer_count++;
+                sort_manager_2.AddToCache(to_write);
 
-                memset(right_entry_buf_out, 0, right_entry_size_bytes);
-                to_write.ToBytes(right_entry_buf_out);
-
-                // Check for write out to disk
-                if(right_writer_count%right_buf_entries==0) {
-                    tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                        right_buf_entries*right_entry_size_bytes);
-                    right_writer+=right_buf_entries*right_entry_size_bytes;
-                }
-
-                new_bucket_sizes[Util::ExtractNum(right_entry_buf_out, right_entry_size_bytes, 0,
-                                                  kLogNumSortBuckets)] += 1;
                 // Every EPP entries, writes a park
                 if (index % kEntriesPerPark == 0) {
                     if (index != 0) {
@@ -1504,13 +1473,19 @@ class DiskPlotter {
                 last_line_point = line_point;
             }
 
-            tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf,
-                (right_writer_count%right_buf_entries)*right_entry_size_bytes);
-            right_writer+=(right_writer_count%right_buf_entries)*right_entry_size_bytes;
-            memset(right_writer_buf, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf, right_entry_size_bytes);
-            right_writer += right_entry_size_bytes;
+            computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
 
+            Timer sort_timer_2;
+            std::cout << "\tRe-Sorting table " << int{table_index + 1} << std::endl;
+            // This sort is needed so that in the next iteration, we can iterate through both tables
+            // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates from
+            // forward/backprop represent positions in y ordered tables.
+            right_writer = sort_manager_2.ExecuteSort(memory, memorySize);
+            sort_timer_2.PrintElapsed("\tSort time:");
+
+            memset(zero_buf, 0x00, right_entry_size_bytes);
+            tmp_1_disks[table_index + 1].Write(right_writer, zero_buf, right_entry_size_bytes);
+            right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(right_writer);
 
 
@@ -1532,17 +1507,6 @@ class DiskPlotter {
             Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[table_index + 1]);
             tmp2_disk.Write(final_table_writer, (table_pointer_bytes), 8);
             final_table_writer+=8;
-
-            computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
-            Timer sort_timer_2;
-            std::cout << "\tRe-Sorting table " << int{table_index + 1} << std::endl;
-            // This sort is needed so that in the next iteration, we can iterate through both tables
-            // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates from
-            // forward/backprop represent positions in y ordered tables.
-            Sorting::SortOnDisk(tmp_1_disks[table_index + 1], tmp_1_disks[table_index + 1], 0, 0, tmp_1_disks[0],
-                                right_entry_size_bytes, 0, new_bucket_sizes, memory, memorySize);
-
-            sort_timer_2.PrintElapsed("\tSort time:");
 
             table_timer.PrintElapsed("Total compress table time:");
         }
@@ -1601,10 +1565,10 @@ class DiskPlotter {
         vector<uint8_t> deltas_to_write;
         uint32_t right_entry_size_bytes = res.right_entry_size_bits / 8;
 
-        uint8_t* right_entry_buf = new uint8_t[right_entry_size_bytes + 7];
-        uint8_t* C1_entry_buf = new uint8_t[Util::ByteAlign(k) / 8];
-        uint8_t* C3_entry_buf = new uint8_t[size_C3];
-        uint8_t* P7_entry_buf = new uint8_t[P7_park_size];
+        auto right_entry_buf = new uint8_t[right_entry_size_bytes + 7];
+        auto C1_entry_buf = new uint8_t[Util::ByteAlign(k) / 8];
+        auto C3_entry_buf = new uint8_t[size_C3];
+        auto P7_entry_buf = new uint8_t[P7_park_size];
 
         std::cout << "\tStarting to write C1 and C3 tables" << std::endl;
 

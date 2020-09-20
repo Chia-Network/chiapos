@@ -59,6 +59,11 @@ class FileDisk : public Disk {
        return (f_!=NULL);
     }
 
+    void Close() {
+        if(f_!=NULL)
+            fclose(f_);
+    }
+
     ~FileDisk() {
         if(f_!=NULL)
             fclose(f_);
