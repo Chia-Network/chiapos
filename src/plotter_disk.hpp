@@ -81,7 +81,7 @@ class DiskPlotter {
     // This method creates a plot on disk with the filename. A temporary file, "plotting" + filename,
     // is created and will be larger than the final plot file. This file is deleted at the end of
     // the process.
-    void CreatePlotDisk(std::string tmp_dirname, std::string tmp2_dirname, std::string final_dirname, std::string filename,
+    void CreatePlotDisk(const std::string& tmp_dirname, const std::string& tmp2_dirname, const std::string& final_dirname, const std::string& filename,
                         uint8_t k, const uint8_t* memo,
                         uint32_t memo_len, const uint8_t* id, uint32_t id_len, uint32_t buffmegabytes = 2*1024) {
         if (k < kMinPlotSize || k > kMaxPlotSize) {
@@ -419,7 +419,7 @@ class DiskPlotter {
             }
         }
         uint64_t end_of_file_i = sorting.ExecuteSort(memory, memorySize);
-        std::cout << "End of file " << end_of_file_i << std::endl;
+
         // A zero entry is the end of table symbol.
         memset(buf, 0x00, t1_entry_size_bytes);
         tmp_1_disks[1].Write(end_of_file_i, buf, t1_entry_size_bytes);
@@ -856,8 +856,8 @@ class DiskPlotter {
             // Map from old position to count (number of times it appears)
             uint16_t old_counters[kReadMinusWrite];
 
-            for (uint32_t i = 0; i < kReadMinusWrite; i++) {
-                old_counters[i] = 0;
+            for (uint16_t & old_counter : old_counters) {
+                old_counter = 0;
             }
 
             bool end_of_right_table = false;
@@ -1212,8 +1212,6 @@ class DiskPlotter {
             // won't override into the next park. It is only different (larger) for table 1
             uint32_t park_size_bytes = CalculateParkSize(k, table_index);
 
-            std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
-
             // Sort key for table 7 is just y, which is k bits. For all other tables it can
             // be higher than 2^k and therefore k+1 bits are used.
             uint32_t right_sort_key_size = table_index == 6 ? k : k + 1;
@@ -1231,6 +1229,7 @@ class DiskPlotter {
             uint64_t right_buf_entries=memorySize/3/right_entry_size_bytes;
             uint64_t left_reader_count=0;
             uint64_t right_reader_count=0;
+            uint64_t total_r_entries = 0;
 
             SortManager sort_manager(right_writer_buf, memorySize/3, kNumSortBuckets, kLogNumSortBuckets,
                                      right_entry_size_bytes, tmp_dirname, filename, &tmp_1_disks[table_index + 1],
@@ -1242,8 +1241,8 @@ class DiskPlotter {
             uint64_t old_sort_keys[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint64_t old_offsets[kReadMinusWrite][kMaxMatchesSingleEntry];
             uint16_t old_counters[kReadMinusWrite];
-            for (uint32_t i = 0; i < kReadMinusWrite; i++) {
-                old_counters[i] = 0;
+            for (uint16_t & old_counter : old_counters) {
+                old_counter = 0;
             }
             bool end_of_right_table = false;
             uint64_t current_pos = 0;
@@ -1362,6 +1361,7 @@ class DiskPlotter {
                         to_write += Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], right_sort_key_size);
 
                         sort_manager.AddToCache(to_write);
+                        total_r_entries++;
                     }
                 }
                 current_pos += 1;
@@ -1371,6 +1371,7 @@ class DiskPlotter {
             Timer sort_timer;
             std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
             right_writer = sort_manager.ExecuteSort(memory, memorySize, 1);
+            std::cout << "Wrote total bytes right1 " << right_writer << std::endl;
             sort_timer.PrintElapsed("\tSort time:");
 
             uint8_t zero_buf[right_entry_size_bytes];
@@ -1404,14 +1405,11 @@ class DiskPlotter {
             uint128_t last_line_point = 0;
             uint64_t park_index = 0;
 
-            uint64_t total_r_entries = 0;
-            for (auto x : bucket_sizes) {
-                total_r_entries += x;
-            }
             // Now we will write on of the final tables, since we have a table sorted by line point. The final
             // table will simply store the deltas between each line_point, in fixed space groups(parks), with a
             // checkpoint in each group.
             Bits right_entry_bits;
+            int added_to_cache = 0;
             for (uint64_t index = 0; index < total_r_entries; index++) {
                 if(right_reader_count%right_buf_entries==0) {
                       uint64_t readAmt=std::min(right_buf_entries*right_entry_size_bytes,
@@ -1434,6 +1432,7 @@ class DiskPlotter {
                 to_write += Bits(index, k + 1);
 
                 sort_manager_2.AddToCache(to_write);
+                added_to_cache++;
 
                 // Every EPP entries, writes a park
                 if (index % kEntriesPerPark == 0) {
@@ -1474,6 +1473,7 @@ class DiskPlotter {
             }
 
             computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
+            std::cout << "Added to cached "<< added_to_cache << std::endl;
 
             Timer sort_timer_2;
             std::cout << "\tRe-Sorting table " << int{table_index + 1} << std::endl;
@@ -1481,6 +1481,7 @@ class DiskPlotter {
             // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates from
             // forward/backprop represent positions in y ordered tables.
             right_writer = sort_manager_2.ExecuteSort(memory, memorySize);
+            std::cout << "Wrote total bytes right2 " << right_writer << std::endl;
             sort_timer_2.PrintElapsed("\tSort time:");
 
             memset(zero_buf, 0x00, right_entry_size_bytes);
@@ -1638,7 +1639,7 @@ class DiskPlotter {
         tmp2_disk.Write(final_file_writer_3, (P7_entry_buf), P7_park_size);
         final_file_writer_3+=P7_park_size;
 
-        if (deltas_to_write.size() != 0) {
+        if (!deltas_to_write.empty()) {
             size_t num_bytes = Encoding::ANSEncodeDeltas(deltas_to_write, kC3R, C3_entry_buf + 2);
             memset(C3_entry_buf + num_bytes + 2, 0, size_C3 - (num_bytes + 2));
             final_file_writer_2=begin_byte_C3 + (num_C1_entries - 1) * size_C3;

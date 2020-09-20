@@ -358,8 +358,9 @@ class Sorting {
             return 0;
         }
 
-        std::cout << "Performing slow recursive sort due to not enough memory. Need " + to_string(entry_len * total_size / (1024.0 * 1024.0 * 1024.0)) + "GiB, have " + to_string(entry_len * length / (1024.0 * 1024.0 * 1024.0)) + "GiB"  << std::endl;
-        std::cout << "For SortinM. Need " + to_string(Util::RoundSize(total_size) * entry_len_memory / (1024.0 * 1024.0 * 1024.0)) + "GiB" << std::endl;
+        std::cout << "        Performing slow recursive sort due to not enough memory. For quicksort, need " + to_string(entry_len * total_size / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
+        std::cout << "        For the fast uniform sort, need " + to_string(Util::RoundSize(total_size) * entry_len_memory / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
+        std::cout << "        Only have " <<  to_string(entry_len * length / (1024.0 * 1024.0 * 1024.0)) + "GiB";
 
         std::vector<uint64_t> bucket_begins;
         bucket_begins.push_back(0);

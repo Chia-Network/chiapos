@@ -93,7 +93,7 @@ class SortManager {
             // Reads an entire bucket into memory
             // std::cout << "Total bytes reading into memory: " << to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0)) << std::endl;
             if (this->bucket_write_pointers[bucket_i] > this->memory_size) {
-                std::cout << "Not enough memory. Need to sort " + to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) + "GiB" << std::endl;
+                std::cout << "Not enough memory for sort in memory. Need to sort " + to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) + "GiB" << std::endl;
             }
 
             // This actually sorts in memory if the entire data fits in our memory buffer (passes the above check)
@@ -105,7 +105,7 @@ class SortManager {
                                 this->entry_size,
                                 this->begin_bits + this->log_num_buckets,
                                 this->sub_bucket_sizes[bucket_i],
-                                sort_memory, memory_len, quicksort);
+                                sort_memory, memory_len);
 
             // Deletes the bucket file
             fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
