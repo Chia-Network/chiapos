@@ -110,7 +110,7 @@ public:
 
 class FileDisk : public Disk {
 public:
-    inline explicit FileDisk(const fs::path& filename, uint32_t mem = 0)
+    inline explicit FileDisk(const fs::path& filename, uint64_t mem = 0)
     {
         filename_ = filename;
         mem_ = mem;
@@ -204,10 +204,17 @@ if (buf == NULL)exit(0);
 
         if (mem_ != 0) {
 if(buf==NULL) {
-            buf = (uint8_t*)malloc((uint64_t)mem_ * 1024 * 1024);
+            buf = (uint8_t*)malloc(mem_);
             if (buf == NULL)
                 std::cout << "Could not allocate memory for FileDisk" << std::endl;
 }
+
+if(begin+length>mem_)
+{
+                std::cout << "buffer overflow!" << std::endl;
+return;
+}
+
             memcpy(&(buf[begin]), memcache, length);
             writePos = begin + length;
             if (writePos > writeMax)
@@ -276,7 +283,7 @@ private:
     uint64_t writePos = 0;
     uint64_t writeMax = 0;
     bool bReading = true;
-    uint32_t mem_;
+    uint64_t mem_;
 
     fs::path filename_;
     FILE* f_;
