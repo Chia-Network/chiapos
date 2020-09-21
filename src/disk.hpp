@@ -66,14 +66,19 @@ public:
 
     void Close()
     {
-        if (f_ != NULL)
+        if (f_ != NULL) {
             fclose(f_);
+            f_ = NULL;
+        }
     }
 
     ~FileDisk()
     {
-        if (f_ != NULL)
+        if (f_ != NULL) {
             fclose(f_);
+            f_ = NULL;
+        }
+
     }
 
     inline void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override
