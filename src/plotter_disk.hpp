@@ -1378,9 +1378,8 @@ class DiskPlotter {
             std::cout << "Wrote total bytes right1 " << right_writer << std::endl;
             sort_timer.PrintElapsed("\tSort time:");
 
-            uint8_t zero_buf[right_entry_size_bytes];
-            memset(zero_buf, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(right_writer, zero_buf, right_entry_size_bytes);
+            memset(memory, 0x00, right_entry_size_bytes);
+            tmp_1_disks[table_index + 1].Write(right_writer, memory, right_entry_size_bytes);
             right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(right_writer);
 
@@ -1487,8 +1486,8 @@ class DiskPlotter {
             std::cout << "Wrote total bytes right2 " << right_writer << std::endl;
             sort_timer_2.PrintElapsed("\tSort time:");
 
-            memset(zero_buf, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(right_writer, zero_buf, right_entry_size_bytes);
+            memset(memory, 0x00, right_entry_size_bytes);
+            tmp_1_disks[table_index + 1].Write(right_writer, memory, right_entry_size_bytes);
             right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(right_writer);
 
