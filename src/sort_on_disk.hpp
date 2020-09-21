@@ -104,7 +104,6 @@ public:
     virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
     virtual void Truncate(uint64_t new_size) = 0;
     virtual uint8_t *getBuf() = 0;
-    virtual void Dump() = 0;
     virtual ~Disk(){};
 };
 
@@ -155,12 +154,6 @@ public:
 
     uint8_t *getBuf() override {
         return buf;
-    }
-
-    void Dump() override {
-        f_ = fopen(filename_.c_str(), "w+b");
-        fwrite(buf, sizeof(uint8_t), writeMax, f_);
-        fclose(f_);
     }
 
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
@@ -633,8 +626,6 @@ public:
         if (bits_begin >= entry_len * 8) {
             return 0;
         }
-
-	cout << "total_size " << total_size << endl;
 
         if(disk.getBuf() != NULL)
         {

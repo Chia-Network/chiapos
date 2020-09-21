@@ -263,7 +263,7 @@ void* thread(void* arg)
             uint64_t y_bucket = left_entry.y / kBC;
 
             if (!bMatch) {
-                if ((ignorebucket == 0xffffffffffffffff)) {
+                if (ignorebucket == 0xffffffffffffffff) {
                     ignorebucket = y_bucket;
                 } else {
                     if ((y_bucket != ignorebucket)) {
