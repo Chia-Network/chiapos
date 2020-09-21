@@ -56,13 +56,14 @@ static const uint8_t kVectorLens[] = {0, 0, 1, 2, 4, 4, 3, 2};
 uint16_t L_targets[2][kBC][kExtraBitsPow];
 bool initialized = false;
 
-void load_tables() {
+void load_tables()
+{
     for (uint8_t parity = 0; parity < 2; parity++) {
         for (uint16_t i = 0; i < kBC; i++) {
             uint16_t indJ = i / kC;
             for (uint16_t m = 0; m < kExtraBitsPow; m++) {
                 uint16_t yr =
-                        ((indJ + m) % kB) * kC + (((2 * m + parity) * (2 * m + parity) + i) % kC);
+                    ((indJ + m) % kB) * kC + (((2 * m + parity) * (2 * m + parity) + i) % kC);
                 L_targets[parity][i][m] = yr;
             }
         }
@@ -74,7 +75,8 @@ class F1Calculator {
 public:
     F1Calculator() {}
 
-    inline F1Calculator(uint8_t k, const uint8_t *orig_key) {
+    inline F1Calculator(uint8_t k, const uint8_t *orig_key)
+    {
         uint8_t enc_key[32];
         this->k_ = k;
 
@@ -95,14 +97,15 @@ public:
     inline void ReloadKey() {}
 
     // Performs one evaluation of the F function on input L of k bits.
-    inline Bits CalculateF(const Bits &L) const {
+    inline Bits CalculateF(const Bits &L) const
+    {
         uint16_t num_output_bits = k_;
         uint16_t block_size_bits = kF1BlockSizeBits;
 
         // Calculates the counter that will be used to get ChaCha8 keystream.
         // Since k < block_size_bits, we can fit several k bit blocks into one
         // ChaCha8 block.
-        uint128_t counter_bit = L.GetValue() * (uint128_t) num_output_bits;
+        uint128_t counter_bit = L.GetValue() * (uint128_t)num_output_bits;
         uint64_t counter = counter_bit / block_size_bits;
 
         // How many bits are before L, in the current block
@@ -110,7 +113,7 @@ public:
 
         // How many bits of L are in the current block (the rest are in the next block)
         const uint16_t bits_of_L =
-                std::min((uint16_t) (block_size_bits - bits_before_L), num_output_bits);
+            std::min((uint16_t)(block_size_bits - bits_before_L), num_output_bits);
 
         // True if L is divided into two blocks, and therefore 2 ChaCha8
         // keystream blocks will be generated.
@@ -147,28 +150,30 @@ public:
     }
 
     // Returns an evaluation of F1(L), and the metadata (L) that must be stored to evaluate F2.
-    inline std::pair<Bits, Bits> CalculateBucket(const Bits &L) const {
+    inline std::pair<Bits, Bits> CalculateBucket(const Bits &L) const
+    {
         return std::make_pair(CalculateF(L), L);
     }
 
     // Returns an evaluation of F1(L), and the metadata (L) that must be stored to evaluate F2,
     // for 'number_of_evaluations' adjacent inputs.
     inline std::vector<std::pair<Bits, Bits>> CalculateBuckets(
-            const Bits &start_L,
-            uint64_t number_of_evaluations) {
+        const Bits &start_L,
+        uint64_t number_of_evaluations)
+    {
         uint16_t num_output_bits = k_;
         uint16_t block_size_bits = kF1BlockSizeBits;
 
-        uint64_t two_to_the_k = (uint64_t) 1 << k_;
+        uint64_t two_to_the_k = (uint64_t)1 << k_;
         if (start_L.GetValue() + number_of_evaluations > two_to_the_k) {
             throw "Evaluation out of range";
         }
         // Counter for the first input
-        uint64_t counter = (start_L.GetValue() * (uint128_t) num_output_bits) / block_size_bits;
+        uint64_t counter = (start_L.GetValue() * (uint128_t)num_output_bits) / block_size_bits;
         // Counter for the last input
         uint64_t counter_end =
-                ((start_L.GetValue() + (uint128_t) number_of_evaluations + 1) * num_output_bits) /
-                block_size_bits;
+            ((start_L.GetValue() + (uint128_t)number_of_evaluations + 1) * num_output_bits) /
+            block_size_bits;
 
         std::vector<Bits> blocks;
         uint64_t L = (counter * block_size_bits) / num_output_bits;
@@ -184,7 +189,7 @@ public:
 
         std::vector<std::pair<Bits, Bits>> results;
         uint64_t block_number = 0;
-        uint16_t start_bit = (start_L.GetValue() * (uint128_t) num_output_bits) % block_size_bits;
+        uint16_t start_bit = (start_L.GetValue() * (uint128_t)num_output_bits) % block_size_bits;
 
         // For each of the inputs, grabs the correct slice from the encrypted data.
         for (L = start_L.GetValue(); L < start_L.GetValue() + number_of_evaluations; L++) {
@@ -199,13 +204,13 @@ public:
             if (start_bit + num_output_bits < block_size_bits) {
                 // Everything can be sliced from the current block
                 results.push_back(std::make_pair(
-                        blocks[block_number].Slice(start_bit, start_bit + num_output_bits) + extra_data,
-                        L_bits));
+                    blocks[block_number].Slice(start_bit, start_bit + num_output_bits) + extra_data,
+                    L_bits));
             } else {
                 // Must move forward one block
                 Bits left = blocks[block_number].Slice(start_bit);
                 Bits right = blocks[block_number + 1].Slice(
-                        0, num_output_bits - (block_size_bits - start_bit));
+                    0, num_output_bits - (block_size_bits - start_bit));
                 results.push_back(std::make_pair(left + right + extra_data, L_bits));
                 ++block_number;
             }
@@ -224,8 +229,8 @@ private:
 };
 
 struct rmap_item {
-    uint16_t count: 4;
-    uint16_t pos: 12;
+    uint16_t count : 4;
+    uint16_t pos : 12;
 };
 
 // Class to evaluate F2 .. F7.
@@ -233,7 +238,8 @@ class FxCalculator {
 public:
     FxCalculator() {}
 
-    inline FxCalculator(uint8_t k, uint8_t table_index) {
+    inline FxCalculator(uint8_t k, uint8_t table_index)
+    {
         this->k_ = k;
         this->table_index_ = table_index;
 
@@ -252,7 +258,8 @@ public:
     inline void ReloadKey() {}
 
     // Performs one evaluation of the f function.
-    inline std::pair<Bits, Bits> CalculateFC(const Bits &L, const Bits &R, const Bits &y1) const {
+    inline std::pair<Bits, Bits> CalculateFC(const Bits &L, const Bits &R, const Bits &y1) const
+    {
         Bits input;
         uint8_t input_bytes[64];
         uint8_t hash_bytes[32];
@@ -294,10 +301,11 @@ public:
 
     // Returns an evaluation of F_i(L), and the metadata (L) that must be stored to evaluate F_i+1.
     inline std::pair<Bits, Bits> CalculateBucket(
-            const Bits &y1,
-            const Bits &y2,
-            const Bits &L,
-            const Bits &R) {
+        const Bits &y1,
+        const Bits &y2,
+        const Bits &L,
+        const Bits &R)
+    {
         return CalculateFC(L, R, y1);
     }
 
@@ -315,8 +323,9 @@ public:
     // any R value matches. This function can be further optimized by removing the inner loop, and
     // being more careful with memory allocation.
     inline std::vector<std::pair<uint16_t, uint16_t>> FindMatches(
-            const std::vector<PlotEntry> &bucket_L,
-            const std::vector<PlotEntry> &bucket_R) {
+        const std::vector<PlotEntry> &bucket_L,
+        const std::vector<PlotEntry> &bucket_R)
+    {
         std::vector<std::pair<uint16_t, uint16_t>> matches;
         uint16_t parity = (bucket_L[0].y / kBC) % 2;
 
