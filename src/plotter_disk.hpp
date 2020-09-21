@@ -167,8 +167,6 @@ void* thread(void* arg)
     uint64_t totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
     uint64_t threadstripes = (totalstripes + NUMTHREADS - 1) / NUMTHREADS;
 
-            cout << "threadstripes " << threadstripes << endl;
-
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
@@ -213,8 +211,6 @@ uint64_t fut=0;
 fake_left_writer_count=0;
 fake_correction=0;
 }
-
-        cout << "pos " << pos << " prevtableentries " << prevtableentries << endl;
 
         while (pos < prevtableentries + 1) {
             PlotEntry left_entry;
@@ -265,7 +261,6 @@ fake_correction=0;
                 ignorebucket = y_bucket;
             } else {
                 if ((y_bucket != ignorebucket)) {
-                    cout << "matching " << y_bucket << endl;
                     bucket = y_bucket;
                     bMatch = true;
                 }
@@ -280,15 +275,11 @@ R_position_base=fake_left_writer_count;
                 continue;
             }
             if (y_bucket == bucket) {
-//cout << pos << " bucket_L.emplace_back " << y_bucket << " " << bucket_L.size() << endl;
-
                 bucket_L.emplace_back(std::move(left_entry));
             } else if (y_bucket == bucket + 1) {
-//cout << pos << " bucket_R.emplace_back " << y_bucket << " " << bucket_R.size() << endl;
-
                 bucket_R.emplace_back(std::move(left_entry));
             } else {
-                cout << "matching! " << bucket << " and " << bucket + 1 << endl;
+                //cout << "matching! " << bucket << " and " << bucket + 1 << endl;
                 // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
@@ -312,7 +303,6 @@ R_position_base=fake_left_writer_count;
                     // Adds L_bucket entries that are used to not_dropped. They are used if they
                     // either matched with something to the left (in the previous iteration), or
                     // matched with something in bucket_R (in this iteration).
-cout << " **** bucket_L.size() " << bucket_L.size() << endl;
                     for (size_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
                         PlotEntry& L_entry = bucket_L[bucket_index];
                         if (L_entry.used) {
@@ -340,15 +330,9 @@ cout << " **** bucket_L.size() " << bucket_L.size() << endl;
                     L_position_map = R_position_map;
                     R_position_map = tmp;
                     L_position_base = R_position_base;
-cout << "settiing R_position_base " << R_position_base << endl;
-
                     R_position_base = fake_left_writer_count;
 
-cout << " not_dropped " << not_dropped.size() << endl;
-
-{
                     for (PlotEntry*& entry : not_dropped) {
-//cout << "Rewrite left entry " << entry->pos << " " << bThree << endl;
                         // Rewrite left entry with just pos and offset, to reduce working space
                         if (table_index == 1) {
                             // Table 1 goes from (f1, x) to just (x)
@@ -358,15 +342,6 @@ cout << " not_dropped " << not_dropped.size() << endl;
                             // offset)
                             new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                         }
-/*if(table_index == 2)
-{
-cout << "entry->read_posoffset ";
-cout << entry->read_posoffset;
-cout << endl;
-}
-*/
-//cout << "left_writer_count " << left_writer_count << " left_buf_entries " << left_buf_entries << " compressed_entry_size_bytes " << compressed_entry_size_bytes << " tmp_buf " << (left_writer_count % left_buf_entries) *
-//                                                        compressed_entry_size_bytes << endl;
 
                         // The new position for this entry = the total amount of thing written
                         // to L so far. Since we only write entries in not_dropped, about 14% of
@@ -376,17 +351,11 @@ cout << endl;
 
 fake_left_writer_count++;
 
-if((bTwo)&&(fake_correction==0xffffffffffffffff))
+if(bTwo) {
+if(fake_correction==0xffffffffffffffff)
 {
-cout << "fake_correction assigned " << fake_left_writer_count << endl;
 fake_correction=fake_left_writer_count-1;
 }
-
-if(!bTwo) {
-//cout << "NOT WRITING!!!!!!" << endl;
-;}
-else
-{
 
                         tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
                                                         compressed_entry_size_bytes;
@@ -394,16 +363,8 @@ else
                         left_writer_count++;
 memset(tmp_buf,0xff,compressed_entry_size_bytes);
                         new_left_entry.ToBytes(tmp_buf);
-/*if(table_index == 2)
-{print_buf(tmp_buf,compressed_entry_size_bytes);
-cout << "!" <<  endl;
-}*/
-
-//cout << entry->left_metadata << " " << (int)k << endl;
-//cout << (int)(tmp_buf[0]) << " " << (int)(tmp_buf[1]) << endl;
 }
                     }
-}
 
 
                     // Two vectors to keep track of things from previous iteration and from this
@@ -442,15 +403,12 @@ cout << "!" <<  endl;
                         }
                     }
 		    fut=fut+future_entries_to_write.size();
-		    cout << "future_entries_to_write " << future_entries_to_write.size() << endl;
 
                     // At this point, future_entries_to_write contains the matches of buckets L
                     // and R, and current_entries_to_write contains the matches of L and the
                     // bucket left of L. These are the ones that we will write.
                     uint16_t final_current_entry_size = current_entries_to_write.size();
                     if (end_of_table) {
-			    cout << " insert last! " << endl;
-
                         // For the final bucket, write the future entries now as well, since we
                         // will break from loop
                         current_entries_to_write.insert(
@@ -468,8 +426,6 @@ cout << "!" <<  endl;
                         Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k)
                                                               : std::get<0>(f_output);
 
-			//cout << "L_position_base " << L_position_base << " R_position_base " << R_position_base << endl;
-
                         // Maps the new positions. If we hit end of pos, we must write things in
                         // both final_entries to write and current_entries_to_write, which are
                         // in both position maps.
@@ -484,8 +440,6 @@ cout << "!" <<  endl;
                         // Position in the previous table
                         new_entry.AppendValue(newlpos, pos_size);
 
-//cout << "newlpos " << newlpos << endl;
-
                         // Offset for matching entry
                         if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
                             std::cout << "Offset: " << newrpos - newlpos << std::endl;
@@ -495,8 +449,6 @@ cout << "!" <<  endl;
                         new_entry.AppendValue(newrpos - newlpos, kOffsetSize);
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
-
-//cout << newrpos - newlpos << " what " << bThree << " ";
 
 if(bTwo) 
 {
@@ -569,15 +521,9 @@ if(bTwo)
         sem_wait(ptd->theirs);
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
-       //cout << "g_right_writer " << g_right_writer << " right_writer_count " << right_writer_count << " right_buf_entries " << right_buf_entries << endl;
-
-//print_buf(right_writer_buf,right_writer_count * right_entry_size_bytes);
-
 for(int i=0;i<right_writer_count;i++)
 {
 PlotEntry left_entry;
-
-//cout << "k + kExtraBits " << k + kExtraBits << " pos_size " << (int)pos_size << " kOffsetSize " << kOffsetSize << " metadata_size " << (int)metadata_size << endl;
 
 uint32_t ysize=(table_index + 1 == 7)?k:k + kExtraBits;
 
@@ -586,11 +532,6 @@ uint32_t ysize=(table_index + 1 == 7)?k:k + kExtraBits;
                     Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, ysize, pos_size );
                 uint64_t offset =
                     Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, ysize + pos_size, kOffsetSize );
-/*if(table_index == 1)
-{
-cout << "pos " << position << endl;
-cout << "offset " << offset << endl;
-}*/
                 if (right_entry_size_bytes*8-ysize - pos_size - kOffsetSize <= 128) {
                     left_entry.left_metadata = Util::SliceInt128FromBytes( 
                         right_writer_buf+i*right_entry_size_bytes, ysize + pos_size + kOffsetSize, right_entry_size_bytes*8-ysize - pos_size - kOffsetSize);
@@ -603,8 +544,6 @@ cout << "offset " << offset << endl;
                         ysize + pos_size + kOffsetSize + 128,
                         right_entry_size_bytes*8-ysize - pos_size - kOffsetSize - 128);
                 }
-if(i==0)
-cout << "adding " << g_left_writer_count << " minus fake_correction " << fake_correction << " to " << position << endl;
 
 position=position+g_left_writer_count-fake_correction;
 
@@ -620,33 +559,11 @@ new_entry.AppendValue(left_entry.right_metadata,right_entry_size_bytes*8-ysize -
 }
 memset(right_writer_buf+i*right_entry_size_bytes,0x00,right_entry_size_bytes);
 new_entry.ToBytes(right_writer_buf+i*right_entry_size_bytes);
-/*print_buf(right_writer_buf+i*right_entry_size_bytes,right_entry_size_bytes);
-uint8_t wjboo[100];
-
-Bits test_entry;
-cout << endl << "position " << position << " pos_size " << (int)pos_size << endl;
-test_entry.AppendValue(position,pos_size);
-cout << "offset " << offset << " kOffsetSize " << (int)kOffsetSize << endl;
-test_entry.AppendValue(offset,kOffsetSize);
-test_entry.ToBytes(wjboo);
-cout << endl << "oo " << (pos_size+kOffsetSize+7)/8 << ": ";
-print_buf(wjboo,(pos_size+kOffsetSize+7)/8);
-cout << endl;
-*/
         (*ptmp_1_disks)[table_index + 1].Write(
             g_right_writer, right_writer_buf+i*right_entry_size_bytes, right_entry_size_bytes);
         g_right_writer += right_entry_size_bytes;
 	g_right_writer_count ++;
 }
-cout << "g_right_writer " << g_right_writer << endl;
-        cout << " g_right_writer_count " << g_right_writer_count << endl;
-
-        FILE *f_ = fopen("foo", "w+b");
-        fwrite(right_writer_buf, sizeof(uint8_t), right_writer_count * right_entry_size_bytes, f_);
-        fclose(f_);
-//exit(0);
-
-       cout << "g_left_writer " << g_left_writer << endl;
 
         (*ptmp_1_disks)[table_index].Write(
             g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
@@ -655,7 +572,6 @@ cout << "g_right_writer " << g_right_writer << endl;
 
 
         g_matches += matches;
-        cout << " g_matches " << g_matches << endl;
 
         for (int i = 0; i < kNumSortBuckets; i++) {
             g_right_bucket_sizes[i] += right_bucket_sizes[i];
@@ -743,9 +659,14 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-            for (int i = 0; i <= 7; i++) {
-                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], 300));
+            for (int i = 0; i < 7 ; i++) {
+uint64_t tablesize=((uint64_t)1) << (k+1);
+tablesize=tablesize*GetMaxEntrySize(k, i + 1, true);
+cout << "tablesize " << i+1 << " " << tablesize << endl;
+                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], tablesize));
             }
+                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[7], (uint64_t)300*1024*1024));
+
 
             FileDisk tmp2_disk(tmp_2_filename);
             if (!tmp2_disk.isOpen()) {
@@ -1211,24 +1132,11 @@ g_right_writer_count=0;
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
-/*
-tmp_1_disks[1].Dump();
-tmp_1_disks[2].Dump();
-exit(0);
-*/
-/*
-        for (int i=0; i<8; i++)
-            tmp_1_disks[i].Dump();
-
-exit(0);*/
+            
             delete[] zero_buf;
         }
         table_sizes[0] = max_spare_written;
 
-        for (int i=0; i<8; i++)
-            tmp_1_disks[i].Dump();
-        //exit(0);
-        
         return table_sizes;
     }
 
