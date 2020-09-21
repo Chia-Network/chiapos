@@ -536,7 +536,7 @@ public:
     void AppendValue(uint128_t value, uint8_t length)
     {
         if (length > 64) {
-            std::cout << "SPLITTING AppendValue" << std::endl;
+            //std::cout << "SPLITTING AppendValue" << std::endl;
             DoAppendValue(value >> 64, length - 64);
             DoAppendValue((uint64_t)value, 64);
         } else {
