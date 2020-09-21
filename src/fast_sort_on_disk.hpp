@@ -26,7 +26,9 @@
 #define NOMINMAX
 
 #include "../lib/include/filesystem.hh"
+
 namespace fs = ghc::filesystem;
+
 #include "./util.hpp"
 #include "./bits.hpp"
 #include "./disk.hpp"
@@ -34,8 +36,10 @@ namespace fs = ghc::filesystem;
 
 
 class SortManager {
-  public:
-    SortManager(uint8_t* memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets, uint16_t entry_size, const std::string& tmp_dirname, const std::string& filename, Disk* output_file, Disk* spare, uint32_t begin_bits) {
+public:
+    SortManager(uint8_t *memory, uint64_t memory_size, uint32_t num_buckets, uint32_t log_num_buckets,
+                uint16_t entry_size, const std::string &tmp_dirname, const std::string &filename, Disk *output_file,
+                Disk *spare, uint32_t begin_bits) {
         this->memory_start = memory;
         this->memory_size = memory_size;
         this->output_file = output_file;
@@ -54,13 +58,14 @@ class SortManager {
             this->mem_bucket_sizes.push_back(0);
             this->bucket_write_pointers.push_back(0);
             this->sub_bucket_sizes.emplace_back(std::vector<uint64_t>(num_buckets, 0));
-            fs::path bucket_filename = fs::path(tmp_dirname) / fs::path(filename + ".sort_bucket_" + to_string(bucket_i) + ".tmp");
+            fs::path bucket_filename =
+                    fs::path(tmp_dirname) / fs::path(filename + ".sort_bucket_" + to_string(bucket_i) + ".tmp");
             fs::remove(bucket_filename);
             this->bucket_files.emplace_back(FileDisk(bucket_filename));
         }
     }
 
-    inline void AddToCache(Bits& entry) {
+    inline void AddToCache(Bits &entry) {
         if (this->done) {
             throw std::string("Already finished.");
         }
@@ -75,13 +80,13 @@ class SortManager {
 
         this->sub_bucket_sizes[bucket_index][sub_bucket_index] += 1;
 
-        uint8_t* mem_write_pointer = mem_bucket_pointers[bucket_index] + mem_write_offset;
+        uint8_t *mem_write_pointer = mem_bucket_pointers[bucket_index] + mem_write_offset;
         assert(Util::ByteAlign(entry.GetSize()) / 8 == this->entry_size);
         entry.ToBytes(mem_write_pointer);
         mem_bucket_sizes[bucket_index] += 1;
     }
 
-    inline uint64_t ExecuteSort(uint8_t* sort_memory, uint64_t memory_len, bool quicksort=0) {
+    inline uint64_t ExecuteSort(uint8_t *sort_memory, uint64_t memory_len, bool quicksort = 0) {
         if (this->done) {
             throw std::string("Already finished.");
         }
@@ -91,9 +96,13 @@ class SortManager {
 
         for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
             // Reads an entire bucket into memory
-             std::cout << "Total bytes reading into memory: " << to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0)) << std::endl;
+            std::cout << "Total bytes reading into memory: "
+                      << to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) << " Mem size "
+                      << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0)) << std::endl;
             if (this->bucket_write_pointers[bucket_i] > this->memory_size) {
-                std::cout << "Not enough memory for sort in memory. Need to sort " + to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) + "GiB" << std::endl;
+                std::cout << "Not enough memory for sort in memory. Need to sort " +
+                             to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) + "GiB"
+                          << std::endl;
             }
 
             // This actually sorts in memory if the entire data fits in our memory buffer (passes the above check)
@@ -120,7 +129,7 @@ class SortManager {
         // for (FileDisk& fd : this->bucket_files) {
         //     fd.Close();
         // }
-        for (auto& fd : this->bucket_files) {
+        for (auto &fd : this->bucket_files) {
             fs::remove(fs::path(fd.GetFileName()));
         }
     }
@@ -129,7 +138,7 @@ class SortManager {
         Close();
     }
 
-  private:
+private:
     inline void FlushCache() {
         for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
             uint64_t start_write = this->bucket_write_pointers[bucket_i];
@@ -145,20 +154,20 @@ class SortManager {
         }
     }
 
-    inline static uint64_t ExtractNum(Bits& bytes, uint32_t begin_bits, uint32_t take_bits) {
-        return (uint64_t)(bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
+    inline static uint64_t ExtractNum(Bits &bytes, uint32_t begin_bits, uint32_t take_bits) {
+        return (uint64_t) (bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
     }
 
     // Start of the whole memory array. This will be diveded into buckets
-    uint8_t* memory_start;
+    uint8_t *memory_start;
     // Size of the whole memory array
     uint64_t memory_size;
     // One file for each bucket
     std::vector<FileDisk> bucket_files;
     // One output file for the result of the sort
-    Disk* output_file;
+    Disk *output_file;
     // One spare file for sorting
-    Disk* spare;
+    Disk *spare;
     // Size of each entry
     uint16_t entry_size;
     // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
@@ -168,7 +177,7 @@ class SortManager {
     // Log of the number of buckets; num bits to use to determine bucket
     uint32_t log_num_buckets;
     // One pointer to the start of each bucket memory
-    vector<uint8_t*> mem_bucket_pointers;
+    vector<uint8_t *> mem_bucket_pointers;
     // The number of entries written to each bucket
     vector<uint64_t> mem_bucket_sizes;
     // The amount of data written to each disk bucket

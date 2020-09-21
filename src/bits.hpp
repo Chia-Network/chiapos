@@ -15,11 +15,12 @@
 #ifndef SRC_CPP_BITS_HPP_
 #define SRC_CPP_BITS_HPP_
 
-#include <vector>
 #include <algorithm>
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
+
 #include "./util.hpp"
 
 using namespace std;
@@ -31,76 +32,51 @@ using namespace std;
 struct SmallVector {
     typedef uint16_t size_type;
 
-    SmallVector() noexcept {
-        count_ = 0;
-    }
+    SmallVector() noexcept { count_ = 0; }
 
-    uint64_t& operator[] (const uint16_t index) {
-        return v_[index];
-    }
+    uint64_t &operator[](const uint16_t index) { return v_[index]; }
 
-    uint64_t operator[] (const uint16_t index) const {
-        return v_[index];
-    }
+    uint64_t operator[](const uint16_t index) const { return v_[index]; }
 
-    void push_back(uint64_t value) {
-        v_[count_++] = value;
-    }
+    void push_back(uint64_t value) { v_[count_++] = value; }
 
-    SmallVector& operator = (const SmallVector& other) {
+    SmallVector &operator=(const SmallVector &other) {
         count_ = other.count_;
-        for (size_type i = 0; i < other.count_; i++)
-            v_[i] = other.v_[i];
+        for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
         return (*this);
     }
 
-    size_type size() const noexcept {
-        return count_;
-    }
+    size_type size() const noexcept { return count_; }
 
-    void resize(const size_type n) {
-        count_ = n;
-    }
+    void resize(const size_type n) { count_ = n; }
 
- private:
+private:
     uint64_t v_[10];
     size_type count_;
 };
-
 
 // A stack vector of length 1024, having the functions of std::vector needed for Bits.
 // The max number of Bits that can be stored is 1024 * 64
 struct ParkVector {
     typedef uint32_t size_type;
 
-    ParkVector() noexcept {
-        count_ = 0;
-    }
+    ParkVector() noexcept { count_ = 0; }
 
-    uint64_t& operator[] (const uint32_t index) {
-        return v_[index];
-    }
+    uint64_t &operator[](const uint32_t index) { return v_[index]; }
 
-    uint64_t operator[] (const uint32_t index) const {
-        return v_[index];
-    }
+    uint64_t operator[](const uint32_t index) const { return v_[index]; }
 
-    void push_back(uint64_t value) {
-        v_[count_++] = value;
-    }
+    void push_back(uint64_t value) { v_[count_++] = value; }
 
-    ParkVector& operator = (const ParkVector& other) {
+    ParkVector &operator=(const ParkVector &other) {
         count_ = other.count_;
-        for (size_type i = 0; i < other.count_; i++)
-            v_[i] = other.v_[i];
+        for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
         return (*this);
     }
 
-    size_type size() const noexcept {
-        return count_;
-    }
+    size_type size() const noexcept { return count_; }
 
- private:
+private:
     uint64_t v_[2048];
     size_type count_;
 };
@@ -109,38 +85,38 @@ struct ParkVector {
  * This class represents an array of bits. These are stored in an
  * array of integers, allowing for efficient bit manipulations. The Bits class provides
  * utilities to easily work with Bits, adding and slicing them, etc.
- * The class is a generic one, allowing any type of an array, as long as providing std::vector methods.
- * We currently use SmallVector (stack-array of length 10), ParkVector (stack-array of length 2048) and
- * std::vector.
- * Conversion between two BitsGeneric<T> classes of different types can be done by using += operator, or converting
- * to bytes the first class, then using the bytes constructor of the second class (should be slower).
- * NOTE: CalculateBucket only accepts a BitsGeneric<SmallVector>, so in order to use that, you have to firstly convert
- * your BitsGeneric<T> object into a BitsGeneric<SmallVector>.
-*/
+ * The class is a generic one, allowing any type of an array, as long as providing std::vector
+ * methods. We currently use SmallVector (stack-array of length 10), ParkVector (stack-array of
+ * length 2048) and std::vector. Conversion between two BitsGeneric<T> classes of different types
+ * can be done by using += operator, or converting to bytes the first class, then using the bytes
+ * constructor of the second class (should be slower). NOTE: CalculateBucket only accepts a
+ * BitsGeneric<SmallVector>, so in order to use that, you have to firstly convert your
+ * BitsGeneric<T> object into a BitsGeneric<SmallVector>.
+ */
 
-template <class T> class BitsGeneric {
- public:
-    template <class> friend class BitsGeneric;
+template<class T>
+class BitsGeneric {
+public:
+    template<class>
+    friend
+    class BitsGeneric;
 
-    BitsGeneric<T>() noexcept {
-        this->last_size_ = 0;
-    }
+    BitsGeneric<T>() noexcept { this->last_size_ = 0; }
 
-    // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0 bits at the beginning.
-    // i.e. Bits(5, 10) = 0000000101
+    // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0
+    // bits at the beginning. i.e. Bits(5, 10) = 0000000101
     BitsGeneric<T>(uint128_t value, uint32_t size) {
         if (size > 64) {
-            //std::cout << "SPLITTING BitsGeneric" << std::endl;
-            InitBitsGeneric(value>>64,size-64);
-            AppendValue((uint64_t)value,64);
-        }
-        else{
-            InitBitsGeneric((uint64_t)value,size);
+            // std::cout << "SPLITTING BitsGeneric" << std::endl;
+            InitBitsGeneric(value >> 64, size - 64);
+            AppendValue((uint64_t) value, 64);
+        } else {
+            InitBitsGeneric((uint64_t) value, size);
         }
     }
-    
-    // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0 bits at the beginning.
-    // i.e. Bits(5, 10) = 0000000101
+
+    // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0
+    // bits at the beginning. i.e. Bits(5, 10) = 0000000101
     void InitBitsGeneric(uint64_t value, uint32_t size) {
         this->last_size_ = 0;
         if (size > 64) {
@@ -164,7 +140,7 @@ template <class T> class BitsGeneric {
 
     // Copy the content of another Bits object. If the size of the other Bits object is smaller
     // than 'size', adds 0 bits at the beginning.
-    BitsGeneric<T>(const BitsGeneric<T>& other, uint32_t size) {
+    BitsGeneric<T>(const BitsGeneric<T> &other, uint32_t size) {
         uint32_t total_size = other.GetSize();
         this->last_size_ = 0;
         assert(size >= total_size);
@@ -185,7 +161,7 @@ template <class T> class BitsGeneric {
     }
 
     // Converts bytes to bits.
-    BitsGeneric<T>(const uint8_t* big_endian_bytes, uint32_t num_bytes, uint32_t size_bits)  {
+    BitsGeneric<T>(const uint8_t *big_endian_bytes, uint32_t num_bytes, uint32_t size_bits) {
         this->last_size_ = 0;
         uint32_t extra_space = size_bits - num_bytes * 8;
         while (extra_space >= 64) {
@@ -195,12 +171,12 @@ template <class T> class BitsGeneric {
         if (extra_space > 0) {
             AppendValue(0, extra_space);
         }
-        for (uint32_t i = 0; i < num_bytes; i += sizeof(uint64_t)/sizeof(uint8_t)) {
+        for (uint32_t i = 0; i < num_bytes; i += sizeof(uint64_t) / sizeof(uint8_t)) {
             uint64_t val = 0;
             uint8_t bucket_size = 0;
-            // Compress bytes together into uint64_t, either until we have 64 bits, or until we run out of bytes
-            // in big_endian_bytes.
-            for (uint32_t j = i; j < i + sizeof(uint64_t)/sizeof(uint8_t) && j < num_bytes; j++) {
+            // Compress bytes together into uint64_t, either until we have 64 bits, or until we run
+            // out of bytes in big_endian_bytes.
+            for (uint32_t j = i; j < i + sizeof(uint64_t) / sizeof(uint8_t) && j < num_bytes; j++) {
                 val = (val << 8) + big_endian_bytes[j];
                 bucket_size += 8;
             }
@@ -208,20 +184,18 @@ template <class T> class BitsGeneric {
         }
     }
 
-    BitsGeneric<T>(const BitsGeneric<T>& other) noexcept :
-        values_(other.values_),
-        last_size_(other.last_size_)
-    {
+    BitsGeneric<T>(const BitsGeneric<T> &other) noexcept
+            : values_(other.values_), last_size_(other.last_size_) {
     }
 
-    BitsGeneric<T>& operator = (const BitsGeneric<T>& other) {
+    BitsGeneric<T> &operator=(const BitsGeneric<T> &other) {
         values_ = other.values_;
         last_size_ = other.last_size_;
         return *this;
     }
 
     // Concatenates two Bits objects together.
-    BitsGeneric<T> operator+(const BitsGeneric<T>& b) const {
+    BitsGeneric<T> operator+(const BitsGeneric<T> &b) const {
         BitsGeneric<T> result = *this;
 
         if (b.values_.size() > 0) {
@@ -233,17 +207,17 @@ template <class T> class BitsGeneric {
     }
 
     // Appends one Bits object at the end of the first one.
-    template <class T2>
-    BitsGeneric<T>& operator += (const BitsGeneric<T2>& b) {
+    template<class T2>
+    BitsGeneric<T> &operator+=(const BitsGeneric<T2> &b) {
         if (b.values_.size() > 0) {
-             for (typename T2::size_type i = 0; i < b.values_.size() - 1; i++)
+            for (typename T2::size_type i = 0; i < b.values_.size() - 1; i++)
                 this->AppendValue(b.values_[i], 64);
             this->AppendValue(b.values_[b.values_.size() - 1], b.last_size_);
         }
         return *this;
     }
 
-    BitsGeneric<T> Add(const BitsGeneric<T>& other) const {
+    BitsGeneric<T> Add(const BitsGeneric<T> &other) const {
         int i, size = values_.size();
         uint32_t carry = 0;
         BitsGeneric<T> res;
@@ -309,10 +283,11 @@ template <class T> class BitsGeneric {
         return res;
     }
 
-    BitsGeneric<T>& operator++() {
-        uint64_t limit = ((uint64_t)std::numeric_limits<uint32_t> :: max() << 32) +
-                          (uint64_t)std::numeric_limits<uint32_t> :: max();
-        uint64_t last_bucket_mask = (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
+    BitsGeneric<T> &operator++() {
+        uint64_t limit = ((uint64_t) std::numeric_limits<uint32_t>::max() << 32) +
+                         (uint64_t) std::numeric_limits<uint32_t>::max();
+        uint64_t last_bucket_mask =
+                (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
         // If the last bucket isn't full of 1 bits, we can increment that by one.
         if (values_[values_.size() - 1] != last_bucket_mask) {
             values_[values_.size() - 1]++;
@@ -327,12 +302,12 @@ template <class T> class BitsGeneric {
                         values_[i]++;
                         // Buckets that were full of 1 bits turn all to 0 bits.
                         // (i.e. 10011111 + 1 = 10100000)
-                        for (uint32_t j = i + 1; j < values_.size(); j++)
-                            values_[j] = 0;
+                        for (uint32_t j = i + 1; j < values_.size(); j++) values_[j] = 0;
                         break;
                     }
             }
-            // This isn't allowed, as the Bits size must remain constant during all the plotting process.
+            // This isn't allowed, as the Bits size must remain constant during all the plotting
+            // process.
             assert(all_one == false);
         }
         return *this;
@@ -344,7 +319,7 @@ template <class T> class BitsGeneric {
         return result;
     }
 
-    BitsGeneric<T>& operator--() {
+    BitsGeneric<T> &operator--() {
         bool all_zero = true;
         // If the last bucket is not zero, we can derement it.
         if (values_[values_.size() - 1] != 0) {
@@ -359,14 +334,14 @@ template <class T> class BitsGeneric {
                     all_zero = false;
                     // Decrement it.
                     values_[i]--;
-                    uint64_t limit = ((uint64_t)std::numeric_limits<uint32_t> :: max() << 32) +
-                                      (uint64_t)std::numeric_limits<uint32_t> :: max();
+                    uint64_t limit = ((uint64_t) std::numeric_limits<uint32_t>::max() << 32) +
+                                     (uint64_t) std::numeric_limits<uint32_t>::max();
                     // All buckets that were previously 0, now become full of 1s.
                     // (i.e. 1010000 - 1 = 1001111)
                     for (typename T::size_type j = i + 1; j < values_.size() - 1; j++)
-                        values_[j] =  limit;
-                    values_[values_.size() - 1] = (last_size_ == 64) ? limit :
-                                                   ((static_cast<uint64_t>(1) << last_size_) - 1);
+                        values_[j] = limit;
+                    values_[values_.size() - 1] =
+                            (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
                     break;
                 }
         }
@@ -382,7 +357,7 @@ template <class T> class BitsGeneric {
         return result;
     }
 
-    BitsGeneric<T> operator^(const BitsGeneric<T>& other) const {
+    BitsGeneric<T> operator^(const BitsGeneric<T> &other) const {
         assert(GetSize() == other.GetSize());
         BitsGeneric<T> res;
         // Xoring individual bits is the same as xor-ing chunks of bits.
@@ -392,17 +367,13 @@ template <class T> class BitsGeneric {
         return res;
     }
 
-    BitsGeneric<T> Trunc(uint32_t n_bits) const {
-        return Slice(GetSize() - n_bits, GetSize());
-    }
+    BitsGeneric<T> Trunc(uint32_t n_bits) const { return Slice(GetSize() - n_bits, GetSize()); }
 
     uint64_t TruncToInt(uint32_t n_bits) const {
         return SliceBitsToInt(GetSize() - n_bits, GetSize());
     }
 
-    BitsGeneric<T> Slice(uint32_t start_index) const {
-        return Slice(start_index, GetSize());
-    }
+    BitsGeneric<T> Slice(uint32_t start_index) const { return Slice(start_index, GetSize()); }
 
     // Slices the bits from [start_index, end_index)
     BitsGeneric<T> Slice(uint32_t start_index, uint32_t end_index) const {
@@ -410,7 +381,8 @@ template <class T> class BitsGeneric {
             end_index = GetSize();
         }
 
-        if (end_index == start_index) return BitsGeneric<T>();
+        if (end_index == start_index)
+            return BitsGeneric<T>();
         assert(end_index > start_index);
         uint32_t start_bucket = start_index / 64;
         uint32_t end_bucket = end_index / 64;
@@ -418,7 +390,8 @@ template <class T> class BitsGeneric {
             // Positions inside the bucket.
             start_index = start_index % 64;
             end_index = end_index % 64;
-            uint8_t bucket_size = ((int)start_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+            uint8_t bucket_size =
+                    ((int) start_bucket == (int) (values_.size() - 1)) ? last_size_ : 64;
             uint64_t val = values_[start_bucket];
             // Cut the prefix [0, start_index)
             if (start_index != 0)
@@ -436,9 +409,11 @@ template <class T> class BitsGeneric {
             for (uint32_t i = start_bucket + 1; i < end_bucket; i++)
                 result.AppendValue(values_[i], 64);
             if (end_index % 64) {
-                uint8_t bucket_size = ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+                uint8_t bucket_size =
+                        ((int) end_bucket == (int) (values_.size() - 1)) ? last_size_ : 64;
                 // Get the suffix from the last bucket.
-                SplitNumberByPrefix(values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
+                SplitNumberByPrefix(
+                        values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
                 result.AppendValue(prefix, end_index % 64);
             }
             return result;
@@ -455,20 +430,23 @@ template <class T> class BitsGeneric {
         } */
         if ((start_index >> 6) == (end_index >> 6)) {
             uint64_t res = values_[start_index >> 6];
-            if ((start_index >> 6) == (uint32_t)values_.size() - 1)
+            if ((start_index >> 6) == (uint32_t) values_.size() - 1)
                 res = res >> (last_size_ - (end_index & 63));
             else
                 res = res >> (64 - (end_index & 63));
-            res = res & (((uint64_t)1 << ((end_index & 63) - (start_index & 63))) - 1);
+            res = res & (((uint64_t) 1 << ((end_index & 63) - (start_index & 63))) - 1);
             return res;
         } else {
             assert((start_index >> 6) + 1 == (end_index >> 6));
             uint64_t prefix, suffix;
-            SplitNumberByPrefix(values_[(start_index >> 6)], 64, start_index & 63, &prefix, &suffix);
+            SplitNumberByPrefix(
+                    values_[(start_index >> 6)], 64, start_index & 63, &prefix, &suffix);
             uint64_t result = suffix;
             if (end_index % 64) {
-                uint8_t bucket_size = ((end_index >> 6) == (uint32_t)values_.size() - 1) ? last_size_ : 64;
-                SplitNumberByPrefix(values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
+                uint8_t bucket_size =
+                        ((end_index >> 6) == (uint32_t) values_.size() - 1) ? last_size_ : 64;
+                SplitNumberByPrefix(
+                        values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
                 result = (result << (end_index & 63)) + prefix;
             }
             return result;
@@ -483,7 +461,7 @@ template <class T> class BitsGeneric {
         if (!values_.size())
             return;
 
-        for (i = 0; i < (int)values_.size() - 1; i++) {
+        for (i = 0; i < (int) values_.size() - 1; i++) {
             Util::IntToEightBytes(buffer + i * 8, values_[i]);
         }
 
@@ -517,33 +495,31 @@ template <class T> class BitsGeneric {
             throw std::string("Number doesn't fit into a 128-bit type.");
         }
 
-        if(GetSize()<=64)
-                return values_[0];
+        if (GetSize() <= 64)
+            return values_[0];
 
-        return (((uint128_t)values_[0])<<(GetSize()-64))+values_[1];
+        return (((uint128_t) values_[0]) << (GetSize() - 64)) + values_[1];
     }
 
-    uint64_t GetValue() const {
-        return values_[0];
-    }
+    uint64_t GetValue() const { return values_[0]; }
 
     uint32_t GetSize() const {
-        if (values_.size() == 0) return 0;
+        if (values_.size() == 0)
+            return 0;
         // Full buckets contain each 64 bits, last one contains only 'last_size_' bits.
-        return ((uint32_t)values_.size() - 1) * 64 + last_size_;
+        return ((uint32_t) values_.size() - 1) * 64 + last_size_;
     }
 
     void AppendValue(uint128_t value, uint8_t length) {
         if (length > 64) {
             std::cout << "SPLITTING AppendValue" << std::endl;
-            DoAppendValue(value>>64,length-64);
-            DoAppendValue((uint64_t)value,64);
-        }
-        else{
-            DoAppendValue((uint64_t)value,length);
+            DoAppendValue(value >> 64, length - 64);
+            DoAppendValue((uint64_t) value, 64);
+        } else {
+            DoAppendValue((uint64_t) value, length);
         }
     }
-       
+
     void DoAppendValue(uint64_t value, uint8_t length) {
         // The last bucket is full or no bucket yet, create a new one.
         if (values_.size() == 0 || last_size_ == 64) {
@@ -553,7 +529,8 @@ template <class T> class BitsGeneric {
             uint8_t free_bits = 64 - last_size_;
             if (last_size_ == 0 && length == 64) {
                 // Special case for OSX -O3, as per -fsanitize=undefined
-                // runtime error: shift exponent 64 is too large for 64-bit type 'uint64_t' (aka 'unsigned long long')
+                // runtime error: shift exponent 64 is too large for 64-bit type 'uint64_t' (aka
+                // 'unsigned long long')
                 values_[values_.size() - 1] = value;
                 last_size_ = length;
             } else if (length <= free_bits) {
@@ -561,7 +538,8 @@ template <class T> class BitsGeneric {
                 values_[values_.size() - 1] = (values_[values_.size() - 1] << length) + value;
                 last_size_ += length;
             } else {
-                // Otherwise, append the prefix into the last bucket, and create a new bucket for the suffix.
+                // Otherwise, append the prefix into the last bucket, and create a new bucket for
+                // the suffix.
                 uint64_t prefix, suffix;
                 SplitNumberByPrefix(value, length, free_bits, &prefix, &suffix);
                 values_[values_.size() - 1] = (values_[values_.size() - 1] << free_bits) + prefix;
@@ -571,22 +549,31 @@ template <class T> class BitsGeneric {
         }
     }
 
-    template <class X>
-    friend std::ostream &operator<<(std::ostream&, const BitsGeneric<X>&);
-    template <class X>
-    friend bool operator==(const BitsGeneric<X>& lhs, const BitsGeneric<X>& rhs);
-    template <class X>
-    friend bool operator<(const BitsGeneric<X>& lhs, const BitsGeneric<X>& rhs);
-    template <class X>
-    friend bool operator>(const BitsGeneric<X>& lhs, const BitsGeneric<X>& rhs);
-    template <class X>
+    template<class X>
+    friend std::ostream &operator<<(std::ostream &, const BitsGeneric<X> &);
+
+    template<class X>
+    friend bool operator==(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
+
+    template<class X>
+    friend bool operator<(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
+
+    template<class X>
+    friend bool operator>(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
+
+    template<class X>
     friend BitsGeneric<X> operator<<(BitsGeneric<X> lhs, uint32_t shift_amount);
-    template <class X>
+
+    template<class X>
     friend BitsGeneric<X> operator>>(BitsGeneric<X> lhs, uint32_t shift_amount);
 
- private:
-    static void SplitNumberByPrefix(uint64_t number, uint8_t num_bits, uint8_t prefix_size, uint64_t* prefix,
-                             uint64_t* suffix) {
+private:
+    static void SplitNumberByPrefix(
+            uint64_t number,
+            uint8_t num_bits,
+            uint8_t prefix_size,
+            uint64_t *prefix,
+            uint64_t *suffix) {
         assert(num_bits >= prefix_size);
         if (prefix_size == 0) {
             *prefix = 0;
@@ -605,13 +592,13 @@ template <class T> class BitsGeneric {
 };
 
 template<class T>
-std::ostream &operator<<(std::ostream & strm, BitsGeneric<T> const & v) {
+std::ostream &operator<<(std::ostream &strm, BitsGeneric<T> const &v) {
     strm << "b" << v.ToString();
     return strm;
 }
 
-template <class T>
-bool operator==(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
+template<class T>
+bool operator==(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize()) {
         return false;
     }
@@ -623,8 +610,8 @@ bool operator==(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
     return true;
 }
 
-template <class T>
-bool operator<(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
+template<class T>
+bool operator<(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize())
         throw std::string("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
@@ -636,8 +623,8 @@ bool operator<(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
     return false;
 }
 
-template <class T>
-bool operator>(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
+template<class T>
+bool operator>(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize())
         throw std::string("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
@@ -649,7 +636,7 @@ bool operator>(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
     return false;
 }
 
-template <class T>
+template<class T>
 BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount) {
     if (lhs.GetSize() == 0) {
         return BitsGeneric<T>();
@@ -667,7 +654,7 @@ BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount) {
             new_value += (lhs.values_[i + num_blocks_shift + 1] >> (64 - shift_remainder));
         }
         uint8_t new_length;
-        if (i == (uint32_t)lhs.values_.size() - 1) {
+        if (i == (uint32_t) lhs.values_.size() - 1) {
             new_length = lhs.last_size_;
         } else {
             new_length = 64;
@@ -677,7 +664,7 @@ BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount) {
     return result;
 }
 
-template <class T>
+template<class T>
 BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount) {
     if (lhs.GetSize() == 0) {
         return BitsGeneric<T>();
@@ -705,7 +692,6 @@ BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount) {
     }
     return result;
 }
-
 
 typedef std::vector<uint64_t> LargeVector;
 using Bits = BitsGeneric<SmallVector>;

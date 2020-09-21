@@ -29,20 +29,20 @@
 
 
 class QuickSort {
- public:
-    inline static void Sort(uint8_t* memory, uint32_t entry_len,
-                                uint64_t num_entries, uint32_t bits_begin) {
-        uint64_t memory_len = (uint64_t)entry_len * num_entries;
-        uint8_t * pivot_space = new uint8_t[entry_len];
+public:
+    inline static void Sort(uint8_t *memory, uint32_t entry_len,
+                            uint64_t num_entries, uint32_t bits_begin) {
+        uint64_t memory_len = (uint64_t) entry_len * num_entries;
+        uint8_t *pivot_space = new uint8_t[entry_len];
         SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries, pivot_space);
         delete[] pivot_space;
     }
 
- private:
+private:
     /*
      * Like memcmp, but only compares starting at a certain bit.
      */
-    inline static int MemCmpBits(uint8_t* left_arr, uint8_t* right_arr, uint32_t len, uint32_t bits_begin) {
+    inline static int MemCmpBits(uint8_t *left_arr, uint8_t *right_arr, uint32_t len, uint32_t bits_begin) {
         uint32_t start_byte = bits_begin / 8;
         uint8_t mask = ((1 << (8 - (bits_begin % 8))) - 1);
         if ((left_arr[start_byte] & mask) != (right_arr[start_byte] & mask)) {
@@ -56,9 +56,9 @@ class QuickSort {
         return 0;
     }
 
-    inline static void SortInner(uint8_t* memory, uint64_t memory_len,
-                                         uint32_t L, uint32_t bits_begin,
-                                         uint64_t begin, uint64_t end, uint8_t* pivot_space) {
+    inline static void SortInner(uint8_t *memory, uint64_t memory_len,
+                                 uint32_t L, uint32_t bits_begin,
+                                 uint64_t begin, uint64_t end, uint8_t *pivot_space) {
         if (end - begin <= 5) {
             for (uint64_t i = begin + 1; i < end; i++) {
                 uint64_t j = i;
@@ -69,7 +69,7 @@ class QuickSort {
                 }
                 memcpy(memory + j * L, pivot_space, L);
             }
-            return ;
+            return;
         }
 
         uint64_t lo = begin;

@@ -26,65 +26,73 @@
 #define NOMINMAX
 
 #include "../lib/include/filesystem.hh"
+
 namespace fs = ghc::filesystem;
+
 #include "./util.hpp"
 #include "./bits.hpp"
 
 
 class Disk {
- public:
-    virtual void Read(uint64_t begin, uint8_t* memcache, uint64_t length) = 0;
-    virtual void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) = 0;
+public:
+    virtual void Read(uint64_t begin, uint8_t *memcache, uint64_t length) = 0;
+
+    virtual void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) = 0;
+
     virtual void Truncate(uint64_t new_size) = 0;
+
     virtual std::string GetFileName() = 0;
+
     virtual ~Disk() {};
 };
 
 class FileDisk : public Disk {
- public:
-    inline explicit FileDisk(const fs::path& filename) {
+public:
+    inline explicit FileDisk(const fs::path &filename) {
         filename_ = filename;
 
         // Opens the file for reading and writing
-        f_=fopen(filename.c_str(), "w+b");
+        f_ = fopen(filename.c_str(), "w+b");
     }
 
-    FileDisk(FileDisk&& fd) {
+    FileDisk(FileDisk &&fd) {
         filename_ = fd.filename_;
         f_ = fd.f_;
         fd.f_ = NULL;
     }
 
     bool isOpen() {
-       return (f_!=NULL);
+        return (f_ != NULL);
     }
 
     void Close() {
-        if(f_!=NULL)
+        if (f_ != NULL)
             fclose(f_);
     }
 
     ~FileDisk() {
-        if(f_!=NULL)
+        if (f_ != NULL)
             fclose(f_);
     }
 
-    inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
+    inline void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override {
         // Seek, read, and replace into memcache
         uint64_t amtread;
         do {
-            if((!bReading)||(begin!=readPos)) {
+            if ((!bReading) || (begin != readPos)) {
 #ifdef WIN32
                 _fseeki64(f_,begin,SEEK_SET);
 #else
                 fseek(f_, begin, SEEK_SET);
 #endif
-                bReading=true;
+                bReading = true;
             }
-            amtread = fread(reinterpret_cast<char*>(memcache), sizeof(uint8_t), length, f_);
-            readPos=begin + amtread;
-            if(amtread != length) {
-                std::cout << "Only read " << amtread << " of " << length << " bytes at offset " << begin << " from " << filename_ << "with length " << writeMax << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+            amtread = fread(reinterpret_cast<char *>(memcache), sizeof(uint8_t), length, f_);
+            readPos = begin + amtread;
+            if (amtread != length) {
+                std::cout << "Only read " << amtread << " of " << length << " bytes at offset " << begin << " from "
+                          << filename_ << "with length " << writeMax << ". Error " << ferror(f_)
+                          << ". Retrying in five minutes." << std::endl;
 #ifdef WIN32
                 Sleep(5 * 60000);
 #else
@@ -94,24 +102,26 @@ class FileDisk : public Disk {
         } while (amtread != length);
     }
 
-    inline void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
+    inline void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) override {
         // Seek and write from memcache
         uint64_t amtwritten;
         do {
-            if((bReading)||(begin!=writePos)) {
+            if ((bReading) || (begin != writePos)) {
 #ifdef WIN32
                 _fseeki64(f_,begin,SEEK_SET);
 #else
                 fseek(f_, begin, SEEK_SET);
 #endif
-                bReading=false;
+                bReading = false;
             }
-            amtwritten = fwrite(reinterpret_cast<const char*>(memcache), sizeof(uint8_t), length, f_);
-            writePos=begin+amtwritten;
-            if(writePos > writeMax)
+            amtwritten = fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
+            writePos = begin + amtwritten;
+            if (writePos > writeMax)
                 writeMax = writePos;
-            if(amtwritten != length) {
-                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset " << begin << " to " << filename_ << "with length " << writeMax << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+            if (amtwritten != length) {
+                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset " << begin << " to "
+                          << filename_ << "with length " << writeMax << ". Error " << ferror(f_)
+                          << ". Retrying in five minutes." << std::endl;
 #ifdef WIN32
                 Sleep(5 * 60000);
 #else
@@ -130,19 +140,21 @@ class FileDisk : public Disk {
     }
 
     inline void Truncate(uint64_t new_size) override {
-        if(f_!=NULL)
+        if (f_ != NULL)
             fclose(f_);
         fs::resize_file(filename_, new_size);
-        f_=fopen(filename_.c_str(), "r+b");
+        f_ = fopen(filename_.c_str(), "r+b");
     }
- private:
-    FileDisk(const FileDisk&);
-    FileDisk& operator=(const FileDisk&);
 
-    uint64_t readPos=0;
-    uint64_t writePos=0;
-    uint64_t writeMax=0;
-    bool bReading=true;
+private:
+    FileDisk(const FileDisk &);
+
+    FileDisk &operator=(const FileDisk &);
+
+    uint64_t readPos = 0;
+    uint64_t writePos = 0;
+    uint64_t writeMax = 0;
+    bool bReading = true;
 
     fs::path filename_;
     FILE *f_;

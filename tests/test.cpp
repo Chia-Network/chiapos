@@ -12,31 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <set>
 #include <stdio.h>
+
+#include <set>
+
 #include "../lib/include/catch.hpp"
 #include "../lib/include/picosha2.hpp"
-
 #include "calculate_bucket.hpp"
-#include "plotter_disk.hpp"
+#include "encoding.hpp"
 #include "disk.hpp"
 #include "sort_on_disk.hpp"
 #include "fast_sort_on_disk.hpp"
+#include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
-#include "encoding.hpp"
 
 using namespace std;
 
-uint8_t plot_id_1[] = {35, 2, 52, 4, 51, 55, 23, 84, 91, 10, 111, 12, 13,
-                       222, 151, 16, 228, 211, 254, 45, 92, 198, 204, 10, 9, 10,
-                       11, 129, 139, 171, 15, 23};
+uint8_t plot_id_1[] = {35,  2,   52,  4,  51, 55,  23,  84, 91, 10, 111, 12,  13,  222, 151, 16,
+                       228, 211, 254, 45, 92, 198, 204, 10, 9,  10, 11,  129, 139, 171, 15,  23};
 
-uint8_t plot_id_3[] = {5, 104, 52, 4, 51, 55, 23, 84, 91, 10, 111, 12, 13,
-                       222, 151, 16, 228, 211, 254, 45, 92, 198, 204, 10, 9, 10,
-                       11, 129, 139, 171, 15, 23};
+uint8_t plot_id_3[] = {5,   104, 52,  4,  51, 55,  23,  84, 91, 10, 111, 12,  13,  222, 151, 16,
+                       228, 211, 254, 45, 92, 198, 204, 10, 9,  10, 11,  129, 139, 171, 15,  23};
 
-vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
+vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
+{
     vector<unsigned char> arrayOfByte(numBytes, 0);
     for (uint32_t i = 0; paramInt > 0; i++) {
         arrayOfByte[numBytes - i - 1] = paramInt & 0xff;
@@ -45,13 +45,12 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
     return arrayOfByte;
 }
 
-static uint128_t to_uint128(uint64_t hi, uint64_t lo)
-{
-    return (uint128_t)hi << 64 | lo;
-}
+static uint128_t to_uint128(uint64_t hi, uint64_t lo) { return (uint128_t)hi << 64 | lo; }
 
-TEST_CASE("Util") {
-    SECTION("Increment and decrement") {
+TEST_CASE("Util")
+{
+    SECTION("Increment and decrement")
+    {
         uint8_t bytes[3] = {45, 172, 225};
         REQUIRE(Util::SliceInt64FromBytes(bytes, 2, 19) == 374172);
         uint8_t bytes2[1] = {213};
@@ -71,8 +70,10 @@ TEST_CASE("Util") {
     }
 }
 
-TEST_CASE("Bits") {
-    SECTION("Increment and decrement") {
+TEST_CASE("Bits")
+{
+    SECTION("Increment and decrement")
+    {
         Bits a = Bits(5, 3);
         Bits b = Bits(2, 10);
         cout << "A is: " << a << endl;
@@ -105,7 +106,8 @@ TEST_CASE("Bits") {
         cout << e + f + e + d << endl;
     }
 
-    SECTION("Slicing and manipulating") {
+    SECTION("Slicing and manipulating")
+    {
         Bits g = Bits(13271, 15);
         cout << "G: " << g << endl;
         cout << "G Slice: " << g.Slice(4, 9) << endl;
@@ -117,16 +119,19 @@ TEST_CASE("Bits") {
 
         uint8_t bytes[2];
         g.ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1]) << endl;
+        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
+             << endl;
         cout << "Back to Bits: " << Bits(bytes, 2, 16) << endl;
 
         Bits(256, 9).ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1]) << endl;
+        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
+             << endl;
         cout << "Back to Bits: " << Bits(bytes, 2, 16) << endl;
 
         cout << Bits(640, 11) << endl;
         Bits(640, 11).ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1]) << endl;
+        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
+             << endl;
 
         Bits h = Bits(bytes, 2, 16);
         Bits i = Bits(bytes, 2, 17);
@@ -194,12 +199,13 @@ TEST_CASE("Bits") {
         REQUIRE(a.Trunc(60) == Bits(0x924069578d89abeULL, 60));
         REQUIRE(b.Trunc(99) == Bits(to_uint128(0x1c33572c8ULL, 0x8a2b75bbdbb73f73ULL), 99));
     }
-    SECTION("Park Bits") {
+    SECTION("Park Bits")
+    {
         uint32_t num_bytes = 16000;
         uint8_t* buf = new uint8_t[num_bytes];
         uint8_t* buf_2 = new uint8_t[num_bytes];
         Util::GetRandomBytes(buf, num_bytes);
-        ParkBits my_bits = ParkBits(buf, num_bytes, num_bytes*8);
+        ParkBits my_bits = ParkBits(buf, num_bytes, num_bytes * 8);
         my_bits.ToBytes(buf_2);
         for (uint32_t i = 0; i < num_bytes; i++) {
             REQUIRE(buf[i] == buf_2[i]);
@@ -208,12 +214,13 @@ TEST_CASE("Bits") {
         delete[] buf_2;
     }
 
-    SECTION("Large Bits") {
+    SECTION("Large Bits")
+    {
         uint32_t num_bytes = 200000;
         uint8_t* buf = new uint8_t[num_bytes];
         uint8_t* buf_2 = new uint8_t[num_bytes];
         Util::GetRandomBytes(buf, num_bytes);
-        LargeBits my_bits = LargeBits(buf, num_bytes, num_bytes*8);
+        LargeBits my_bits = LargeBits(buf, num_bytes, num_bytes * 8);
         my_bits.ToBytes(buf_2);
         for (uint32_t i = 0; i < num_bytes; i++) {
             REQUIRE(buf[i] == buf_2[i]);
@@ -224,25 +231,27 @@ TEST_CASE("Bits") {
 }
 
 class FakeDisk : public Disk {
- public:
-    explicit FakeDisk(uint32_t size) : s(size, 'a') {
+public:
+    explicit FakeDisk(uint32_t size) : s(size, 'a')
+    {
         f_ = std::stringstream(s, std::ios_base::in | std::ios_base::out);
     }
 
-    ~FakeDisk() {
+    ~FakeDisk() {}
 
-    }
-
-    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override {
+    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
+    {
         f_.seekg(begin);
         f_.read(reinterpret_cast<char*>(memcache), length);
     }
 
-    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override {
+    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override
+    {
         f_.seekp(begin);
         f_.write(reinterpret_cast<const char*>(memcache), length);
     }
-    void Truncate(uint64_t new_size) override {
+    void Truncate(uint64_t new_size) override
+    {
         if (new_size <= s.size()) {
             s = s.substr(0, new_size);
         } else {
@@ -253,15 +262,17 @@ class FakeDisk : public Disk {
         return "fakedisk";
     }
 
- private:
+private:
     std::string s;
     std::stringstream f_;
 };
 
-bool CheckMatch(int64_t yl, int64_t yr) {
+bool CheckMatch(int64_t yl, int64_t yr)
+{
     int64_t bl = yl / kBC;
     int64_t br = yr / kBC;
-    if (bl + 1 != br) return false;  // Buckets don't match
+    if (bl + 1 != br)
+        return false;  // Buckets don't match
     for (int64_t m = 0; m < kExtraBitsPow; m++) {
         if ((((yr % kBC) / kC - ((yl % kBC) / kC)) - m) % kB == 0) {
             int64_t c_diff = 2 * m + bl % 2;
@@ -277,7 +288,8 @@ bool CheckMatch(int64_t yl, int64_t yr) {
 
 // Get next set in the Cartesian product of k ranges of [0, n - 1], similar to
 // k nested 'for' loops from 0 to n - 1
-static int CartProdNext(uint8_t *items, uint8_t n, uint8_t k, bool init) {
+static int CartProdNext(uint8_t* items, uint8_t n, uint8_t k, bool init)
+{
     uint8_t i;
 
     if (init) {
@@ -301,11 +313,10 @@ static int CartProdNext(uint8_t *items, uint8_t n, uint8_t k, bool init) {
     return 0;
 }
 
-static int sq(int n) {
-    return n * n;
-}
+static int sq(int n) { return n * n; }
 
-static bool Have4Cycles(uint32_t extraBits, int B, int C) {
+static bool Have4Cycles(uint32_t extraBits, int B, int C)
+{
     uint8_t m[4];
     bool init = true;
 
@@ -318,9 +329,9 @@ static bool Have4Cycles(uint32_t extraBits, int B, int C) {
             uint8_t p[2];
             bool initp = true;
 
-            while(!CartProdNext(p, 2, 2, initp)) {
+            while (!CartProdNext(p, 2, 2, initp)) {
                 uint8_t p1 = p[0], p2 = p[1];
-                int lhs = sq(2*r1 + p1) - sq(2*s1 + p1) + sq(2*r2 + p2) - sq(2*s2 + p2);
+                int lhs = sq(2 * r1 + p1) - sq(2 * s1 + p1) + sq(2 * r2 + p2) - sq(2 * s2 + p2);
 
                 initp = false;
                 if (lhs % C == 0) {
@@ -334,31 +345,32 @@ static bool Have4Cycles(uint32_t extraBits, int B, int C) {
     return false;
 }
 
-TEST_CASE("Matching function") {
-    SECTION("Cycles") {
-        REQUIRE(!Have4Cycles(kExtraBits, kB, kC));
-    }
+TEST_CASE("Matching function")
+{
+    SECTION("Cycles") { REQUIRE(!Have4Cycles(kExtraBits, kB, kC)); }
 }
 
 void VerifyFC(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_t y, uint64_t c)
 {
-    uint8_t sizes[] = { 1, 2, 4, 4, 3, 2 };
+    uint8_t sizes[] = {1, 2, 4, 4, 3, 2};
     uint8_t size = sizes[t - 2];
     FxCalculator fcalc(k, t);
 
-    std::pair<Bits, Bits> res = fcalc.CalculateBucket(Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
+    std::pair<Bits, Bits> res = fcalc.CalculateBucket(
+        Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
     REQUIRE(res.first.GetValue() == y);
     if (c) {
         REQUIRE(res.second.GetValue() == c);
     }
 }
 
-TEST_CASE("F functions") {
-    SECTION("F1") {
+TEST_CASE("F functions")
+{
+    SECTION("F1")
+    {
         uint8_t test_k = 35;
-        uint8_t test_key[] = {0, 2, 3, 4, 5, 5, 7, 8, 9, 10, 11, 12, 13,
-                        14, 15, 16, 1, 2, 3, 41, 5, 6, 7, 8, 9, 10,
-                        11, 12, 13, 11, 15, 16};
+        uint8_t test_key[] = {0, 2, 3, 4,  5, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                              1, 2, 3, 41, 5, 6, 7, 8, 9, 10, 11, 12, 13, 11, 15, 16};
         F1Calculator f1(test_k, test_key);
 
         Bits L = Bits(525, test_k);
@@ -391,10 +403,11 @@ TEST_CASE("F functions") {
         REQUIRE(result4 == results[490]);
     }
 
-    SECTION("F2") {
-        uint8_t test_key_2[] = {20, 2, 5, 4, 51, 52, 23, 84, 91, 10, 111, 12, 13,
-                            24, 151, 16, 228, 211, 254, 45, 92, 198, 204, 10, 9, 10,
-                            11, 129, 139, 171, 15, 18};
+    SECTION("F2")
+    {
+        uint8_t test_key_2[] = {20,  2,  5,  4,   51, 52,  23,  84,  91, 10, 111,
+                                12,  13, 24, 151, 16, 228, 211, 254, 45, 92, 198,
+                                204, 10, 9,  10,  11, 129, 139, 171, 15, 18};
         map<uint64_t, vector<pair<Bits, Bits>>> buckets;
 
         uint8_t k = 12;
@@ -402,7 +415,7 @@ TEST_CASE("F functions") {
         Bits x = Bits(0, k);
 
         F1Calculator f1(k, test_key_2);
-        for (uint32_t j=0; j < (1ULL << (k-4)) + 1; j++) {
+        for (uint32_t j = 0; j < (1ULL << (k - 4)) + 1; j++) {
             for (auto pair : f1.CalculateBuckets(x, 1U << 4)) {
                 uint64_t bucket = std::get<0>(pair).GetValue() / kBC;
                 if (buckets.find(bucket) == buckets.end()) {
@@ -423,7 +436,7 @@ TEST_CASE("F functions") {
         int total_matches = 0;
 
         for (auto kv : buckets) {
-            if (kv.first == num_buckets- 1) {
+            if (kv.first == num_buckets - 1) {
                 continue;
             }
             auto bucket_elements_2 = buckets[kv.first + 1];
@@ -439,14 +452,16 @@ TEST_CASE("F functions") {
                 e.y = get<0>(yx2).GetValue();
                 right_bucket.push_back(e);
             }
-            sort(left_bucket.begin(), left_bucket.end(), [](const PlotEntry & a, const PlotEntry & b) -> bool {
-                return a.y > b.y;
-            });
-            sort(right_bucket.begin(), right_bucket.end(), [](const PlotEntry & a, const PlotEntry & b) -> bool {
-                return a.y > b.y;
-            });
+            sort(
+                left_bucket.begin(),
+                left_bucket.end(),
+                [](const PlotEntry& a, const PlotEntry& b) -> bool { return a.y > b.y; });
+            sort(
+                right_bucket.begin(),
+                right_bucket.end(),
+                [](const PlotEntry& a, const PlotEntry& b) -> bool { return a.y > b.y; });
 
-            vector<pair<uint16_t, uint16_t> > matches = f2.FindMatches(left_bucket, right_bucket);
+            vector<pair<uint16_t, uint16_t>> matches = f2.FindMatches(left_bucket, right_bucket);
             for (auto match : matches) {
                 REQUIRE(CheckMatch(left_bucket[match.first].y, right_bucket[match.second].y));
             }
@@ -456,13 +471,16 @@ TEST_CASE("F functions") {
         REQUIRE(total_matches < (1 << k) * 2);
     }
 
-    SECTION("Fx") {
+    SECTION("Fx")
+    {
         VerifyFC(2, 16, 0x44cb, 0x204f, 0x20a61a, 0x2af546, 0x44cb204f);
         VerifyFC(2, 16, 0x3c5f, 0xfda9, 0x3988ec, 0x15293b, 0x3c5ffda9);
         VerifyFC(3, 16, 0x35bf992d, 0x7ce42c82, 0x31e541, 0xf73b3, 0x35bf992d7ce42c82);
         VerifyFC(3, 16, 0x7204e52d, 0xf1fd42a2, 0x28a188, 0x3fb0b5, 0x7204e52df1fd42a2);
-        VerifyFC(4, 16, 0x5b6e6e307d4bedc, 0x8a9a021ea648a7dd, 0x30cb4c, 0x11ad5, 0xd4bd0b144fc26138);
-        VerifyFC(4, 16, 0xb9d179e06c0fd4f5, 0xf06d3fef701966a0, 0x1dd5b6, 0xe69a2, 0xd02115f512009d4d);
+        VerifyFC(
+            4, 16, 0x5b6e6e307d4bedc, 0x8a9a021ea648a7dd, 0x30cb4c, 0x11ad5, 0xd4bd0b144fc26138);
+        VerifyFC(
+            4, 16, 0xb9d179e06c0fd4f5, 0xf06d3fef701966a0, 0x1dd5b6, 0xe69a2, 0xd02115f512009d4d);
         VerifyFC(5, 16, 0xc2cd789a380208a9, 0x19999e3fa46d6753, 0x25f01e, 0x1f22bd, 0xabe423040a33);
         VerifyFC(5, 16, 0xbe3edc0a1ef2a4f0, 0x4da98f1d3099fdf5, 0x3feb18, 0x31501e, 0x7300a3a03ac5);
         VerifyFC(6, 16, 0xc965815a47c5, 0xf5e008d6af57, 0x1f121a, 0x1cabbe, 0xc8cc6947);
@@ -472,111 +490,110 @@ TEST_CASE("F functions") {
     }
 }
 
-void HexToBytes(const string& hex, uint8_t* result) {
+void HexToBytes(const string& hex, uint8_t* result)
+{
     for (unsigned int i = 0; i < hex.length(); i += 2) {
         string byteString = hex.substr(i, 2);
-        uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
-        result[i/2] = byte;
-  }
+        uint8_t byte = (uint8_t)strtol(byteString.c_str(), NULL, 16);
+        result[i / 2] = byte;
+    }
 }
 
+void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+{
+    DiskProver prover(filename);
+    uint8_t* proof_data = new uint8_t[8 * k];
+    uint32_t success = 0;
+    for (uint32_t i = 0; i < iterations; i++) {
+        vector<unsigned char> hash_input = intToBytes(i, 4);
+        vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+        vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
+        Verifier verifier = Verifier();
+        for (uint32_t index = 0; index < qualities.size(); index++) {
+            LargeBits proof = prover.GetFullProof(hash.data(), index);
+            proof.ToBytes(proof_data);
 
-void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id) {
-        DiskProver prover(filename);
-        uint8_t* proof_data = new uint8_t[8 * k];
-        uint32_t success = 0;
-        for (uint32_t i = 0; i < iterations; i++) {
-            vector<unsigned char> hash_input = intToBytes(i, 4);
-            vector<unsigned char> hash(picosha2::k_digest_size);
-            picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
-            Verifier verifier = Verifier();
-            for (uint32_t index = 0; index < qualities.size(); index++) {
-                LargeBits proof = prover.GetFullProof(hash.data(), index);
-                proof.ToBytes(proof_data);
+            LargeBits quality = verifier.ValidateProof(plot_id, k, hash.data(), proof_data, k * 8);
+            REQUIRE(quality.GetSize() == 256);
+            REQUIRE(quality == qualities[index]);
+            success += 1;
 
-                LargeBits quality = verifier.ValidateProof(plot_id, k, hash.data(), proof_data, k*8);
-                REQUIRE(quality.GetSize() == 256);
-                REQUIRE(quality == qualities[index]);
-                success += 1;
-
-                // Tests invalid proof
-                proof_data[0] = (proof_data[0] + 1) % 256;
-                LargeBits quality_2 = verifier.ValidateProof(plot_id, k, hash.data(), proof_data, k*8);
-                REQUIRE(quality_2.GetSize() == 0);
-            }
+            // Tests invalid proof
+            proof_data[0] = (proof_data[0] + 1) % 256;
+            LargeBits quality_2 =
+                verifier.ValidateProof(plot_id, k, hash.data(), proof_data, k * 8);
+            REQUIRE(quality_2.GetSize() == 0);
         }
-        std::cout << "Success: " << success << "/" << iterations << " " << (100* ((double)success/(double)iterations))
-                                 << "%" << std::endl;
-        REQUIRE(success > 0);
-        REQUIRE(success < iterations);
-        delete[] proof_data;
+    }
+    std::cout << "Success: " << success << "/" << iterations << " "
+              << (100 * ((double)success / (double)iterations)) << "%" << std::endl;
+    REQUIRE(success > 0);
+    REQUIRE(success < iterations);
+    delete[] proof_data;
 }
 
-
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id) {
-        DiskPlotter plotter = DiskPlotter();
-        uint8_t memo[5] = {1, 2, 3, 4, 5};
-        plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
-        TestProofOfSpace(filename, iterations, k, plot_id);
-        REQUIRE(remove(filename.c_str()) == 0);
+void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+{
+    DiskPlotter plotter = DiskPlotter();
+    uint8_t memo[5] = {1, 2, 3, 4, 5};
+    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
+    TestProofOfSpace(filename, iterations, k, plot_id);
+    REQUIRE(remove(filename.c_str()) == 0);
 }
 
-
-TEST_CASE("Plotting") {
-    SECTION("Disk plot 1") {
-        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1);
-    }
-    SECTION("Disk plot 2") {
-        PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3);
-    }
-    SECTION("Disk plot 3") {
-        PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3);
-    }
+TEST_CASE("Plotting")
+{
+    SECTION("Disk plot 1") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1); }
+    SECTION("Disk plot 2") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3); }
+    SECTION("Disk plot 3") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3); }
 }
 
-TEST_CASE("Invalid plot") {
-    SECTION("File gets deleted") {
+TEST_CASE("Invalid plot")
+{
+    SECTION("File gets deleted")
+    {
         string filename = "invalid-plot.dat";
         {
-        DiskPlotter plotter = DiskPlotter();
-        uint8_t memo[5] = {1, 2, 3, 4, 5};
-        uint8_t k = 22;
-        plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
-        DiskProver prover(filename);
-        uint8_t* proof_data = new uint8_t[8 * k];
-        uint8_t challenge[32];
-        size_t i;
-        memset(challenge, 155, 32);
-        vector<LargeBits> qualities;
-        for (i = 0; i < 50; i++) {
-            qualities = prover.GetQualitiesForChallenge(challenge);
-            if (qualities.size())
-                break;
-            challenge[0]++;
-        }
-        Verifier verifier = Verifier();
-        REQUIRE(qualities.size() > 0);
-        for (uint32_t index = 0; index < qualities.size(); index++) {
-            LargeBits proof = prover.GetFullProof(challenge, index);
-            proof.ToBytes(proof_data);
-            LargeBits quality = verifier.ValidateProof(plot_id_1, k, challenge, proof_data, k*8);
-            REQUIRE(quality == qualities[index]);
-        }
-        delete[] proof_data;
+            DiskPlotter plotter = DiskPlotter();
+            uint8_t memo[5] = {1, 2, 3, 4, 5};
+            uint8_t k = 22;
+            plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
+            DiskProver prover(filename);
+            uint8_t* proof_data = new uint8_t[8 * k];
+            uint8_t challenge[32];
+            size_t i;
+            memset(challenge, 155, 32);
+            vector<LargeBits> qualities;
+            for (i = 0; i < 50; i++) {
+                qualities = prover.GetQualitiesForChallenge(challenge);
+                if (qualities.size())
+                    break;
+                challenge[0]++;
+            }
+            Verifier verifier = Verifier();
+            REQUIRE(qualities.size() > 0);
+            for (uint32_t index = 0; index < qualities.size(); index++) {
+                LargeBits proof = prover.GetFullProof(challenge, index);
+                proof.ToBytes(proof_data);
+                LargeBits quality =
+                    verifier.ValidateProof(plot_id_1, k, challenge, proof_data, k * 8);
+                REQUIRE(quality == qualities[index]);
+            }
+            delete[] proof_data;
         }
         REQUIRE(remove(filename.c_str()) == 0);
-        REQUIRE_THROWS_WITH([&](){
-            DiskProver p(filename);
-        }(), "Invalid file " + filename);
+        REQUIRE_THROWS_WITH([&]() { DiskProver p(filename); }(), "Invalid file " + filename);
     }
 }
 
-TEST_CASE("Sort on disk") {
-    SECTION("ExtractNum") {
-        for (int i=0; i < 15*8 - 5; i++) {
+TEST_CASE("Sort on disk")
+{
+    SECTION("ExtractNum")
+    {
+        for (int i = 0; i < 15 * 8 - 5; i++) {
             uint8_t buf[15];
-            Bits((uint128_t)27 << i, 15*8).ToBytes(buf);
+            Bits((uint128_t)27 << i, 15 * 8).ToBytes(buf);
 
             REQUIRE(Util::ExtractNum(buf, 15, 15*8 - 4 - i, 3) == 5);
         }
@@ -585,7 +602,8 @@ TEST_CASE("Sort on disk") {
         REQUIRE(Util::ExtractNum(buf, 16, 100, 200) == 864);
     }
 
-    SECTION("MemCmpBits") {
+    SECTION("MemCmpBits")
+    {
         uint8_t left[3];
         left[0] = 12;
         left[1] = 10;
@@ -613,7 +631,8 @@ TEST_CASE("Sort on disk") {
         REQUIRE(Util::MemCmpBits(left, right, 3, 0) < 0);
     }
 
-    SECTION("Quicksort") {
+    SECTION("Quicksort")
+    {
         uint32_t iters = 100;
         vector<string> hashes;
         uint8_t* hashes_bytes = new uint8_t[iters * 16];
@@ -639,7 +658,8 @@ TEST_CASE("Sort on disk") {
         delete[] hashes_bytes;
     }
 
-    SECTION("Fake disk") {
+    SECTION("Fake disk")
+    {
         FakeDisk d = FakeDisk(10000);
         uint8_t buf[5] = {1, 2, 3, 5, 7};
         d.Write(250, buf, 5);
@@ -650,7 +670,8 @@ TEST_CASE("Sort on disk") {
         REQUIRE(memcmp(buf, read_buf, 5) == 0);
     }
 
-    SECTION("File disk") {
+    SECTION("File disk")
+    {
         FileDisk d = FileDisk("test_file.bin");
         uint8_t buf[5] = {1, 2, 3, 5, 7};
         d.Write(250, buf, 5);
@@ -662,7 +683,8 @@ TEST_CASE("Sort on disk") {
         remove("test_file.bin");
     }
 
-    SECTION("Bucket store") {
+    SECTION("Bucket store")
+    {
         uint32_t iters = 10000;
         uint32_t size = 16;
         vector<Bits> input;
@@ -672,7 +694,7 @@ TEST_CASE("Sort on disk") {
             for (uint32_t i = 0; i < size; i++) {
                 rand_arr[i] = rand() % 256;
             }
-            input.push_back(Bits(rand_arr, size, size*8));
+            input.push_back(Bits(rand_arr, size, size * 8));
         }
 
         set<Bits> iset(input.begin(), input.end());
@@ -700,7 +722,7 @@ TEST_CASE("Sort on disk") {
                 last_size = 64;
             for (uint32_t i = 0; i < final_size; i += entry_size) {
                 Sorting::EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
-                Bits x(buf, size, size*8);
+                Bits x(buf, size, size * 8);
                 REQUIRE(iset.find(x) != iset.end());
                 REQUIRE(Util::ExtractNum((uint8_t*)buf, size, 0, 4) == m);
                 output.push_back(x);
@@ -776,20 +798,21 @@ TEST_CASE("Sort on disk") {
         delete[] memory;
     }
 
-    SECTION("Sort in Memory") {
+    SECTION("Sort in Memory")
+    {
         uint32_t iters = 100000;
         uint32_t size = 32;
         vector<Bits> input;
         uint32_t begin = 1000;
         FakeDisk disk = FakeDisk(5000000);
 
-        for (uint32_t i = 0; i < iters; i ++) {
+        for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
             hash[0] = hash[1] = 0;
             disk.Write(begin + i * size, hash.data(), size);
-            input.emplace_back(Bits(hash.data(), size, size*8));
+            input.emplace_back(Bits(hash.data(), size, size * 8));
         }
 
         const uint32_t memory_len = Util::RoundSize(iters) * 30;
@@ -807,5 +830,4 @@ TEST_CASE("Sort on disk") {
 
         delete[] memory;
     }
-
 }

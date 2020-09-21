@@ -32,9 +32,11 @@
 
 
 class UniformSort {
- public:
-    inline static void Sort(Disk& input_disk, Disk& output_disk, uint64_t input_disk_begin, uint64_t output_disk_begin, uint8_t* memory, uint32_t entry_len,
-                            uint64_t num_entries, uint32_t bits_begin) {
+public:
+    inline static void
+    Sort(Disk &input_disk, Disk &output_disk, uint64_t input_disk_begin, uint64_t output_disk_begin, uint8_t *memory,
+         uint32_t entry_len,
+         uint64_t num_entries, uint32_t bits_begin) {
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
         uint64_t memory_len = Util::RoundSize(num_entries) * entry_len_memory;
         auto swap_space = new uint8_t[entry_len];
@@ -45,9 +47,9 @@ class UniformSort {
         // The number of buckets needed (the smallest power of 2 greater than 2 * num_entries).
         while ((1ULL << bucket_length) < 2 * num_entries)
             bucket_length++;
-        memset(memory, 0, sizeof(memory[0])*memory_len);
+        memset(memory, 0, sizeof(memory[0]) * memory_len);
 
-        uint64_t read_pos=input_disk_begin;
+        uint64_t read_pos = input_disk_begin;
         uint64_t buf_size = 0;
         uint64_t buf_ptr = 0;
         uint64_t swaps = 0;
@@ -57,7 +59,7 @@ class UniformSort {
                 buf_size = std::min((uint64_t) BUF_SIZE / entry_len, num_entries - i);
                 buf_ptr = 0;
                 input_disk.Read(read_pos, buffer, buf_size * entry_len);
-                read_pos+=buf_size * entry_len;
+                read_pos += buf_size * entry_len;
                 if (!set_prefix) {
                     // We don't store the common prefix of all entries in memory, instead just append it every time
                     // in write buffer.
@@ -88,7 +90,7 @@ class UniformSort {
         uint64_t entries_written = 0;
         buf_size = 0;
         memset(buffer, 0, BUF_SIZE);
-        uint64_t write_pos=output_disk_begin;
+        uint64_t write_pos = output_disk_begin;
         // Search the memory buffer for occupied entries.
         for (uint64_t pos = 0; entries_written < num_entries && pos < memory_len; pos += entry_len_memory) {
             if (!IsPositionEmpty(memory + pos, entry_len_memory)) {
@@ -96,7 +98,7 @@ class UniformSort {
                 if (buf_size + entry_len >= BUF_SIZE) {
                     // Write buffer is full, write it and clean it.
                     output_disk.Write(write_pos, buffer, buf_size);
-                    write_pos+=buf_size;
+                    write_pos += buf_size;
                     entries_written += buf_size / entry_len;
                     buf_size = 0;
                 }
@@ -110,7 +112,7 @@ class UniformSort {
         // We still have some entries left in the write buffer, write them as well.
         if (buf_size > 0) {
             output_disk.Write(write_pos, buffer, buf_size);
-            write_pos+=buf_size;
+            write_pos += buf_size;
             entries_written += buf_size / entry_len;
         }
 
@@ -120,8 +122,8 @@ class UniformSort {
         delete[] common_prefix;
     }
 
- private:
-    inline static bool IsPositionEmpty(const uint8_t* memory, uint32_t entry_len) {
+private:
+    inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t entry_len) {
         for (uint32_t i = 0; i < entry_len; i++)
             if (memory[i] != 0)
                 return false;
