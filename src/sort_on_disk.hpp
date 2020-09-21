@@ -337,30 +337,36 @@ class Sorting {
             return 0;
         }
 
+
+
         // If we have enough memory to sort the entries, do it.
 
         // How much an entry occupies in memory, without the common prefix, in SortInMemory algorithm.
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
+        std::cout << "\t\tFor quicksort, need " + to_string(entry_len * total_size / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
+        std::cout << "\t\tFor the fast uniform sort, need " + to_string(Util::RoundSize(total_size) * entry_len_memory / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
+        std::cout << "\t\tHave " <<  to_string(entry_len * length / (1024.0 * 1024.0 * 1024.0)) + "GiB";
 
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (quicksort == 0 && Util::RoundSize(total_size) * entry_len_memory <= mem_len) {
+            std::cout << "\t\tDoing uniform sort" << std::endl;
             UniformSort::Sort(input_disk, output_disk, input_disk_begin, output_disk_begin, mem, entry_len, total_size, bits_begin);
             return 0;
         }
 
+
         // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform quicksort if it
         // fits in the memory (SortInMemory algorithm won't always perform well).
         if (total_size <= length) {
+            std::cout << "\t\tDoing QS" << std::endl;
             input_disk.Read(input_disk_begin, mem, total_size * entry_len);
             QuickSort::Sort(mem, entry_len, total_size, bits_begin);
             output_disk.Write(output_disk_begin, mem, total_size * entry_len);
             return 0;
         }
 
-        std::cout << "        Performing slow recursive sort due to not enough memory. For quicksort, need " + to_string(entry_len * total_size / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
-        std::cout << "        For the fast uniform sort, need " + to_string(Util::RoundSize(total_size) * entry_len_memory / (1024.0 * 1024.0 * 1024.0)) + "GiB." << std::endl;
-        std::cout << "        Only have " <<  to_string(entry_len * length / (1024.0 * 1024.0 * 1024.0)) + "GiB";
+        std::cout << "\t\tDoing slow recursive sort" << std::endl;
 
         std::vector<uint64_t> bucket_begins;
         bucket_begins.push_back(0);

@@ -418,14 +418,17 @@ class DiskPlotter {
                 break;
             }
         }
+        f1_start_time.PrintElapsed("F1 complete, time:");
+        Timer f1_sort_time;
+        std::cout << "\tSorting table 1" << std::endl;
         uint64_t end_of_file_i = sorting.ExecuteSort(memory, memorySize);
+        f1_sort_time.PrintElapsed("\tSort time: ");
 
         // A zero entry is the end of table symbol.
         memset(buf, 0x00, t1_entry_size_bytes);
         tmp_1_disks[1].Write(end_of_file_i, buf, t1_entry_size_bytes);
         table_sizes[1] = x + 1;
 
-        f1_start_time.PrintElapsed("F1 complete, Time = ");
 
         // Total number of entries in the current table (f1)
         uint64_t total_table_entries = ((uint64_t)1) << k;
@@ -731,6 +734,8 @@ class DiskPlotter {
             std::cout << "\tTotal matches: " << matches << ". Per bucket: "
                       << (matches / num_buckets) << std::endl;
 
+            computation_pass_timer.PrintElapsed("\tComputation pass time:");
+
             table_sizes[table_index] = left_writer_count + 1;
             if (table_index == 6) {
                 table_sizes[7] = right_writer_count + 1;
@@ -764,7 +769,6 @@ class DiskPlotter {
             memset(right_writer_buf, 0x00, right_entry_size_bytes);
             tmp_1_disks[table_index + 1].Write(right_writer, right_writer_buf, right_entry_size_bytes);
 
-            computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
 
             delete[] left_buf;
@@ -1010,7 +1014,7 @@ class DiskPlotter {
 
                             // If we are not taking up all the bits, make sure they are zeroed
                             if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
-                                memset(new_left_entry_buf, 0, left_entry_size_bytes);
+                                new_left_entry += Bits(0, left_entry_size_bytes * 8 - new_left_entry.GetSize());
                             }
                             sort_manager.AddToCache(new_left_entry);
                         } else {
@@ -1473,7 +1477,6 @@ class DiskPlotter {
             }
 
             computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
-            std::cout << "Added to cached "<< added_to_cache << std::endl;
 
             Timer sort_timer_2;
             std::cout << "\tRe-Sorting table " << int{table_index + 1} << std::endl;
