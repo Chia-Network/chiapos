@@ -123,6 +123,9 @@ PlotEntry GetLeftEntry(
     uint8_t pos_size)
 {
     PlotEntry left_entry;
+    left_entry.y = 0;
+    left_entry.read_posoffset = 0;
+    left_entry.left_metadata = 0;
     left_entry.right_metadata = 0;
 
     uint32_t ysize = (table_index == 7) ? k : k + kExtraBits;
