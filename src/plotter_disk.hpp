@@ -115,6 +115,44 @@ uint64_t g_right_writer_count;
 std::vector<uint64_t> g_right_bucket_sizes(kNumSortBuckets, 0);
 uint64_t g_matches;
 
+PlotEntry GetLeftEntry(
+    uint8_t table_index,
+    uint8_t* left_buf,
+    uint8_t k,
+    uint8_t metadata_size,
+    uint8_t pos_size)
+{
+    PlotEntry left_entry;
+    left_entry.right_metadata = 0;
+
+    uint32_t ysize = (table_index == 7) ? k : k + kExtraBits;
+
+    if (table_index == 1) {
+        // For table 1, we only have y and metadata
+        left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
+        left_entry.left_metadata =
+            Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
+    } else {
+        // For tables 2-6, we we also have pos and offset. We need to read this because
+        // this entry will be written again to the table without the y (and some entries
+        // are dropped).
+        left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, ysize);
+        left_entry.read_posoffset =
+            Util::SliceInt64FromBytes(left_buf, ysize, pos_size + kOffsetSize);
+        if (metadata_size <= 128) {
+            left_entry.left_metadata =
+                Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, metadata_size);
+        } else {
+            // Large metadatas that don't fit into 128 bits. (k > 32).
+            left_entry.left_metadata =
+                Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, 128);
+            left_entry.right_metadata = Util::SliceInt128FromBytes(
+                left_buf, ysize + pos_size + kOffsetSize + 128, metadata_size - 128);
+        }
+    }
+    return left_entry;
+}
+
 void* thread(void* arg)
 {
     THREADDATA* ptd = (THREADDATA*)arg;
@@ -170,8 +208,8 @@ void* thread(void* arg)
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
         uint64_t left_writer_count = 0;
-        uint64_t fake_left_writer_count = 0;
-        uint64_t fake_correction = 0xffffffffffffffff;
+        uint64_t stripe_left_writer_count = 0;
+        uint64_t stripe_start_correction = 0xffffffffffffffff;
         uint64_t right_writer_count = 0;
         uint64_t matches = 0;  // Total matches
 
@@ -203,50 +241,23 @@ void* thread(void* arg)
             bMatch = true;
             bStripePregamePair = true;
             bStripeStartPair = true;
-            fake_left_writer_count = 0;
-            fake_correction = 0;
+            stripe_left_writer_count = 0;
+            stripe_start_correction = 0;
         }
 
         while (pos < prevtableentries + 1) {
-            PlotEntry left_entry;
-            left_entry.right_metadata = 0;
-
             // Reads a left entry from disk
             (*ptmp_1_disks)[table_index].Read(left_reader, left_buf, entry_size_bytes);
-
             left_reader += entry_size_bytes;
 
-            if (table_index == 1) {
-                // For table 1, we only have y and metadata
-                left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
-                left_entry.left_metadata =
-                    Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
-            } else {
-                // For tables 2-6, we we also have pos and offset. We need to read this because
-                // this entry will be written again to the table without the y (and some entries
-                // are dropped).
-                left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
-                left_entry.read_posoffset =
-                    Util::SliceInt64FromBytes(left_buf, k + kExtraBits, pos_size + kOffsetSize);
-                if (metadata_size <= 128) {
-                    left_entry.left_metadata = Util::SliceInt128FromBytes(
-                        left_buf, k + kExtraBits + pos_size + kOffsetSize, metadata_size);
-                } else {
-                    // Large metadatas that don't fit into 128 bits. (k > 32).
-                    left_entry.left_metadata = Util::SliceInt128FromBytes(
-                        left_buf, k + kExtraBits + pos_size + kOffsetSize, 128);
-                    left_entry.right_metadata = Util::SliceInt128FromBytes(
-                        left_buf,
-                        k + kExtraBits + pos_size + kOffsetSize + 128,
-                        metadata_size - 128);
-                }
-            }
+            PlotEntry left_entry = GetLeftEntry(table_index, left_buf, k, metadata_size, pos_size);
+
             // This is not the pos that was read from disk,but the position of the entry we read,
             // within L table.
             left_entry.pos = pos;
             left_entry.used = false;
 
-            end_of_table = 
+            end_of_table =
                 (left_entry.y == 0 && left_entry.left_metadata == 0 &&
                  left_entry.right_metadata == 0);
             uint64_t y_bucket = left_entry.y / kBC;
@@ -261,14 +272,14 @@ void* thread(void* arg)
                     }
                 }
             }
-
-            // Keep reading left entries into bucket_L and R, until we run out of things
             if (!bMatch) {
-                fake_left_writer_count++;
-                R_position_base = fake_left_writer_count;
+                stripe_left_writer_count++;
+                R_position_base = stripe_left_writer_count;
                 pos++;
                 continue;
             }
+
+            // Keep reading left entries into bucket_L and R, until we run out of things
             if (y_bucket == bucket) {
                 bucket_L.emplace_back(std::move(left_entry));
             } else if (y_bucket == bucket + 1) {
@@ -325,7 +336,7 @@ void* thread(void* arg)
                     L_position_map = R_position_map;
                     R_position_map = tmp;
                     L_position_base = R_position_base;
-                    R_position_base = fake_left_writer_count;
+                    R_position_base = stripe_left_writer_count;
 
                     for (PlotEntry*& entry : not_dropped) {
                         // Rewrite left entry with just pos and offset, to reduce working space
@@ -342,11 +353,11 @@ void* thread(void* arg)
                         // to L so far. Since we only write entries in not_dropped, about 14% of
                         // entries are dropped.
                         R_position_map[entry->pos % position_map_size] =
-                            fake_left_writer_count - R_position_base;
+                            stripe_left_writer_count - R_position_base;
 
                         if (bStripeStartPair) {
-                            if (fake_correction == 0xffffffffffffffff) {
-                                fake_correction = fake_left_writer_count;
+                            if (stripe_start_correction == 0xffffffffffffffff) {
+                                stripe_start_correction = stripe_left_writer_count;
                             }
 
                             tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
@@ -356,7 +367,7 @@ void* thread(void* arg)
                             memset(tmp_buf, 0xff, compressed_entry_size_bytes);
                             new_left_entry.ToBytes(tmp_buf);
                         }
-                        fake_left_writer_count++;
+                        stripe_left_writer_count++;
                     }
 
                     // Two vectors to keep track of things from previous iteration and from this
@@ -506,39 +517,20 @@ void* thread(void* arg)
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
         for (int i = 0; i < right_writer_count; i++) {
-            PlotEntry left_entry;
-
             uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
 
-            left_entry.y =
-                Util::SliceInt64FromBytes(right_writer_buf + i * right_entry_size_bytes, 0, ysize);
-            uint64_t position = Util::SliceInt64FromBytes(
-                right_writer_buf + i * right_entry_size_bytes, ysize, pos_size);
-            uint64_t offset = Util::SliceInt64FromBytes(
-                right_writer_buf + i * right_entry_size_bytes, ysize + pos_size, kOffsetSize);
-            if (right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize <= 128) {
-                left_entry.left_metadata = Util::SliceInt128FromBytes(
-                    right_writer_buf + i * right_entry_size_bytes,
-                    ysize + pos_size + kOffsetSize,
-                    right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize);
-            } else {
-                // Large metadatas that don't fit into 128 bits. (k > 32).
-                left_entry.left_metadata = Util::SliceInt128FromBytes(
-                    right_writer_buf + i * right_entry_size_bytes,
-                    ysize + pos_size + kOffsetSize,
-                    128);
-                left_entry.right_metadata = Util::SliceInt128FromBytes(
-                    right_writer_buf + i * right_entry_size_bytes,
-                    ysize + pos_size + kOffsetSize + 128,
-                    right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize - 128);
-            }
+            PlotEntry left_entry = GetLeftEntry(
+                table_index + 1,
+                right_writer_buf + i * right_entry_size_bytes,
+                k,
+                right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize,
+                pos_size);
 
-            position = position + g_left_writer_count - fake_correction;
+            left_entry.read_posoffset += (g_left_writer_count - stripe_start_correction) << (kOffsetSize);
 
             Bits new_entry;
             new_entry.AppendValue(left_entry.y, ysize);
-            new_entry.AppendValue(position, pos_size);
-            new_entry.AppendValue(offset, kOffsetSize);
+            new_entry.AppendValue(left_entry.read_posoffset, pos_size + kOffsetSize);
             if (right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize <= 128) {
                 new_entry.AppendValue(
                     left_entry.left_metadata,
@@ -652,9 +644,9 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0], (uint64_t)0));
+            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0], (uint64_t)0));
             for (int i = 1; i < 8; i++) {
-                uint64_t tablesize = ((uint64_t)1) << (k+1);
+                uint64_t tablesize = ((uint64_t)1) << (k + 1);
                 tablesize = tablesize * GetMaxEntrySize(k, i, true);
                 cout << "tablesize " << i << " " << tablesize << endl;
                 tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], tablesize));
