@@ -136,7 +136,7 @@ public:
                 sort_memory,
                 memory_len,
                 quicksort);
-
+            std::cout << "FInished executing sort" << std::endl;
             // Deletes the bucket file
             fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
 
