@@ -254,8 +254,10 @@ public:
 
     inline void Truncate(uint64_t new_size) override
     {
-        if (mem_ != 0)
+        if (mem_ != 0) {
+            writeMax=new_size;
             return;
+        }
 
         if (f_ != NULL)
             fclose(f_);

@@ -175,6 +175,7 @@ void* thread(void* arg)
         uint64_t left_reader = pos * entry_size_bytes;
     uint64_t left_writer_count = 0;
 uint64_t fake_left_writer_count = 0;
+uint64_t fake_correction=0xffffffffffffffff;
         uint64_t right_writer_count = 0;
         uint64_t matches = 0;       // Total matches
 
@@ -277,11 +278,11 @@ R_position_base=fake_left_writer_count;
                 continue;
             }
             if (y_bucket == bucket) {
-cout << pos << " bucket_L.emplace_back " << y_bucket << " " << bucket_L.size() << endl;
+//cout << pos << " bucket_L.emplace_back " << y_bucket << " " << bucket_L.size() << endl;
 
                 bucket_L.emplace_back(std::move(left_entry));
             } else if (y_bucket == bucket + 1) {
-cout << pos << " bucket_R.emplace_back " << y_bucket << " " << bucket_R.size() << endl;
+//cout << pos << " bucket_R.emplace_back " << y_bucket << " " << bucket_R.size() << endl;
 
                 bucket_R.emplace_back(std::move(left_entry));
             } else {
@@ -366,10 +367,17 @@ cout << "Rewrite left entry " << entry->pos << " " << bThree << endl;
 
 fake_left_writer_count++;
 
-if(!bThree) 
+if((bTwo)&&(fake_correction==0xffffffffffffffff))
+{
+cout << "fake_correction assigned " << fake_left_writer_count << endl;
+fake_correction=fake_left_writer_count-1;
+}
+
+if(!bTwo) 
 cout << "NOT WRITING!!!!!!" << endl;
 else
 {
+
                         tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
                                                         compressed_entry_size_bytes;
 
@@ -460,6 +468,8 @@ else
                         // Position in the previous table
                         new_entry.AppendValue(newlpos, pos_size);
 
+cout << "newlpos " << newlpos << endl;
+
                         // Offset for matching entry
                         if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
                             std::cout << "Offset: " << newrpos - newlpos << std::endl;
@@ -483,6 +493,7 @@ if(bTwo)
                         // Writes the new entry into the right table
                         new_entry.ToBytes(right_buf);
 
+cout << "fake_left_writer_count " << fake_left_writer_count << " newlpos " << newlpos << " ";
 print_buf(right_buf,right_entry_size_bytes);
 
                         // Computes sort bucket, so we can sort the table by y later, more
@@ -571,10 +582,10 @@ PlotEntry left_entry;
                         k + kExtraBits + pos_size + kOffsetSize + 128,
                         right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize - 128);
                 }
+if(i==0)
+cout << "adding " << g_left_writer_count << " minus fake_correction " << fake_correction << " to " << position << endl;
 
-cout << "adding " << g_left_writer_count << " to " << position << endl;
-
-position=position+g_left_writer_count;
+position=position+g_left_writer_count-fake_correction;
 
 Bits new_entry;
 new_entry.AppendValue(left_entry.y,k + kExtraBits);
@@ -1137,9 +1148,6 @@ g_right_writer_count=0;
 
             // end of parallel execution
 
-tmp_1_disks[2].Dump();
-exit(0);
-
             // Total matches found in the left table
             std::cout << "\tTotal matches: " << g_matches
                       << ". Per bucket: " << (g_matches / num_buckets) << std::endl;
@@ -1171,6 +1179,11 @@ exit(0);
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
+
+tmp_1_disks[1].Dump();
+tmp_1_disks[2].Dump();
+exit(0);
+
 /*
         for (int i=0; i<8; i++)
             tmp_1_disks[i].Dump();
@@ -1182,7 +1195,7 @@ exit(0);*/
 
         for (int i=0; i<8; i++)
             tmp_1_disks[i].Dump();
-        //exit(0);
+        exit(0);
         
         return table_sizes;
     }
