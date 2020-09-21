@@ -108,22 +108,7 @@ public:
 
         for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
             // Reads an entire bucket into memory
-            std::cout << "Total bytes reading into memory: "
-                      << to_string(
-                             this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0))
-                      << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0))
-                      << std::endl;
-            if (this->bucket_write_pointers[bucket_i] > this->memory_size) {
-                std::cout << "Not enough memory for sort in memory. Need to sort " +
-                                 to_string(
-                                     this->bucket_write_pointers[bucket_i] /
-                                     (1024.0 * 1024.0 * 1024.0)) +
-                                 "GiB"
-                          << std::endl;
-            }
-
-            // This actually sorts in memory if the entire data fits in our memory buffer (passes
-            // the above check)
+            // This actually sorts in memory if the entire data fits in our memory buffer
             Sorting::SortOnDisk(
                 this->bucket_files[bucket_i],
                 *this->output_file,
@@ -136,7 +121,6 @@ public:
                 sort_memory,
                 memory_len,
                 quicksort);
-            std::cout << "FInished executing sort" << std::endl;
 
             // Deletes the bucket file
             this->bucket_files[bucket_i].Close();

@@ -533,20 +533,21 @@ void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint
     delete[] proof_data;
 }
 
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, size_t b_size)
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
-    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
+    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32, b_size);
     TestProofOfSpace(filename, iterations, k, plot_id);
     REQUIRE(remove(filename.c_str()) == 0);
 }
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot 1") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1); }
-    SECTION("Disk plot 2") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3); }
-    SECTION("Disk plot 3") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3); }
+    SECTION("Disk plot 1") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1, 100); }
+    SECTION("Disk plot 2") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3, 100); }
+    SECTION("Disk plot 3") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100); }
+    SECTION("Disk plot 4 (low memory)") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 10); }
 }
 
 TEST_CASE("Invalid plot")
