@@ -116,10 +116,6 @@ public:
         mem_ = mem;
 
         if (mem_ != 0) {
-            buf = (uint8_t*)malloc((uint64_t)mem * 1024 * 1024);
-            if (buf == NULL)
-                std::cout << "Could not allocate memory for FileDisk" << std::endl;
-
             return;
         }
 
@@ -170,6 +166,7 @@ public:
     inline void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
     {
         if (mem_ != 0) {
+if (buf == NULL)exit(0);
             memcpy(memcache, &(buf[begin]), length);
             return;
         }
@@ -206,6 +203,11 @@ public:
 
 
         if (mem_ != 0) {
+if(buf==NULL) {
+            buf = (uint8_t*)malloc((uint64_t)mem_ * 1024 * 1024);
+            if (buf == NULL)
+                std::cout << "Could not allocate memory for FileDisk" << std::endl;
+}
             memcpy(&(buf[begin]), memcache, length);
             writePos = begin + length;
             if (writePos > writeMax)
@@ -256,6 +258,7 @@ public:
     {
         if (mem_ != 0) {
             writeMax=new_size;
+buf=(uint8_t *)realloc(buf,writeMax);
             return;
         }
 
@@ -279,7 +282,7 @@ private:
     FILE* f_;
 
 public:
-    uint8_t* buf;
+    uint8_t* buf=NULL;
 };
 
 // Store values bucketed by their leading bits into an array-like memcache.
