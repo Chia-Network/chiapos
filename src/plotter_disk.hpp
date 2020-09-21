@@ -91,7 +91,7 @@ int numCPU();
 }
 
 #define STRIPESIZE 4096
-#define NUMTHREADS 1 // (numCPU())
+#define NUMTHREADS (numCPU())
 
 typedef struct {
     int index;
@@ -210,6 +210,8 @@ uint64_t fut=0;
             bOne = true;
             bTwo = true;
             bThree = true;
+fake_left_writer_count=0;
+fake_correction=0;
 }
 
         cout << "pos " << pos << " prevtableentries " << prevtableentries << endl;
@@ -346,7 +348,7 @@ cout << " not_dropped " << not_dropped.size() << endl;
 
 {
                     for (PlotEntry*& entry : not_dropped) {
-cout << "Rewrite left entry " << entry->pos << " " << bThree << endl;
+//cout << "Rewrite left entry " << entry->pos << " " << bThree << endl;
                         // Rewrite left entry with just pos and offset, to reduce working space
                         if (table_index == 1) {
                             // Table 1 goes from (f1, x) to just (x)
@@ -356,6 +358,13 @@ cout << "Rewrite left entry " << entry->pos << " " << bThree << endl;
                             // offset)
                             new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
                         }
+/*if(table_index == 2)
+{
+cout << "entry->read_posoffset ";
+cout << entry->read_posoffset;
+cout << endl;
+}
+*/
 //cout << "left_writer_count " << left_writer_count << " left_buf_entries " << left_buf_entries << " compressed_entry_size_bytes " << compressed_entry_size_bytes << " tmp_buf " << (left_writer_count % left_buf_entries) *
 //                                                        compressed_entry_size_bytes << endl;
 
@@ -373,8 +382,9 @@ cout << "fake_correction assigned " << fake_left_writer_count << endl;
 fake_correction=fake_left_writer_count-1;
 }
 
-if(!bTwo) 
-cout << "NOT WRITING!!!!!!" << endl;
+if(!bTwo) {
+//cout << "NOT WRITING!!!!!!" << endl;
+;}
 else
 {
 
@@ -382,7 +392,13 @@ else
                                                         compressed_entry_size_bytes;
 
                         left_writer_count++;
+memset(tmp_buf,0xff,compressed_entry_size_bytes);
                         new_left_entry.ToBytes(tmp_buf);
+/*if(table_index == 2)
+{print_buf(tmp_buf,compressed_entry_size_bytes);
+cout << "!" <<  endl;
+}*/
+
 //cout << entry->left_metadata << " " << (int)k << endl;
 //cout << (int)(tmp_buf[0]) << " " << (int)(tmp_buf[1]) << endl;
 }
@@ -452,7 +468,7 @@ else
                         Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k)
                                                               : std::get<0>(f_output);
 
-			cout << "L_position_base " << L_position_base << " R_position_base " << R_position_base << endl;
+			//cout << "L_position_base " << L_position_base << " R_position_base " << R_position_base << endl;
 
                         // Maps the new positions. If we hit end of pos, we must write things in
                         // both final_entries to write and current_entries_to_write, which are
@@ -468,7 +484,7 @@ else
                         // Position in the previous table
                         new_entry.AppendValue(newlpos, pos_size);
 
-cout << "newlpos " << newlpos << endl;
+//cout << "newlpos " << newlpos << endl;
 
                         // Offset for matching entry
                         if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
@@ -480,7 +496,7 @@ cout << "newlpos " << newlpos << endl;
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
-cout << newrpos - newlpos << " what " << bThree << " ";
+//cout << newrpos - newlpos << " what " << bThree << " ";
 
 if(bTwo) 
 {
@@ -493,8 +509,8 @@ if(bTwo)
                         // Writes the new entry into the right table
                         new_entry.ToBytes(right_buf);
 
-cout << "fake_left_writer_count " << fake_left_writer_count << " newlpos " << newlpos << " ";
-print_buf(right_buf,right_entry_size_bytes);
+//cout << "fake_left_writer_count " << fake_left_writer_count << " newlpos " << newlpos << " ";
+//print_buf(right_buf,right_entry_size_bytes);
 
                         // Computes sort bucket, so we can sort the table by y later, more
                         // easily
@@ -553,9 +569,9 @@ print_buf(right_buf,right_entry_size_bytes);
         sem_wait(ptd->theirs);
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
-       cout << "g_right_writer " << g_right_writer << " right_writer_count " << right_writer_count << " right_buf_entries " << right_buf_entries << endl;
+       //cout << "g_right_writer " << g_right_writer << " right_writer_count " << right_writer_count << " right_buf_entries " << right_buf_entries << endl;
 
-print_buf(right_writer_buf,right_writer_count * right_entry_size_bytes);
+//print_buf(right_writer_buf,right_writer_count * right_entry_size_bytes);
 
 for(int i=0;i<right_writer_count;i++)
 {
@@ -563,24 +579,29 @@ PlotEntry left_entry;
 
 //cout << "k + kExtraBits " << k + kExtraBits << " pos_size " << (int)pos_size << " kOffsetSize " << kOffsetSize << " metadata_size " << (int)metadata_size << endl;
 
+uint32_t ysize=(table_index + 1 == 7)?k:k + kExtraBits;
 
-                left_entry.y = Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, 0, k + kExtraBits);
+                left_entry.y = Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, 0, ysize);
                 uint64_t position =
-                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, k + kExtraBits, pos_size );
+                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, ysize, pos_size );
                 uint64_t offset =
-                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, k + kExtraBits + pos_size, kOffsetSize );
-
-                if (right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize <= 128) {
+                    Util::SliceInt64FromBytes(right_writer_buf+i*right_entry_size_bytes, ysize + pos_size, kOffsetSize );
+/*if(table_index == 1)
+{
+cout << "pos " << position << endl;
+cout << "offset " << offset << endl;
+}*/
+                if (right_entry_size_bytes*8-ysize - pos_size - kOffsetSize <= 128) {
                     left_entry.left_metadata = Util::SliceInt128FromBytes( 
-                        right_writer_buf+i*right_entry_size_bytes, k + kExtraBits + pos_size + kOffsetSize, right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize);
+                        right_writer_buf+i*right_entry_size_bytes, ysize + pos_size + kOffsetSize, right_entry_size_bytes*8-ysize - pos_size - kOffsetSize);
                 } else {
                     // Large metadatas that don't fit into 128 bits. (k > 32).
                     left_entry.left_metadata = Util::SliceInt128FromBytes( 
-                        right_writer_buf+i*right_entry_size_bytes, k - kExtraBits - pos_size - kOffsetSize, 128);
+                        right_writer_buf+i*right_entry_size_bytes, ysize + pos_size + kOffsetSize, 128);
                     left_entry.right_metadata = Util::SliceInt128FromBytes(
                         right_writer_buf+i*right_entry_size_bytes,
-                        k + kExtraBits + pos_size + kOffsetSize + 128,
-                        right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize - 128);
+                        ysize + pos_size + kOffsetSize + 128,
+                        right_entry_size_bytes*8-ysize - pos_size - kOffsetSize - 128);
                 }
 if(i==0)
 cout << "adding " << g_left_writer_count << " minus fake_correction " << fake_correction << " to " << position << endl;
@@ -588,19 +609,30 @@ cout << "adding " << g_left_writer_count << " minus fake_correction " << fake_co
 position=position+g_left_writer_count-fake_correction;
 
 Bits new_entry;
-new_entry.AppendValue(left_entry.y,k + kExtraBits);
+new_entry.AppendValue(left_entry.y,ysize);
 new_entry.AppendValue(position,pos_size);
 new_entry.AppendValue(offset,kOffsetSize);
-if (right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize <= 128) {
-new_entry.AppendValue(left_entry.left_metadata,right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize);
+if (right_entry_size_bytes*8-ysize - pos_size - kOffsetSize <= 128) {
+new_entry.AppendValue(left_entry.left_metadata,right_entry_size_bytes*8-ysize - pos_size - kOffsetSize);
 } else {
 new_entry.AppendValue(left_entry.left_metadata,128);
-new_entry.AppendValue(left_entry.right_metadata,right_entry_size_bytes*8-k - kExtraBits - pos_size - kOffsetSize - 128);
+new_entry.AppendValue(left_entry.right_metadata,right_entry_size_bytes*8-ysize - pos_size - kOffsetSize - 128);
 }
 memset(right_writer_buf+i*right_entry_size_bytes,0x00,right_entry_size_bytes);
 new_entry.ToBytes(right_writer_buf+i*right_entry_size_bytes);
+/*print_buf(right_writer_buf+i*right_entry_size_bytes,right_entry_size_bytes);
+uint8_t wjboo[100];
 
-
+Bits test_entry;
+cout << endl << "position " << position << " pos_size " << (int)pos_size << endl;
+test_entry.AppendValue(position,pos_size);
+cout << "offset " << offset << " kOffsetSize " << (int)kOffsetSize << endl;
+test_entry.AppendValue(offset,kOffsetSize);
+test_entry.ToBytes(wjboo);
+cout << endl << "oo " << (pos_size+kOffsetSize+7)/8 << ": ";
+print_buf(wjboo,(pos_size+kOffsetSize+7)/8);
+cout << endl;
+*/
         (*ptmp_1_disks)[table_index + 1].Write(
             g_right_writer, right_writer_buf+i*right_entry_size_bytes, right_entry_size_bytes);
         g_right_writer += right_entry_size_bytes;
@@ -1179,11 +1211,11 @@ g_right_writer_count=0;
 
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
-
+/*
 tmp_1_disks[1].Dump();
 tmp_1_disks[2].Dump();
 exit(0);
-
+*/
 /*
         for (int i=0; i<8; i++)
             tmp_1_disks[i].Dump();
@@ -1195,7 +1227,7 @@ exit(0);*/
 
         for (int i=0; i<8; i++)
             tmp_1_disks[i].Dump();
-        exit(0);
+        //exit(0);
         
         return table_sizes;
     }
