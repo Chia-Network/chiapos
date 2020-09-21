@@ -33,7 +33,8 @@ std::map<double, FSE_DTable *> DT_MEMO = {};
 class Encoding {
 public:
     // Calculates x * (x-1) / 2. Division is done before multiplication.
-    static uint128_t GetXEnc(uint64_t x) {
+    static uint128_t GetXEnc(uint64_t x)
+    {
         uint64_t a = x, b = x - 1;
 
         if (a % 2 == 0)
@@ -41,7 +42,7 @@ public:
         else
             b /= 2;
 
-        return (uint128_t) a * b;
+        return (uint128_t)a * b;
     }
 
     // Encodes two max k bit values into one max 2k bit value. This can be thought of
@@ -50,7 +51,8 @@ public:
     // storing the differences between them. Representing numbers as pairs in two
     // dimensions limits the compression strategies that can be used.
     // The x and y here represent table positions in previous tables.
-    static uint128_t SquareToLinePoint(uint64_t x, uint64_t y) {
+    static uint128_t SquareToLinePoint(uint64_t x, uint64_t y)
+    {
         // Always makes y < x, which maps the random x, y  points from a square into a
         // triangle. This means less data is needed to represent y, since we know it's less
         // than x.
@@ -63,19 +65,21 @@ public:
 
     // Does the opposite as the above function, deterministicaly mapping a one dimensional
     // line point into a 2d pair. However, we do not recover the original ordering here.
-    static std::pair<uint64_t, uint64_t> LinePointToSquare(uint128_t index) {
+    static std::pair<uint64_t, uint64_t> LinePointToSquare(uint128_t index)
+    {
         // Performs a square root, without the use of doubles, to use the precision of the
         // uint128_t.
         uint64_t x = 0;
         for (int8_t i = 63; i >= 0; i--) {
-            uint64_t new_x = x + ((uint64_t) 1 << i);
+            uint64_t new_x = x + ((uint64_t)1 << i);
             if (GetXEnc(new_x) <= index)
                 x = new_x;
         }
         return std::pair<uint64_t, uint64_t>(x, index - GetXEnc(x));
     }
 
-    static std::vector<short> CreateNormalizedCount(double R) {
+    static std::vector<short> CreateNormalizedCount(double R)
+    {
         std::vector<double> dpdf;
         int N = 0;
         double E = 2.718281828459;
@@ -108,13 +112,14 @@ public:
 
         for (int i = 0; i < N; ++i) {
             if (ans[i] == 1) {
-                ans[i] = (short) -1;
+                ans[i] = (short)-1;
             }
         }
         return ans;
     }
 
-    static size_t ANSEncodeDeltas(std::vector<unsigned char> deltas, double R, uint8_t *out) {
+    static size_t ANSEncodeDeltas(std::vector<unsigned char> deltas, double R, uint8_t *out)
+    {
         if (CT_MEMO.find(R) == CT_MEMO.end()) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
@@ -131,10 +136,11 @@ public:
         }
 
         return FSE_compress_usingCTable(
-                out, deltas.size() * 8, static_cast<void *>(deltas.data()), deltas.size(), CT_MEMO[R]);
+            out, deltas.size() * 8, static_cast<void *>(deltas.data()), deltas.size(), CT_MEMO[R]);
     }
 
-    static void ANSFree(double R) {
+    static void ANSFree(double R)
+    {
         if (CT_MEMO.find(R) != CT_MEMO.end()) {
             FSE_freeCTable(CT_MEMO[R]);
             CT_MEMO.erase(R);
@@ -146,10 +152,11 @@ public:
     }
 
     static std::vector<uint8_t> ANSDecodeDeltas(
-            const uint8_t *inp,
-            size_t inp_size,
-            int numDeltas,
-            double R) {
+        const uint8_t *inp,
+        size_t inp_size,
+        int numDeltas,
+        double R)
+    {
         if (DT_MEMO.find(R) == DT_MEMO.end()) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
