@@ -147,6 +147,16 @@ public:
         return output_file_written;
     }
 
+    ~SortManager() {
+        // Close and delete files in case we exit without doing the sort
+        if (!this->done) {
+            for (auto &fd : this->bucket_files) {
+                fd.Close();
+                fs::remove(fs::path(fd.GetFileName()));
+            }
+        }
+    }
+
 private:
     inline void FlushCache()
     {
