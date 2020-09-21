@@ -1,4 +1,4 @@
-// Copyright 2018 ChiL_position_basea Network Inc
+// Copyright 2018 Chia Network Inc
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -184,8 +184,6 @@ void* thread(void* arg)
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
 
-        uint64_t fut = 0;
-
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
         uint64_t newlpos, newrpos;
@@ -346,11 +344,9 @@ void* thread(void* arg)
                         R_position_map[entry->pos % position_map_size] =
                             fake_left_writer_count - R_position_base;
 
-                        fake_left_writer_count++;
-
                         if (bStripeStartPair) {
                             if (fake_correction == 0xffffffffffffffff) {
-                                fake_correction = fake_left_writer_count - 1;
+                                fake_correction = fake_left_writer_count;
                             }
 
                             tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
@@ -360,6 +356,7 @@ void* thread(void* arg)
                             memset(tmp_buf, 0xff, compressed_entry_size_bytes);
                             new_left_entry.ToBytes(tmp_buf);
                         }
+                        fake_left_writer_count++;
                     }
 
                     // Two vectors to keep track of things from previous iteration and from this
@@ -397,7 +394,6 @@ void* thread(void* arg)
                                 std::make_tuple(L_entry, R_entry, f_output));
                         }
                     }
-                    fut = fut + future_entries_to_write.size();
 
                     // At this point, future_entries_to_write contains the matches of buckets L
                     // and R, and current_entries_to_write contains the matches of L and the
@@ -455,10 +451,6 @@ void* thread(void* arg)
 
                             // Writes the new entry into the right table
                             new_entry.ToBytes(right_buf);
-
-                            // cout << "fake_left_writer_count " << fake_left_writer_count << "
-                            // newlpos " << newlpos << " ";
-                            // print_buf(right_buf,right_entry_size_bytes);
 
                             // Computes sort bucket, so we can sort the table by y later, more
                             // easily
@@ -660,13 +652,13 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-            for (int i = 0; i < 7; i++) {
-                uint64_t tablesize = ((uint64_t)1) << (k + 1);
-                tablesize = tablesize * GetMaxEntrySize(k, i + 1, true);
-                cout << "tablesize " << i + 1 << " " << tablesize << endl;
+tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0], (uint64_t)0));
+            for (int i = 1; i < 8; i++) {
+                uint64_t tablesize = ((uint64_t)1) << (k+1);
+                tablesize = tablesize * GetMaxEntrySize(k, i, true);
+                cout << "tablesize " << i << " " << tablesize << endl;
                 tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], tablesize));
             }
-            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[7], (uint64_t)300 * 1024 * 1024));
 
             FileDisk tmp2_disk(tmp_2_filename);
             if (!tmp2_disk.isOpen()) {
