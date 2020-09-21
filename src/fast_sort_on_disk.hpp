@@ -164,6 +164,7 @@ private:
             uint64_t start_write = this->bucket_write_pointers[bucket_i];
             uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
 
+            std::cout << "Bucket " << bucket_i << " writing " << write_len << " bytes to " << start_write << std::endl;
             // Flush each bucket to disk
             bucket_files[bucket_i].Write(
                 start_write, this->mem_bucket_pointers[bucket_i], write_len);
