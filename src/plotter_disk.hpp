@@ -177,13 +177,12 @@ void* thread(void* arg)
 
         uint64_t ignorebucket = 0xffffffffffffffff;
         bool bMatch = false;
-        bool bFirst = false;
-        bool bSecond = false;
-        bool bThird = false;
+        bool bFirstStripeOvertimePair = false;
+        bool bSecondStripOvertimePair = false;
+        bool bThirdStripeOvertimePair = false;
 
-        bool bOne = false;
-        bool bTwo = false;
-        bool bThree = false;
+        bool bStripePregamePair = false;
+        bool bStripeStartPair = false;
 
         uint64_t fut = 0;
 
@@ -204,9 +203,8 @@ void* thread(void* arg)
 
         if (pos == 0) {
             bMatch = true;
-            bOne = true;
-            bTwo = true;
-            bThree = true;
+            bStripePregamePair = true;
+            bStripeStartPair = true;
             fake_left_writer_count = 0;
             fake_correction = 0;
         }
@@ -250,7 +248,7 @@ void* thread(void* arg)
             left_entry.pos = pos;
             left_entry.used = false;
 
-            end_of_table =  //( (pos >= endpos) && bFirst) ||
+            end_of_table = 
                 (left_entry.y == 0 && left_entry.left_metadata == 0 &&
                  left_entry.right_metadata == 0);
             uint64_t y_bucket = left_entry.y / kBC;
@@ -350,7 +348,7 @@ void* thread(void* arg)
 
                         fake_left_writer_count++;
 
-                        if (bTwo) {
+                        if (bStripeStartPair) {
                             if (fake_correction == 0xffffffffffffffff) {
                                 fake_correction = fake_left_writer_count - 1;
                             }
@@ -447,7 +445,7 @@ void* thread(void* arg)
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
-                        if (bTwo) {
+                        if (bStripeStartPair) {
                             right_buf =
                                 right_writer_buf +
                                 (right_writer_count % right_buf_entries) * right_entry_size_bytes;
@@ -471,24 +469,22 @@ void* thread(void* arg)
                 }
 
                 if (pos >= endpos) {
-                    if (!bFirst)
-                        bFirst = true;
-                    else if (!bSecond)
-                        bSecond = true;
-                    else if (!bThird)
-                        bThird = true;
+                    if (!bFirstStripeOvertimePair)
+                        bFirstStripeOvertimePair = true;
+                    else if (!bSecondStripOvertimePair)
+                        bSecondStripOvertimePair = true;
+                    else if (!bThirdStripeOvertimePair)
+                        bThirdStripeOvertimePair = true;
                     else {
                         bucket_L = std::vector<PlotEntry>();
                         bucket_R = std::vector<PlotEntry>();
                         break;
                     }
                 } else {
-                    if (!bOne)
-                        bOne = true;
-                    else if (!bTwo)
-                        bTwo = true;
-                    else if (!bThree)
-                        bThree = true;
+                    if (!bStripePregamePair)
+                        bStripePregamePair = true;
+                    else if (!bStripeStartPair)
+                        bStripeStartPair = true;
                 }
 
                 if (y_bucket == bucket + 2) {
