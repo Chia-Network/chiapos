@@ -40,8 +40,7 @@ struct SmallVector {
 
     void push_back(uint64_t value) { v_[count_++] = value; }
 
-    SmallVector &operator=(const SmallVector &other)
-    {
+    SmallVector &operator=(const SmallVector &other) {
         count_ = other.count_;
         for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
         return (*this);
@@ -69,8 +68,7 @@ struct ParkVector {
 
     void push_back(uint64_t value) { v_[count_++] = value; }
 
-    ParkVector &operator=(const ParkVector &other)
-    {
+    ParkVector &operator=(const ParkVector &other) {
         count_ = other.count_;
         for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
         return (*this);
@@ -96,31 +94,30 @@ private:
  * BitsGeneric<T> object into a BitsGeneric<SmallVector>.
  */
 
-template <class T>
+template<class T>
 class BitsGeneric {
 public:
-    template <class>
-    friend class BitsGeneric;
+    template<class>
+    friend
+    class BitsGeneric;
 
     BitsGeneric<T>() noexcept { this->last_size_ = 0; }
 
     // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0
     // bits at the beginning. i.e. Bits(5, 10) = 0000000101
-    BitsGeneric<T>(uint128_t value, uint32_t size)
-    {
+    BitsGeneric<T>(uint128_t value, uint32_t size) {
         if (size > 64) {
             // std::cout << "SPLITTING BitsGeneric" << std::endl;
             InitBitsGeneric(value >> 64, size - 64);
-            AppendValue((uint64_t)value, 64);
+            AppendValue((uint64_t) value, 64);
         } else {
-            InitBitsGeneric((uint64_t)value, size);
+            InitBitsGeneric((uint64_t) value, size);
         }
     }
 
     // Converts from unit64_t to Bits. If the number of bits of value is smaller than size, adds 0
     // bits at the beginning. i.e. Bits(5, 10) = 0000000101
-    void InitBitsGeneric(uint64_t value, uint32_t size)
-    {
+    void InitBitsGeneric(uint64_t value, uint32_t size) {
         this->last_size_ = 0;
         if (size > 64) {
             // Get number of extra 0s added at the beginning.
@@ -143,8 +140,7 @@ public:
 
     // Copy the content of another Bits object. If the size of the other Bits object is smaller
     // than 'size', adds 0 bits at the beginning.
-    BitsGeneric<T>(const BitsGeneric<T> &other, uint32_t size)
-    {
+    BitsGeneric<T>(const BitsGeneric<T> &other, uint32_t size) {
         uint32_t total_size = other.GetSize();
         this->last_size_ = 0;
         assert(size >= total_size);
@@ -165,8 +161,7 @@ public:
     }
 
     // Converts bytes to bits.
-    BitsGeneric<T>(const uint8_t *big_endian_bytes, uint32_t num_bytes, uint32_t size_bits)
-    {
+    BitsGeneric<T>(const uint8_t *big_endian_bytes, uint32_t num_bytes, uint32_t size_bits) {
         this->last_size_ = 0;
         uint32_t extra_space = size_bits - num_bytes * 8;
         while (extra_space >= 64) {
@@ -190,20 +185,17 @@ public:
     }
 
     BitsGeneric<T>(const BitsGeneric<T> &other) noexcept
-        : values_(other.values_), last_size_(other.last_size_)
-    {
+            : values_(other.values_), last_size_(other.last_size_) {
     }
 
-    BitsGeneric<T> &operator=(const BitsGeneric<T> &other)
-    {
+    BitsGeneric<T> &operator=(const BitsGeneric<T> &other) {
         values_ = other.values_;
         last_size_ = other.last_size_;
         return *this;
     }
 
     // Concatenates two Bits objects together.
-    BitsGeneric<T> operator+(const BitsGeneric<T> &b) const
-    {
+    BitsGeneric<T> operator+(const BitsGeneric<T> &b) const {
         BitsGeneric<T> result = *this;
 
         if (b.values_.size() > 0) {
@@ -215,9 +207,8 @@ public:
     }
 
     // Appends one Bits object at the end of the first one.
-    template <class T2>
-    BitsGeneric<T> &operator+=(const BitsGeneric<T2> &b)
-    {
+    template<class T2>
+    BitsGeneric<T> &operator+=(const BitsGeneric<T2> &b) {
         if (b.values_.size() > 0) {
             for (typename T2::size_type i = 0; i < b.values_.size() - 1; i++)
                 this->AppendValue(b.values_[i], 64);
@@ -226,8 +217,7 @@ public:
         return *this;
     }
 
-    BitsGeneric<T> Add(const BitsGeneric<T> &other) const
-    {
+    BitsGeneric<T> Add(const BitsGeneric<T> &other) const {
         int i, size = values_.size();
         uint32_t carry = 0;
         BitsGeneric<T> res;
@@ -258,8 +248,7 @@ public:
         return res;
     }
 
-    BitsGeneric<T> Rotl(uint32_t shift) const
-    {
+    BitsGeneric<T> Rotl(uint32_t shift) const {
         uint64_t tmp, mask = (last_size_ < 64 ? 1ULL << last_size_ : 0ULL) - 1;
         int i, size = values_.size();
         uint32_t shift2 = 64 - shift;
@@ -294,12 +283,11 @@ public:
         return res;
     }
 
-    BitsGeneric<T> &operator++()
-    {
-        uint64_t limit = ((uint64_t)std::numeric_limits<uint32_t>::max() << 32) +
-                         (uint64_t)std::numeric_limits<uint32_t>::max();
+    BitsGeneric<T> &operator++() {
+        uint64_t limit = ((uint64_t) std::numeric_limits<uint32_t>::max() << 32) +
+                         (uint64_t) std::numeric_limits<uint32_t>::max();
         uint64_t last_bucket_mask =
-            (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
+                (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
         // If the last bucket isn't full of 1 bits, we can increment that by one.
         if (values_[values_.size() - 1] != last_bucket_mask) {
             values_[values_.size() - 1]++;
@@ -325,15 +313,13 @@ public:
         return *this;
     }
 
-    BitsGeneric<T> operator++(int)
-    {
+    BitsGeneric<T> operator++(int) {
         BitsGeneric<T> result(*this);
         ++(*this);
         return result;
     }
 
-    BitsGeneric<T> &operator--()
-    {
+    BitsGeneric<T> &operator--() {
         bool all_zero = true;
         // If the last bucket is not zero, we can derement it.
         if (values_[values_.size() - 1] != 0) {
@@ -348,14 +334,14 @@ public:
                     all_zero = false;
                     // Decrement it.
                     values_[i]--;
-                    uint64_t limit = ((uint64_t)std::numeric_limits<uint32_t>::max() << 32) +
-                                     (uint64_t)std::numeric_limits<uint32_t>::max();
+                    uint64_t limit = ((uint64_t) std::numeric_limits<uint32_t>::max() << 32) +
+                                     (uint64_t) std::numeric_limits<uint32_t>::max();
                     // All buckets that were previously 0, now become full of 1s.
                     // (i.e. 1010000 - 1 = 1001111)
                     for (typename T::size_type j = i + 1; j < values_.size() - 1; j++)
                         values_[j] = limit;
                     values_[values_.size() - 1] =
-                        (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
+                            (last_size_ == 64) ? limit : ((static_cast<uint64_t>(1) << last_size_) - 1);
                     break;
                 }
         }
@@ -365,15 +351,13 @@ public:
         return *this;
     }
 
-    BitsGeneric<T> operator--(int)
-    {
+    BitsGeneric<T> operator--(int) {
         BitsGeneric<T> result(*this);
         --(*this);
         return result;
     }
 
-    BitsGeneric<T> operator^(const BitsGeneric<T> &other) const
-    {
+    BitsGeneric<T> operator^(const BitsGeneric<T> &other) const {
         assert(GetSize() == other.GetSize());
         BitsGeneric<T> res;
         // Xoring individual bits is the same as xor-ing chunks of bits.
@@ -385,16 +369,14 @@ public:
 
     BitsGeneric<T> Trunc(uint32_t n_bits) const { return Slice(GetSize() - n_bits, GetSize()); }
 
-    uint64_t TruncToInt(uint32_t n_bits) const
-    {
+    uint64_t TruncToInt(uint32_t n_bits) const {
         return SliceBitsToInt(GetSize() - n_bits, GetSize());
     }
 
     BitsGeneric<T> Slice(uint32_t start_index) const { return Slice(start_index, GetSize()); }
 
     // Slices the bits from [start_index, end_index)
-    BitsGeneric<T> Slice(uint32_t start_index, uint32_t end_index) const
-    {
+    BitsGeneric<T> Slice(uint32_t start_index, uint32_t end_index) const {
         if (end_index > GetSize()) {
             end_index = GetSize();
         }
@@ -409,7 +391,7 @@ public:
             start_index = start_index % 64;
             end_index = end_index % 64;
             uint8_t bucket_size =
-                ((int)start_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+                    ((int) start_bucket == (int) (values_.size() - 1)) ? last_size_ : 64;
             uint64_t val = values_[start_bucket];
             // Cut the prefix [0, start_index)
             if (start_index != 0)
@@ -428,10 +410,10 @@ public:
                 result.AppendValue(values_[i], 64);
             if (end_index % 64) {
                 uint8_t bucket_size =
-                    ((int)end_bucket == (int)(values_.size() - 1)) ? last_size_ : 64;
+                        ((int) end_bucket == (int) (values_.size() - 1)) ? last_size_ : 64;
                 // Get the suffix from the last bucket.
                 SplitNumberByPrefix(
-                    values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
+                        values_[end_bucket], bucket_size, end_index % 64, &prefix, &suffix);
                 result.AppendValue(prefix, end_index % 64);
             }
             return result;
@@ -439,8 +421,7 @@ public:
     }
 
     // Same as 'Slice', but result fits into an uint64_t. Used for memory optimization.
-    uint64_t SliceBitsToInt(uint32_t start_index, uint32_t end_index) const
-    {
+    uint64_t SliceBitsToInt(uint32_t start_index, uint32_t end_index) const {
         /*if (end_index > GetSize()) {
             end_index = GetSize();
         }
@@ -449,31 +430,30 @@ public:
         } */
         if ((start_index >> 6) == (end_index >> 6)) {
             uint64_t res = values_[start_index >> 6];
-            if ((start_index >> 6) == (uint32_t)values_.size() - 1)
+            if ((start_index >> 6) == (uint32_t) values_.size() - 1)
                 res = res >> (last_size_ - (end_index & 63));
             else
                 res = res >> (64 - (end_index & 63));
-            res = res & (((uint64_t)1 << ((end_index & 63) - (start_index & 63))) - 1);
+            res = res & (((uint64_t) 1 << ((end_index & 63) - (start_index & 63))) - 1);
             return res;
         } else {
             assert((start_index >> 6) + 1 == (end_index >> 6));
             uint64_t prefix, suffix;
             SplitNumberByPrefix(
-                values_[(start_index >> 6)], 64, start_index & 63, &prefix, &suffix);
+                    values_[(start_index >> 6)], 64, start_index & 63, &prefix, &suffix);
             uint64_t result = suffix;
             if (end_index % 64) {
                 uint8_t bucket_size =
-                    ((end_index >> 6) == (uint32_t)values_.size() - 1) ? last_size_ : 64;
+                        ((end_index >> 6) == (uint32_t) values_.size() - 1) ? last_size_ : 64;
                 SplitNumberByPrefix(
-                    values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
+                        values_[(end_index >> 6)], bucket_size, end_index & 63, &prefix, &suffix);
                 result = (result << (end_index & 63)) + prefix;
             }
             return result;
         }
     }
 
-    void ToBytes(uint8_t buffer[]) const
-    {
+    void ToBytes(uint8_t buffer[]) const {
         int i;
         uint8_t tmp[8];
 
@@ -481,7 +461,7 @@ public:
         if (!values_.size())
             return;
 
-        for (i = 0; i < (int)values_.size() - 1; i++) {
+        for (i = 0; i < (int) values_.size() - 1; i++) {
             Util::IntToEightBytes(buffer + i * 8, values_[i]);
         }
 
@@ -489,8 +469,7 @@ public:
         memcpy(buffer + i * 8, tmp, CDIV(last_size_, 8));
     }
 
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::string str = "";
         for (typename T::size_type i = 0; i < values_.size(); i++) {
             uint64_t val = values_[i];
@@ -509,8 +488,7 @@ public:
     }
 
     // If the bitarray fits into 128 bits, returns it as an uint128_t, otherwise throws error
-    uint128_t GetValue128() const
-    {
+    uint128_t GetValue128() const {
         if (values_.size() > 2) {
             std::cout << "Number of 64 bit values is: " << values_.size() << std::endl;
             std::cout << "Size of bits is: " << GetSize() << std::endl;
@@ -520,32 +498,29 @@ public:
         if (GetSize() <= 64)
             return values_[0];
 
-        return (((uint128_t)values_[0]) << (GetSize() - 64)) + values_[1];
+        return (((uint128_t) values_[0]) << (GetSize() - 64)) + values_[1];
     }
 
     uint64_t GetValue() const { return values_[0]; }
 
-    uint32_t GetSize() const
-    {
+    uint32_t GetSize() const {
         if (values_.size() == 0)
             return 0;
         // Full buckets contain each 64 bits, last one contains only 'last_size_' bits.
-        return ((uint32_t)values_.size() - 1) * 64 + last_size_;
+        return ((uint32_t) values_.size() - 1) * 64 + last_size_;
     }
 
-    void AppendValue(uint128_t value, uint8_t length)
-    {
+    void AppendValue(uint128_t value, uint8_t length) {
         if (length > 64) {
             std::cout << "SPLITTING AppendValue" << std::endl;
             DoAppendValue(value >> 64, length - 64);
-            DoAppendValue((uint64_t)value, 64);
+            DoAppendValue((uint64_t) value, 64);
         } else {
-            DoAppendValue((uint64_t)value, length);
+            DoAppendValue((uint64_t) value, length);
         }
     }
 
-    void DoAppendValue(uint64_t value, uint8_t length)
-    {
+    void DoAppendValue(uint64_t value, uint8_t length) {
         // The last bucket is full or no bucket yet, create a new one.
         if (values_.size() == 0 || last_size_ == 64) {
             values_.push_back(value);
@@ -574,32 +549,31 @@ public:
         }
     }
 
-    template <class X>
+    template<class X>
     friend std::ostream &operator<<(std::ostream &, const BitsGeneric<X> &);
 
-    template <class X>
+    template<class X>
     friend bool operator==(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
 
-    template <class X>
+    template<class X>
     friend bool operator<(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
 
-    template <class X>
+    template<class X>
     friend bool operator>(const BitsGeneric<X> &lhs, const BitsGeneric<X> &rhs);
 
-    template <class X>
+    template<class X>
     friend BitsGeneric<X> operator<<(BitsGeneric<X> lhs, uint32_t shift_amount);
 
-    template <class X>
+    template<class X>
     friend BitsGeneric<X> operator>>(BitsGeneric<X> lhs, uint32_t shift_amount);
 
 private:
     static void SplitNumberByPrefix(
-        uint64_t number,
-        uint8_t num_bits,
-        uint8_t prefix_size,
-        uint64_t *prefix,
-        uint64_t *suffix)
-    {
+            uint64_t number,
+            uint8_t num_bits,
+            uint8_t prefix_size,
+            uint64_t *prefix,
+            uint64_t *suffix) {
         assert(num_bits >= prefix_size);
         if (prefix_size == 0) {
             *prefix = 0;
@@ -617,16 +591,14 @@ private:
     uint8_t last_size_;
 };
 
-template <class T>
-std::ostream &operator<<(std::ostream &strm, BitsGeneric<T> const &v)
-{
+template<class T>
+std::ostream &operator<<(std::ostream &strm, BitsGeneric<T> const &v) {
     strm << "b" << v.ToString();
     return strm;
 }
 
-template <class T>
-bool operator==(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
-{
+template<class T>
+bool operator==(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize()) {
         return false;
     }
@@ -638,9 +610,8 @@ bool operator==(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
     return true;
 }
 
-template <class T>
-bool operator<(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
-{
+template<class T>
+bool operator<(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize())
         throw std::string("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
@@ -652,9 +623,8 @@ bool operator<(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
     return false;
 }
 
-template <class T>
-bool operator>(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
-{
+template<class T>
+bool operator>(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs) {
     if (lhs.GetSize() != rhs.GetSize())
         throw std::string("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
@@ -666,9 +636,8 @@ bool operator>(const BitsGeneric<T> &lhs, const BitsGeneric<T> &rhs)
     return false;
 }
 
-template <class T>
-BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount)
-{
+template<class T>
+BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount) {
     if (lhs.GetSize() == 0) {
         return BitsGeneric<T>();
     }
@@ -685,7 +654,7 @@ BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount)
             new_value += (lhs.values_[i + num_blocks_shift + 1] >> (64 - shift_remainder));
         }
         uint8_t new_length;
-        if (i == (uint32_t)lhs.values_.size() - 1) {
+        if (i == (uint32_t) lhs.values_.size() - 1) {
             new_length = lhs.last_size_;
         } else {
             new_length = 64;
@@ -695,9 +664,8 @@ BitsGeneric<T> operator<<(BitsGeneric<T> lhs, uint32_t shift_amount)
     return result;
 }
 
-template <class T>
-BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount)
-{
+template<class T>
+BitsGeneric<T> operator>>(BitsGeneric<T> lhs, uint32_t shift_amount) {
     if (lhs.GetSize() == 0) {
         return BitsGeneric<T>();
     }

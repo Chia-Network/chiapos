@@ -51,8 +51,7 @@ class DiskProver {
 public:
     // The costructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
-    explicit DiskProver(std::string filename)
-    {
+    explicit DiskProver(std::string filename) {
         struct plot_header header;
         this->filename = filename;
 
@@ -120,8 +119,7 @@ public:
         delete[] c2_buf;
     }
 
-    ~DiskProver()
-    {
+    ~DiskProver() {
         std::lock_guard<std::mutex> l(_mtx);
         delete[] this->memo;
         for (int i = 0; i < 6; i++) {
@@ -143,8 +141,7 @@ public:
     // Given a challenge, returns a quality string, which is sha256(challenge + 2 adjecent x
     // values), from the 64 value proof. Note that this is more efficient than fetching all 64 x
     // values, which are in different parts of the disk.
-    std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t *challenge)
-    {
+    std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t *challenge) {
         std::vector<LargeBits> qualities;
 
         std::lock_guard<std::mutex> l(_mtx);
@@ -191,7 +188,7 @@ public:
                 vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
                 memcpy(hash_input.data(), challenge, 32);
                 (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
-                    .ToBytes(hash_input.data() + 32);
+                        .ToBytes(hash_input.data() + 32);
                 vector<unsigned char> hash(picosha2::k_digest_size);
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
                 qualities.push_back(LargeBits(hash.data(), 32, 256));
@@ -203,8 +200,7 @@ public:
     // Given a challenge, and an index, returns a proof of space. This assumes GetQualities was
     // called, and there are actually proofs present. The index represents which proof to fetch,
     // if there are multiple.
-    LargeBits GetFullProof(const uint8_t *challenge, uint32_t index)
-    {
+    LargeBits GetFullProof(const uint8_t *challenge, uint32_t index) {
         LargeBits full_proof;
 
         std::lock_guard<std::mutex> l(_mtx);
@@ -249,8 +245,7 @@ private:
     // The entry at index "position" is read. First, the park index is calculated, then
     // the park is read, and finally, entry deltas are added up to the position that we
     // are looking for.
-    uint128_t ReadLinePoint(ifstream &disk_file, uint8_t table_index, uint64_t position)
-    {
+    uint128_t ReadLinePoint(ifstream &disk_file, uint8_t table_index, uint64_t position) {
         uint64_t park_index = position / kEntriesPerPark;
         uint32_t park_size_bits = DiskPlotter::CalculateParkSize(k, table_index) * 8;
         disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
@@ -288,7 +283,7 @@ private:
             // Decodes the deltas
             double R = kRValues[table_index - 1];
             deltas =
-                Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
+                    Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
         uint32_t start_bit = 0;
@@ -296,7 +291,7 @@ private:
         uint64_t sum_deltas = 0;
         uint64_t sum_stubs = 0;
         for (uint32_t i = 0;
-             i < std::min((uint32_t)(position % kEntriesPerPark), (uint32_t)deltas.size());
+             i < std::min((uint32_t) (position % kEntriesPerPark), (uint32_t) deltas.size());
              i++) {
             uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
             stub <<= start_bit % 8;
@@ -307,7 +302,7 @@ private:
             sum_deltas += deltas[i];
         }
 
-        uint128_t big_delta = ((uint128_t)sum_deltas << stub_size) + sum_stubs;
+        uint128_t big_delta = ((uint128_t) sum_deltas << stub_size) + sum_stubs;
         uint128_t final_line_point = line_point + big_delta;
 
         delete[] line_point_bin;
@@ -320,15 +315,14 @@ private:
     // Gets the P7 positions of the target f7 entries. Uses the C3 encoded bitmask read from disk.
     // A C3 park is a list of deltas between p7 entries, ANS encoded.
     std::vector<uint64_t> GetP7Positions(
-        uint64_t curr_f7,
-        uint64_t f7,
-        uint64_t curr_p7_pos,
-        uint8_t *bit_mask,
-        uint16_t encoded_size,
-        uint64_t c1_index)
-    {
+            uint64_t curr_f7,
+            uint64_t f7,
+            uint64_t curr_p7_pos,
+            uint8_t *bit_mask,
+            uint16_t encoded_size,
+            uint64_t c1_index) {
         std::vector<uint8_t> deltas =
-            Encoding::ANSDecodeDeltas(bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
+                Encoding::ANSDecodeDeltas(bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
         std::vector<uint64_t> p7_positions;
         for (uint8_t delta : deltas) {
             if (curr_f7 > f7) {
@@ -342,8 +336,8 @@ private:
             }
 
             // In the last park, we might have extra deltas
-            if ((int64_t)curr_p7_pos >= (int64_t)((c1_index + 1) * kCheckpoint1Interval) - 1 ||
-                curr_f7 >= (((uint64_t)1) << k)) {
+            if ((int64_t) curr_p7_pos >= (int64_t) ((c1_index + 1) * kCheckpoint1Interval) - 1 ||
+                curr_f7 >= (((uint64_t) 1) << k)) {
                 return p7_positions;
             }
         }
@@ -351,8 +345,7 @@ private:
     }
 
     // Returns P7 table entries (which are positions into table P6), for a given challenge
-    std::vector<uint64_t> GetP7Entries(ifstream &disk_file, const uint8_t *challenge)
-    {
+    std::vector<uint64_t> GetP7Entries(ifstream &disk_file, const uint8_t *challenge) {
         if (C2.size() == 0) {
             return std::vector<uint64_t>();
         }
@@ -451,7 +444,7 @@ private:
             disk_file.read(reinterpret_cast<char *>(bit_mask), c3_entry_size - 2);
 
             p7_positions =
-                GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
+                    GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
 
             disk_file.read(reinterpret_cast<char *>(encoded_size_buf), 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
@@ -462,9 +455,9 @@ private:
             curr_p7_pos = c1_index * kCheckpoint1Interval;
             curr_f7 = next_f7;
             auto second_positions =
-                GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
+                    GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
             p7_positions.insert(
-                p7_positions.end(), second_positions.begin(), second_positions.end());
+                    p7_positions.end(), second_positions.begin(), second_positions.end());
 
         } else {
             disk_file.seekg(table_begin_pointers[10] + c1_index * c3_entry_size);
@@ -473,7 +466,7 @@ private:
             disk_file.read(reinterpret_cast<char *>(bit_mask), c3_entry_size - 2);
 
             p7_positions =
-                GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
+                    GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
         }
 
         // p7_positions is a list of all the positions into table P7, where the output is equal to
@@ -529,8 +522,7 @@ private:
     //     C(x1, x2) < C(x3, x4)
     //     For all comparisons up to f7
     //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of k bit elements
-    std::vector<LargeBits> ReorderProof(const std::vector<Bits> &xs_input) const
-    {
+    std::vector<LargeBits> ReorderProof(const std::vector<Bits> &xs_input) const {
         F1Calculator f1(k, id);
         std::vector<std::pair<Bits, Bits> > results;
         LargeBits xs;
@@ -557,23 +549,23 @@ private:
                 // one goes on the right
                 if (std::get<0>(results[i]).GetValue() < std::get<0>(results[i + 1]).GetValue()) {
                     new_output = f.CalculateBucket(
-                        std::get<0>(results[i]),
-                        std::get<0>(results[i + 1]),
-                        std::get<1>(results[i]),
-                        std::get<1>(results[i + 1]));
-                    uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
-                    uint64_t end = (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
+                            std::get<0>(results[i]),
+                            std::get<0>(results[i + 1]),
+                            std::get<1>(results[i]),
+                            std::get<1>(results[i + 1]));
+                    uint64_t start = (uint64_t) k * i * ((uint64_t) 1 << (table_index - 2));
+                    uint64_t end = (uint64_t) k * (i + 2) * ((uint64_t) 1 << (table_index - 2));
                     new_xs += xs.Slice(start, end);
                 } else {
                     // Here we switch the left and the right
                     new_output = f.CalculateBucket(
-                        std::get<0>(results[i + 1]),
-                        std::get<0>(results[i]),
-                        std::get<1>(results[i + 1]),
-                        std::get<1>(results[i]));
-                    uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
-                    uint64_t start2 = (uint64_t)k * (i + 1) * ((uint64_t)1 << (table_index - 2));
-                    uint64_t end = (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
+                            std::get<0>(results[i + 1]),
+                            std::get<0>(results[i]),
+                            std::get<1>(results[i + 1]),
+                            std::get<1>(results[i]));
+                    uint64_t start = (uint64_t) k * i * ((uint64_t) 1 << (table_index - 2));
+                    uint64_t start2 = (uint64_t) k * (i + 1) * ((uint64_t) 1 << (table_index - 2));
+                    uint64_t end = (uint64_t) k * (i + 2) * ((uint64_t) 1 << (table_index - 2));
                     new_xs += (xs.Slice(start2, end) + xs.Slice(start, start2));
                 }
                 assert(std::get<0>(new_output).GetSize() != 0);
@@ -596,8 +588,7 @@ private:
     // all of the leaves (x values). For example, for depth=5, it fetches the positionth
     // entry in table 5, reading the two backpointers from the line point, and then
     // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(ifstream &disk_file, uint64_t position, uint8_t depth)
-    {
+    std::vector<Bits> GetInputs(ifstream &disk_file, uint64_t position, uint8_t depth) {
         uint128_t line_point = ReadLinePoint(disk_file, depth, position);
         std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
 
