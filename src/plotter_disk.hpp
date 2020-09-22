@@ -520,18 +520,22 @@ void* thread(void* arg)
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
+        uint32_t startbyte = ysize / 8;
+        uint32_t endbyte = (ysize + pos_size) / 8;
+        uint64_t correction = (g_left_writer_count - stripe_start_correction) <<
+            ((8 - ((ysize + pos_size) % 8)) % 8);
 
         // Correct positions
-        for (int i = 0; i < right_writer_count; i++) {
+        for (uint32_t i = 0; i < right_writer_count; i++) {
             uint64_t posaccum = 0;
+            uint8_t *entrybuf = right_writer_buf + i * right_entry_size_bytes;
 
-            for (int j = ysize / 8; j < (ysize + pos_size + 7) / 8; j++) {
-                posaccum = (posaccum << 8) | (right_writer_buf[i * right_entry_size_bytes + j]);
+            for (uint32_t j = startbyte; j <= endbyte; j++) {
+                posaccum = (posaccum << 8) | (entrybuf[j]);
             }
-            posaccum += (g_left_writer_count - stripe_start_correction)
-                        << ((8 - ((ysize + pos_size) % 8)) % 8);
-            for (int j = (ysize + pos_size + 7) / 8 - 1; j >= ysize / 8; --j) {
-                right_writer_buf[i * right_entry_size_bytes + j] = posaccum & 0xff;
+            posaccum += correction;
+            for (uint32_t j = endbyte; j >= startbyte; --j) {
+                entrybuf[j] = posaccum & 0xff;
                 posaccum = posaccum >> 8;
             }
         }
