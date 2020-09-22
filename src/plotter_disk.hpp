@@ -191,6 +191,10 @@ void* thread(void* arg)
     // table that did not match) Map ke
     uint16_t position_map_size = 2000;
 
+    uint16_t* L_position_map =
+        new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
+    uint16_t* R_position_map = new uint16_t[position_map_size];
+
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
     uint64_t totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
@@ -206,18 +210,18 @@ void* thread(void* arg)
         uint64_t right_writer_count = 0;
         uint64_t matches = 0;  // Total matches
 
-	    // This is a sliding window of entries, since things in bucket i can match with things in bucket
-    // i + 1. At the end of each bucket, we find matches between the two previous buckets.
-    std::vector<PlotEntry> bucket_L;
-    std::vector<PlotEntry> bucket_R;
+        // This is a sliding window of entries, since things in bucket i can match with things in
+        // bucket
+        // i + 1. At the end of each bucket, we find matches between the two previous buckets.
+        std::vector<PlotEntry> bucket_L;
+        std::vector<PlotEntry> bucket_R;
 
         uint64_t bucket = 0;
-    bool end_of_table = false;  // We finished all entries in the left table
+        bool end_of_table = false;  // We finished all entries in the left table
 
-    // Buffers for storing a left or a right entry, used for disk IO
-    uint8_t* right_buf;
-    uint8_t* tmp_buf;
-
+        // Buffers for storing a left or a right entry, used for disk IO
+        uint8_t* right_buf;
+        uint8_t* tmp_buf;
 
         uint64_t ignorebucket = 0xffffffffffffffff;
         bool bMatch = false;
@@ -238,10 +242,6 @@ void* thread(void* arg)
             future_entries_to_write;
         std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
         std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
-
-        uint16_t* L_position_map =
-            new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
-        uint16_t* R_position_map = new uint16_t[position_map_size];
 
         if (pos == 0) {
             bMatch = true;
@@ -514,9 +514,6 @@ void* thread(void* arg)
             ++pos;
         }
 
-        delete[] L_position_map;
-        delete[] R_position_map;
-
         sem_wait(ptd->theirs);
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
@@ -524,13 +521,12 @@ void* thread(void* arg)
         uint32_t startbyte = ysize / 8;
         uint32_t endbyte = (ysize + pos_size + 7) / 8 - 1;
         uint64_t shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
-        uint64_t correction = (g_left_writer_count - stripe_start_correction) <<
-            shiftamt;
+        uint64_t correction = (g_left_writer_count - stripe_start_correction) << shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
             uint64_t posaccum = 0;
-            uint8_t *entrybuf = right_writer_buf + i * right_entry_size_bytes;
+            uint8_t* entrybuf = right_writer_buf + i * right_entry_size_bytes;
 
             for (uint32_t j = startbyte; j <= endbyte; j++) {
                 posaccum = (posaccum << 8) | (entrybuf[j]);
@@ -564,6 +560,10 @@ void* thread(void* arg)
         // printf("\nJust Exiting %d...\n",ptd->index);
         sem_post(ptd->mine);
     }
+
+    delete[] L_position_map;
+    delete[] R_position_map;
+    delete[] left_buf;
 
     return 0;
 }
