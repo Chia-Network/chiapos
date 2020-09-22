@@ -953,13 +953,18 @@ private:
             uint64_t left_writer = 0;
             uint64_t right_reader = 0;
             uint64_t right_writer = 0;
-            uint8_t *left_reader_buf = &(memory[0]);
-            uint8_t *left_writer_buf = &(memory[memorySize / 4]);
-            uint8_t *right_reader_buf = &(memory[memorySize / 2]);
-            uint8_t *right_writer_buf = &(memory[3 * memorySize / 4]);
-            uint64_t left_buf_entries = memorySize / 4 / left_entry_size_bytes;
-            uint64_t new_left_buf_entries = memorySize / 4 / left_entry_size_bytes;
-            uint64_t right_buf_entries = memorySize / 4 / right_entry_size_bytes;
+            // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
+            // [------------------SM/LW---------------------|---LR---|---RR---|---RW---]
+            uint64_t sort_manager_buf_size = 3 * memorySize / 4;
+            uint64_t other_buf_sizes = (memorySize - sort_manager_buf_size) / 3;
+            uint8_t *left_writer_buf = &(memory[0]);
+            uint8_t *left_reader_buf = &(memory[sort_manager_buf_size]);
+            uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + other_buf_sizes]);
+            uint8_t *right_writer_buf = &(memory[sort_manager_buf_size + 2 * other_buf_sizes]);
+            uint64_t left_writer_buf_entries = sort_manager_buf_size;
+            uint64_t left_reader_buf_entries = other_buf_sizes;
+            uint64_t right_writer_buf_entries = other_buf_sizes;
+            uint64_t right_reader_buf_entries = other_buf_sizes;
             uint64_t left_reader_count = 0;
             uint64_t right_reader_count = 0;
             uint64_t left_writer_count = 0;
@@ -1050,9 +1055,9 @@ private:
                     while (!end_of_right_table) {
                         if (should_read_entry) {
                             // Need to read another entry at the current position
-                            if (right_reader_count % right_buf_entries == 0) {
+                            if (right_reader_count % right_reader_buf_entries == 0) {
                                 uint64_t readAmt = std::min(
-                                    right_buf_entries * right_entry_size_bytes,
+                                    right_reader_buf_entries * right_entry_size_bytes,
                                     (new_table_sizes[table_index] - right_reader_count) *
                                         right_entry_size_bytes);
 
@@ -1062,7 +1067,7 @@ private:
                             }
                             right_entry_buf =
                                 right_reader_buf +
-                                (right_reader_count % right_buf_entries) * right_entry_size_bytes;
+                                (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
                             right_reader_count++;
 
                             if (table_index == 7) {
@@ -1127,16 +1132,16 @@ private:
                         }
                     }
                     // ***Reads a left entry
-                    if (left_reader_count % left_buf_entries == 0) {
+                    if (left_reader_count % left_reader_buf_entries == 0) {
                         uint64_t readAmt = std::min(
-                            left_buf_entries * left_entry_size_bytes,
+                            left_reader_buf_entries * left_entry_size_bytes,
                             (table_sizes[table_index - 1] - left_reader_count) *
                                 left_entry_size_bytes);
                         tmp_1_disks[table_index - 1].Read(left_reader, left_reader_buf, readAmt);
                         left_reader += readAmt;
                     }
                     left_entry_buf = left_reader_buf +
-                                     (left_reader_count % left_buf_entries) * left_entry_size_bytes;
+                                     (left_reader_count % left_reader_buf_entries) * left_entry_size_bytes;
                     left_reader_count++;
 
                     // If this left entry is used, we rewrite it. If it's not used, we ignore it.
@@ -1155,7 +1160,7 @@ private:
 
                         new_left_entry_buf =
                             left_writer_buf +
-                            (left_writer_count % new_left_buf_entries) * left_entry_size_bytes;
+                            (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
                         left_writer_count++;
 
                         Bits new_left_entry;
@@ -1179,12 +1184,12 @@ private:
                             // Also, we don't use the sort manager, since we won't sort it.
                             new_left_entry += Bits(entry_metadata, left_metadata_size);
                             new_left_entry.ToBytes(new_left_entry_buf);
-                            if (left_writer_count % new_left_buf_entries == 0) {
+                            if (left_writer_count % left_writer_buf_entries == 0) {
                                 tmp_1_disks[table_index - 1].Write(
                                     left_writer,
                                     left_writer_buf,
-                                    new_left_buf_entries * left_entry_size_bytes);
-                                left_writer += new_left_buf_entries * left_entry_size_bytes;
+                                    left_writer_buf_entries * left_entry_size_bytes);
+                                left_writer += left_writer_buf_entries * left_entry_size_bytes;
                             }
                         }
 
@@ -1228,7 +1233,7 @@ private:
                         // Calculate right entry pointer for output
                         right_entry_buf =
                             right_writer_buf +
-                            (right_writer_count % right_buf_entries) * right_entry_size_bytes;
+                            (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
                         right_writer_count++;
 
                         if (Util::ByteAlign(new_right_entry.GetSize()) <
@@ -1238,12 +1243,12 @@ private:
                         new_right_entry.ToBytes(right_entry_buf);
 
                         // Check for write out to disk
-                        if (right_writer_count % right_buf_entries == 0) {
+                        if (right_writer_count % right_writer_buf_entries == 0) {
                             tmp_1_disks[table_index].Write(
                                 right_writer,
                                 right_writer_buf,
-                                right_buf_entries * right_entry_size_bytes);
-                            right_writer += right_buf_entries * right_entry_size_bytes;
+                                right_writer_buf_entries * right_entry_size_bytes);
+                            right_writer += right_writer_buf_entries * right_entry_size_bytes;
                         }
                     }
                 }
@@ -1258,8 +1263,8 @@ private:
             tmp_1_disks[table_index].Write(
                 right_writer,
                 right_writer_buf,
-                (right_writer_count % right_buf_entries) * right_entry_size_bytes);
-            right_writer += (right_writer_count % right_buf_entries) * right_entry_size_bytes;
+                (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes);
+            right_writer += (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
 
             // Writes the 0 entry (EOT) for right table
             memset(right_writer_buf, 0x00, right_entry_size_bytes);
@@ -1282,8 +1287,8 @@ private:
                 tmp_1_disks[table_index - 1].Write(
                     left_writer,
                     left_writer_buf,
-                    (left_writer_count % new_left_buf_entries) * left_entry_size_bytes);
-                left_writer += (left_writer_count % new_left_buf_entries) * left_entry_size_bytes;
+                    (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes);
+                left_writer += (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
             }
 
             // Writes the 0 entry (EOT) for left table
