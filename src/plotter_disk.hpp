@@ -89,7 +89,7 @@ int numCPU();
 }
 
 #define STRIPESIZE 4096
-#define NUMTHREADS  (numCPU())
+#define NUMTHREADS (numCPU())
 
 typedef struct {
     int index;
@@ -184,18 +184,8 @@ void* thread(void* arg)
 
     FxCalculator f(k, table_index + 1);
 
-    // This is a sliding window of entries, since things in bucket i can match with things in bucket
-    // i + 1. At the end of each bucket, we find matches between the two previous buckets.
-    std::vector<PlotEntry> bucket_L;
-    std::vector<PlotEntry> bucket_R;
-
-    uint64_t bucket = 0;
-    bool end_of_table = false;  // We finished all entries in the left table
-
     // Buffers for storing a left or a right entry, used for disk IO
     uint8_t* left_buf = new uint8_t[entry_size_bytes + 7];
-    uint8_t* right_buf;
-    uint8_t* tmp_buf;
 
     // Stores map of old positions to new positions (positions after dropping entries from L
     // table that did not match) Map ke
@@ -215,6 +205,19 @@ void* thread(void* arg)
         uint64_t stripe_start_correction = 0xffffffffffffffff;
         uint64_t right_writer_count = 0;
         uint64_t matches = 0;  // Total matches
+
+	    // This is a sliding window of entries, since things in bucket i can match with things in bucket
+    // i + 1. At the end of each bucket, we find matches between the two previous buckets.
+    std::vector<PlotEntry> bucket_L;
+    std::vector<PlotEntry> bucket_R;
+
+        uint64_t bucket = 0;
+    bool end_of_table = false;  // We finished all entries in the left table
+
+    // Buffers for storing a left or a right entry, used for disk IO
+    uint8_t* right_buf;
+    uint8_t* tmp_buf;
+
 
         uint64_t ignorebucket = 0xffffffffffffffff;
         bool bMatch = false;
@@ -482,8 +485,6 @@ void* thread(void* arg)
                     else if (!bThirdStripeOvertimePair)
                         bThirdStripeOvertimePair = true;
                     else {
-                        bucket_L = std::vector<PlotEntry>();
-                        bucket_R = std::vector<PlotEntry>();
                         break;
                     }
                 } else {
