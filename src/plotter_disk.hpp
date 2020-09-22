@@ -542,10 +542,10 @@ private:
             uint64_t left_writer = 0;
             uint64_t right_writer = 0;
             uint8_t *right_writer_buf = &(memory[0]);
-            uint64_t right_writer_buf_size = memorySize / 2;
-            uint8_t *left_writer_buf = &(memory[memorySize / 2]);
-            uint64_t left_buf_entries = memorySize / 2 / compressed_entry_size_bytes;
-            uint64_t right_buf_entries = memorySize / 2 / right_entry_size_bytes;
+            uint64_t right_writer_buf_size = 5 * memorySize / 6;
+            uint8_t *left_writer_buf = &(memory[right_writer_buf_size]);
+            uint64_t left_buf_entries = (memorySize - right_writer_buf_size) / compressed_entry_size_bytes;
+            uint64_t right_buf_entries = right_writer_buf_size / right_entry_size_bytes;
             uint64_t left_writer_count = 0;
             uint64_t right_writer_count = 0;
 
