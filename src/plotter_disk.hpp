@@ -899,6 +899,8 @@ private:
             memset(right_writer_buf, 0x00, right_entry_size_bytes);
             tmp_1_disks[table_index + 1].Write(
                 right_writer, right_writer_buf, right_entry_size_bytes);
+            right_writer += right_entry_size_bytes;
+            tmp_1_disks[table_index + 1].Truncate(right_writer);
 
             table_timer.PrintElapsed("Forward propagation table time:");
 
@@ -961,10 +963,10 @@ private:
             uint8_t *left_reader_buf = &(memory[sort_manager_buf_size]);
             uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + other_buf_sizes]);
             uint8_t *right_writer_buf = &(memory[sort_manager_buf_size + 2 * other_buf_sizes]);
-            uint64_t left_writer_buf_entries = sort_manager_buf_size;
-            uint64_t left_reader_buf_entries = other_buf_sizes;
-            uint64_t right_writer_buf_entries = other_buf_sizes;
-            uint64_t right_reader_buf_entries = other_buf_sizes;
+            uint64_t left_writer_buf_entries = sort_manager_buf_size / left_entry_size_bytes;
+            uint64_t left_reader_buf_entries = other_buf_sizes / left_entry_size_bytes;
+            uint64_t right_writer_buf_entries = other_buf_sizes / right_entry_size_bytes;
+            uint64_t right_reader_buf_entries = other_buf_sizes / right_entry_size_bytes;
             uint64_t left_reader_count = 0;
             uint64_t right_reader_count = 0;
             uint64_t left_writer_count = 0;
@@ -972,7 +974,7 @@ private:
 
             SortManager sort_manager(
                 left_writer_buf,
-                memorySize / 4,
+                sort_manager_buf_size,
                 kNumSortBuckets,
                 kLogNumSortBuckets,
                 left_entry_size_bytes,
@@ -1430,18 +1432,21 @@ private:
             uint64_t left_reader = 0;
             uint64_t right_reader = 0;
             uint64_t right_writer = 0;
-            uint8_t *left_reader_buf = &(memory[0]);
-            uint8_t *right_reader_buf = &(memory[memorySize / 3]);
-            uint8_t *right_writer_buf = &(memory[2 * memorySize / 3]);
-            uint64_t left_buf_entries = memorySize / 3 / left_entry_size_bytes;
-            uint64_t right_buf_entries = memorySize / 3 / right_entry_size_bytes;
+            // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
+            // [------------------SM---------------------|---LR---|---RR---]
+            uint64_t sort_manager_buf_size = 3 * memorySize / 4;
+            uint64_t other_buf_size = (memorySize - sort_manager_buf_size) / 2;
+            uint8_t *left_reader_buf = &(memory[sort_manager_buf_size]);
+            uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + other_buf_size]);
+            uint64_t left_reader_buf_entries = other_buf_size / left_entry_size_bytes;
+            uint64_t right_reader_buf_entries = other_buf_size / right_entry_size_bytes;
             uint64_t left_reader_count = 0;
             uint64_t right_reader_count = 0;
             uint64_t total_r_entries = 0;
 
             SortManager sort_manager(
-                right_writer_buf,
-                memorySize / 3,
+                memory,
+                sort_manager_buf_size,
                 kNumSortBuckets,
                 kLogNumSortBuckets,
                 right_entry_size_bytes,
@@ -1481,9 +1486,9 @@ private:
                         if (should_read_entry) {
                             // The right entries are in the format from backprop, (sort_key, pos,
                             // offset)
-                            if (right_reader_count % right_buf_entries == 0) {
+                            if (right_reader_count % right_reader_buf_entries == 0) {
                                 uint64_t readAmt = std::min(
-                                    right_buf_entries * right_entry_size_bytes,
+                                    right_reader_buf_entries * right_entry_size_bytes,
                                     (table_sizes[table_index + 1] - right_reader_count) *
                                         right_entry_size_bytes);
 
@@ -1493,7 +1498,7 @@ private:
                             }
                             right_entry_buf =
                                 right_reader_buf +
-                                (right_reader_count % right_buf_entries) * right_entry_size_bytes;
+                                (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
                             right_reader_count++;
 
                             entry_sort_key =
@@ -1536,15 +1541,15 @@ private:
                     }
                     // The left entries are in the new format: (sort_key, new_pos), except for table
                     // 1: (y, x).
-                    if (left_reader_count % left_buf_entries == 0) {
+                    if (left_reader_count % left_reader_buf_entries == 0) {
                         uint64_t readAmt = std::min(
-                            left_buf_entries * left_entry_size_bytes,
+                            left_reader_buf_entries * left_entry_size_bytes,
                             (table_sizes[table_index] - left_reader_count) * left_entry_size_bytes);
 
                         tmp_1_disks[table_index].Read(left_reader, left_reader_buf, readAmt);
                         left_reader += readAmt;
                     }
-                    left_entry_disk_buf = left_reader_buf + (left_reader_count % left_buf_entries) *
+                    left_entry_disk_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
                                                                 left_entry_size_bytes;
                     left_reader_count++;
 
@@ -1620,17 +1625,17 @@ private:
 
             right_reader = 0;
             right_writer = 0;
-            right_reader_buf = memory;
-            right_writer_buf = &(memory[memorySize / 2]);
-            right_buf_entries = memorySize / 2 / right_entry_size_bytes;
+            sort_manager_buf_size = 5 * memorySize / 6;
+            right_reader_buf = &(memory[sort_manager_buf_size]);
+            right_reader_buf_entries = (memorySize - sort_manager_buf_size) / right_entry_size_bytes;
             right_reader_count = 0;
             uint64_t final_table_writer = final_table_begin_pointers[table_index];
 
             final_entries_written = 0;
 
             SortManager sort_manager_2(
-                right_writer_buf,
-                memorySize / 2,
+                memory,
+                sort_manager_buf_size,
                 kNumSortBuckets,
                 kLogNumSortBuckets,
                 right_entry_size_bytes,
@@ -1652,16 +1657,16 @@ private:
             Bits right_entry_bits;
             int added_to_cache = 0;
             for (uint64_t index = 0; index < total_r_entries; index++) {
-                if (right_reader_count % right_buf_entries == 0) {
+                if (right_reader_count % right_reader_buf_entries == 0) {
                     uint64_t readAmt = std::min(
-                        right_buf_entries * right_entry_size_bytes,
+                        right_reader_buf_entries * right_entry_size_bytes,
                         (total_r_entries - right_reader_count) * right_entry_size_bytes);
 
                     tmp_1_disks[table_index + 1].Read(right_reader, right_reader_buf, readAmt);
                     right_reader += readAmt;
                 }
                 right_entry_buf = right_reader_buf +
-                                  (right_reader_count % right_buf_entries) * right_entry_size_bytes;
+                                  (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
                 right_reader_count++;
 
                 // Right entry is read as (line_point, sort_key)
