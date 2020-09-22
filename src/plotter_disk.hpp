@@ -216,16 +216,19 @@ public:
             WriteCTables(k, k + 1, tmp2_disk, tmp_1_disks, res);
             p4.PrintElapsed("Time for phase 4 =");
 
-            // The total number of bytes used for sort is saved to table_sizes[0]. All other
-            // elements in table_sizes represent the total number of entries written by the end of
-            // phase 1 (which should be the highest total working space time). Note that the max
-            // sort on disk space does not happen at the exact same time as max table sizes, so this
-            // estimate is conservative (high).
-            uint64_t total_working_space = table_sizes[0];
+            // Elements in table_sizes represent the total number of entries written by the end of
+            // phase 1. Then we add the largest of all, since during sorting, we write out an additional
+            // table.
+            uint64_t total_working_space = 0;
+            uint64_t largest_size = 0;
             for (size_t i = 1; i <= 7; i++) {
-                total_working_space += table_sizes[i] * GetMaxEntrySize(k, i, false);
+                uint64_t table_size = table_sizes[i] * GetMaxEntrySize(k, i, false);
+                total_working_space += table_size;
+                if (table_size > largest_size) largest_size = table_size;
             }
-            std::cout << "Approximate working space used (without final file): "
+            total_working_space += largest_size;
+
+            std::cout << "Approximate working space used: "
                       << static_cast<double>(total_working_space) / (1024 * 1024 * 1024) << " GiB"
                       << std::endl;
 

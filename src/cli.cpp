@@ -21,15 +21,17 @@
 #include "prover_disk.hpp"
 #include "verifier.hpp"
 
-void HexToBytes(const string &hex, uint8_t *result) {
+void HexToBytes(const string &hex, uint8_t *result)
+{
     for (uint32_t i = 0; i < hex.length(); i += 2) {
         string byteString = hex.substr(i, 2);
-        uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
+        uint8_t byte = (uint8_t)strtol(byteString.c_str(), NULL, 16);
         result[i / 2] = byte;
     }
 }
 
-vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
+vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
+{
     vector<unsigned char> arrayOfByte(numBytes, 0);
     for (uint32_t i = 0; paramInt > 0; i++) {
         arrayOfByte[numBytes - i - 1] = paramInt & 0xff;
@@ -38,14 +40,16 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes) {
     return arrayOfByte;
 }
 
-string Strip0x(const string &hex) {
+string Strip0x(const string &hex)
+{
     if (hex.substr(0, 2) == "0x" || hex.substr(0, 2) == "0X") {
         return hex.substr(2);
     }
     return hex;
 }
 
-void HelpAndQuit(cxxopts::Options options) {
+void HelpAndQuit(cxxopts::Options options)
+{
     cout << options.help({""}) << endl;
     cout << "./ProofOfSpace generate" << endl;
     cout << "./ProofOfSpace prove <challenge>" << endl;
@@ -54,12 +58,13 @@ void HelpAndQuit(cxxopts::Options options) {
     exit(0);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     try {
         cxxopts::Options options(
-                "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
+            "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
         options.positional_help("(generate/prove/verify/check) param1 param2 ")
-                .show_positional_help();
+            .show_positional_help();
 
         // Default values
         uint8_t k = 20;
@@ -73,16 +78,16 @@ int main(int argc, char *argv[]) {
         uint32_t buffmegabytes = 2 * 1024;  // 2 gigabytes
 
         options.allow_unrecognised_options().add_options()(
-                "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
-                "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
-                "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
-                "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
-                "f, file", "Filename", cxxopts::value<string>(filename))(
-                "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
-                "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
-                "b, buffer",
-                "Megabytes to be used as buffer for sorting and plotting",
-                cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
+            "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
+            "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
+            "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
+            "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
+            "f, file", "Filename", cxxopts::value<string>(filename))(
+            "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
+            "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
+            "b, buffer",
+            "Megabytes to be used as buffer for sorting and plotting",
+            cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
 
         auto result = options.parse(argc, argv);
 
@@ -112,16 +117,16 @@ int main(int argc, char *argv[]) {
 
             DiskPlotter plotter = DiskPlotter();
             plotter.CreatePlotDisk(
-                    tempdir,
-                    tempdir2,
-                    finaldir,
-                    filename,
-                    k,
-                    memo_bytes,
-                    memo.size() / 2,
-                    id_bytes,
-                    32,
-                    buffmegabytes);
+                tempdir,
+                tempdir2,
+                finaldir,
+                filename,
+                k,
+                memo_bytes,
+                memo.size() / 2,
+                id_bytes,
+                32,
+                buffmegabytes);
             delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {
@@ -184,7 +189,7 @@ int main(int argc, char *argv[]) {
             HexToBytes(proof, proof_bytes);
 
             LargeBits quality =
-                    verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
+                verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
             if (quality.GetSize() == 256) {
                 cout << "Proof verification suceeded. Quality: " << quality << endl;
             } else {
@@ -222,7 +227,7 @@ int main(int argc, char *argv[]) {
                     cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                     cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                     LargeBits quality =
-                            verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
+                        verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
                     if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
                         cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
