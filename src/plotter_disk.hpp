@@ -519,40 +519,28 @@ void* thread(void* arg)
         sem_wait(ptd->theirs);
         // printf("\nEntered %d..error %d\n",ptd->index,err);
 
+        uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
+
+        // Correct positions
         for (int i = 0; i < right_writer_count; i++) {
-            uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
+            uint64_t posaccum = 0;
 
-            PlotEntry left_entry = GetLeftEntry(
-                table_index + 1,
-                right_writer_buf + i * right_entry_size_bytes,
-                k,
-                right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize,
-                pos_size);
-
-            left_entry.read_posoffset += (g_left_writer_count - stripe_start_correction) << (kOffsetSize);
-
-            Bits new_entry;
-            new_entry.AppendValue(left_entry.y, ysize);
-            new_entry.AppendValue(left_entry.read_posoffset, pos_size + kOffsetSize);
-            if (right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize <= 128) {
-                new_entry.AppendValue(
-                    left_entry.left_metadata,
-                    right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize);
-            } else {
-                new_entry.AppendValue(left_entry.left_metadata, 128);
-                new_entry.AppendValue(
-                    left_entry.right_metadata,
-                    right_entry_size_bytes * 8 - ysize - pos_size - kOffsetSize - 128);
+            for (int j = ysize / 8; j < (ysize + pos_size + 7) / 8; j++) {
+                posaccum = (posaccum << 8) | (right_writer_buf[i * right_entry_size_bytes + j]);
             }
-            memset(right_writer_buf + i * right_entry_size_bytes, 0x00, right_entry_size_bytes);
-            new_entry.ToBytes(right_writer_buf + i * right_entry_size_bytes);
-            (*ptmp_1_disks)[table_index + 1].Write(
-                g_right_writer,
-                right_writer_buf + i * right_entry_size_bytes,
-                right_entry_size_bytes);
-            g_right_writer += right_entry_size_bytes;
-            g_right_writer_count++;
+            posaccum += (g_left_writer_count - stripe_start_correction)
+                        << ((8 - ((ysize + pos_size) % 8)) % 8);
+            for (int j = (ysize + pos_size + 7) / 8 - 1; j >= ysize / 8; --j) {
+                right_writer_buf[i * right_entry_size_bytes + j] = posaccum & 0xff;
+                posaccum = posaccum >> 8;
+            }
         }
+
+        // Write it out
+        (*ptmp_1_disks)[table_index + 1].Write(
+            g_right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
+        g_right_writer += right_writer_count * right_entry_size_bytes;
+        g_right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
             g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
