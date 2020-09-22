@@ -89,7 +89,7 @@ int numCPU();
 }
 
 #define STRIPESIZE 4096
-#define NUMTHREADS (numCPU())
+#define NUMTHREADS  (numCPU())
 
 typedef struct {
     int index;
@@ -521,9 +521,10 @@ void* thread(void* arg)
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
         uint32_t startbyte = ysize / 8;
-        uint32_t endbyte = (ysize + pos_size) / 8;
+        uint32_t endbyte = (ysize + pos_size + 7) / 8 - 1;
+        uint64_t shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
         uint64_t correction = (g_left_writer_count - stripe_start_correction) <<
-            ((8 - ((ysize + pos_size) % 8)) % 8);
+            shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
