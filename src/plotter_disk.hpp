@@ -219,10 +219,6 @@ void* thread(void* arg)
         uint64_t bucket = 0;
         bool end_of_table = false;  // We finished all entries in the left table
 
-        // Buffers for storing a left or a right entry, used for disk IO
-        uint8_t* right_buf;
-        uint8_t* tmp_buf;
-
         uint64_t ignorebucket = 0xffffffffffffffff;
         bool bMatch = false;
         bool bFirstStripeOvertimePair = false;
@@ -234,7 +230,8 @@ void* thread(void* arg)
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
-        uint64_t newlpos, newrpos;
+        uint64_t newlpos = 0;
+        uint64_t newrpos = 0;
         Bits new_left_entry(0, pos_size + kOffsetSize);
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
             current_entries_to_write;
@@ -345,16 +342,6 @@ void* thread(void* arg)
                     R_position_base = stripe_left_writer_count;
 
                     for (PlotEntry*& entry : not_dropped) {
-                        // Rewrite left entry with just pos and offset, to reduce working space
-                        if (table_index == 1) {
-                            // Table 1 goes from (f1, x) to just (x)
-                            new_left_entry = Bits(entry->left_metadata, k);
-                        } else {
-                            // Other tables goes from (f1, pos, offset, metadata) to just (pos,
-                            // offset)
-                            new_left_entry = Bits(entry->read_posoffset, pos_size + kOffsetSize);
-                        }
-
                         // The new position for this entry = the total amount of thing written
                         // to L so far. Since we only write entries in not_dropped, about 14% of
                         // entries are dropped.
@@ -366,11 +353,16 @@ void* thread(void* arg)
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
-                            tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
+                            uint8_t* tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
                                                             compressed_entry_size_bytes;
 
                             left_writer_count++;
-                            memset(tmp_buf, 0xff, compressed_entry_size_bytes);
+                            // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
+
+                            // Rewrite left entry with just pos and offset, to reduce working space
+                            Bits new_left_entry = Bits((table_index == 1)?entry->left_metadata:entry->read_posoffset,
+                                (table_index == 1)?k:pos_size + kOffsetSize);
+
                             new_left_entry.ToBytes(tmp_buf);
                         }
                         stripe_left_writer_count++;
@@ -459,12 +451,12 @@ void* thread(void* arg)
                         new_entry += std::get<1>(f_output);
 
                         if (bStripeStartPair) {
-                            right_buf =
+                            uint8_t* right_buf =
                                 right_writer_buf +
                                 (right_writer_count % right_buf_entries) * right_entry_size_bytes;
                             right_writer_count++;
 
-                            memset(right_buf, 0x00, right_entry_size_bytes);
+                            // memset(right_buf, 0xff, right_entry_size_bytes);
 
                             // Writes the new entry into the right table
                             new_entry.ToBytes(right_buf);
