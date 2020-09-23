@@ -377,7 +377,8 @@ void* thread(void* arg)
                         PlotEntry& L_entry = bucket_L[std::get<0>(indeces)];
                         PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
 
-                        ++matches;
+                        if (bStripeStartPair)
+                            ++matches;
 
                         // Sets the R entry to used so that we don't drop in next iteration
                         R_entry.used = true;
