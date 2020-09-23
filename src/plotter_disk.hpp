@@ -497,7 +497,6 @@ private:
             t1_entry_size_bytes,
             tmp_dirname,
             filename + "_1",
-            &tmp_1_disks[1],
             0);
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
@@ -565,7 +564,7 @@ private:
             uint64_t left_reader = 0;
             uint64_t left_writer = 0;
             uint64_t right_writer = 0;
-            uint64_t left_reader_buf_size = 3 * memorySize / 4;
+            uint64_t left_reader_buf_size = floor(kMemSortProportion * memorySize);
             uint64_t right_writer_buf_size =  3 * (memorySize - left_reader_buf_size) / 4;
             uint64_t left_writer_buf_size = (memorySize - left_reader_buf_size - right_writer_buf_size);
 
@@ -591,7 +590,6 @@ private:
                     right_entry_size_bytes,
                     tmp_dirname,
                     filename + "_" + to_string(table_index + 1),
-                    &tmp_1_disks[table_index + 1],
                     0);
 
             FxCalculator f(k, table_index + 1);
@@ -918,9 +916,7 @@ private:
             delete L_sort_manager;
             if (table_index < 6) {
                 R_sort_manager->FlushCache();
-                right_writer = R_sort_manager->GetBytesWritten();
                 L_sort_manager = R_sort_manager;
-                std::cout << "Wrote R bytes: " << right_writer << std::endl;
             } else {
                 // Writes remaining entries. In tables 2-6, entries are written using the sort
                 // manager instead
@@ -934,8 +930,8 @@ private:
                 tmp_1_disks[table_index + 1].Write(
                     right_writer, right_writer_buf, right_entry_size_bytes);
                 right_writer += right_entry_size_bytes;
+                tmp_1_disks[table_index + 1].Truncate(right_writer);
             }
-            tmp_1_disks[table_index + 1].Truncate(right_writer);
 
             table_timer.PrintElapsed("Forward propagation table time:");
 
@@ -967,6 +963,8 @@ private:
 
         std::vector<uint64_t> new_table_sizes = std::vector<uint64_t>(8, 0);
         new_table_sizes[7] = table_sizes[7];
+        LazySortManager* R_sort_manager;
+        LazySortManager* L_sort_manager;
 
         // Iterates through each table (with a left and right pointer), starting at 6 & 7.
         for (uint8_t table_index = 7; table_index > 1; --table_index) {
@@ -991,32 +989,35 @@ private:
             uint64_t right_reader = 0;
             uint64_t right_writer = 0;
             // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
-            // [------------------SM/LW---------------------|---LR---|---RR---|---RW---]
-            uint64_t sort_manager_buf_size = 3 * memorySize / 4;
-            uint64_t other_buf_sizes = (memorySize - sort_manager_buf_size) / 3;
-            uint8_t *left_writer_buf = &(memory[0]);
-            uint8_t *left_reader_buf = &(memory[sort_manager_buf_size]);
-            uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + other_buf_sizes]);
-            uint8_t *right_writer_buf = &(memory[sort_manager_buf_size + 2 * other_buf_sizes]);
-            uint64_t left_writer_buf_entries = sort_manager_buf_size / left_entry_size_bytes;
-            uint64_t left_reader_buf_entries = other_buf_sizes / left_entry_size_bytes;
+            // [--------------------------SM/RR-------------------------|-----------LW-------------|--RW--|--LR--]
+            uint64_t sort_manager_buf_size = floor(kMemSortProportion * memorySize);
+            uint64_t left_writer_buf_size = 3 * (memorySize - sort_manager_buf_size) / 4;
+            uint64_t other_buf_sizes = (memorySize - sort_manager_buf_size - left_writer_buf_size) / 2;
+            uint8_t *right_reader_buf = &(memory[0]);
+            uint8_t *left_writer_buf = &(memory[sort_manager_buf_size]);
+            uint8_t *right_writer_buf = &(memory[sort_manager_buf_size + left_writer_buf_size]);
+            uint8_t *left_reader_buf = &(memory[sort_manager_buf_size + left_writer_buf_size + other_buf_sizes]);
+            uint64_t right_reader_buf_entries = sort_manager_buf_size / right_entry_size_bytes;
+            uint64_t left_writer_buf_entries = left_writer_buf_size / left_entry_size_bytes;
             uint64_t right_writer_buf_entries = other_buf_sizes / right_entry_size_bytes;
-            uint64_t right_reader_buf_entries = other_buf_sizes / right_entry_size_bytes;
+            uint64_t left_reader_buf_entries = other_buf_sizes / left_entry_size_bytes;
             uint64_t left_reader_count = 0;
             uint64_t right_reader_count = 0;
             uint64_t left_writer_count = 0;
             uint64_t right_writer_count = 0;
 
-            SortManager sort_manager(
+            if (table_index != 7) {
+                R_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
+            }
+
+            L_sort_manager = new LazySortManager(
                 left_writer_buf,
-                sort_manager_buf_size,
+                left_writer_buf_size,
                 this->numBuckets,
                 this->logNumBuckets,
                 left_entry_size_bytes,
                 tmp_dirname,
-                filename,
-                &tmp_1_disks[table_index - 1],
-                &tmp_1_disks[0],
+                filename + "_" + to_string(table_index - 1),
                 0);
 
             // We will divide by 2, so it must be even.
@@ -1063,6 +1064,7 @@ private:
             uint8_t *left_entry_buf;
             uint8_t *new_left_entry_buf;
             uint8_t *right_entry_buf;
+            uint8_t *right_entry_buf_SM = new uint8_t[right_entry_size_bytes];
 
             // Go through all right entries, and keep going since write pointer is behind read
             // pointer
@@ -1091,20 +1093,32 @@ private:
 
                     while (!end_of_right_table) {
                         if (should_read_entry) {
-                            // Need to read another entry at the current position
-                            if (right_reader_count % right_reader_buf_entries == 0) {
-                                uint64_t readAmt = std::min(
-                                    right_reader_buf_entries * right_entry_size_bytes,
-                                    (new_table_sizes[table_index] - right_reader_count) *
-                                        right_entry_size_bytes);
-
-                                tmp_1_disks[table_index].Read(
-                                    right_reader, right_reader_buf, readAmt);
-                                right_reader += readAmt;
+                            if (right_reader_count == new_table_sizes[table_index] - 1) {
+                                // Table R has ended, don't read any more (but keep writing)
+                                end_of_right_table = true;
+                                end_of_table_pos = current_pos;
+                                break;
                             }
-                            right_entry_buf =
-                                right_reader_buf +
-                                (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
+                            // Need to read another entry at the current position
+                            if (table_index == 7) {
+                                if (right_reader_count % right_reader_buf_entries == 0) {
+                                    uint64_t readAmt = std::min(
+                                            right_reader_buf_entries * right_entry_size_bytes,
+                                            (new_table_sizes[table_index] - right_reader_count) *
+                                            right_entry_size_bytes);
+
+                                    tmp_1_disks[table_index].Read(
+                                            right_reader, right_reader_buf, readAmt);
+                                    right_reader += readAmt;
+                                }
+                                right_entry_buf =
+                                        right_reader_buf +
+                                        (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
+                            } else {
+                                R_sort_manager->Read(right_reader, right_entry_buf_SM, right_entry_size_bytes);
+                                right_entry_buf = right_entry_buf_SM;
+                                right_reader += right_entry_size_bytes;
+                            }
                             right_reader_count++;
 
                             if (table_index == 7) {
@@ -1136,12 +1150,8 @@ private:
                             // Greatest L pos that we should look for
                             greatest_pos = entry_pos + entry_offset;
                         }
-                        if (entry_sort_key == 0 && entry_pos == 0 && entry_offset == 0) {
-                            // Table R has ended, don't read any more (but keep writing)
-                            end_of_right_table = true;
-                            end_of_table_pos = current_pos;
-                            break;
-                        } else if (entry_pos == current_pos) {
+
+                        if (entry_pos == current_pos) {
                             // The current L position is the current R entry
                             // Marks the two matching entries as used (pos and pos+offset)
                             used_positions[entry_pos % kCachedPositionsSize] = true;
@@ -1215,7 +1225,7 @@ private:
                                 new_left_entry +=
                                     Bits(0, left_entry_size_bytes * 8 - new_left_entry.GetSize());
                             }
-                            sort_manager.AddToCache(new_left_entry);
+                            L_sort_manager->AddToCache(new_left_entry);
                         } else {
                             // For table one entries, we don't care about sort key, only x.
                             // Also, we don't use the sort manager, since we won't sort it.
@@ -1278,7 +1288,6 @@ private:
                             memset(right_entry_buf, 0, right_entry_size_bytes);
                         }
                         new_right_entry.ToBytes(right_entry_buf);
-
                         // Check for write out to disk
                         if (right_writer_count % right_writer_buf_entries == 0) {
                             tmp_1_disks[table_index].Write(
@@ -1303,37 +1312,36 @@ private:
                 (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes);
             right_writer += (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
 
+            if (table_index != 7) {
+                delete R_sort_manager;
+            }
+
             // Writes the 0 entry (EOT) for right table
             memset(right_writer_buf, 0x00, right_entry_size_bytes);
             tmp_1_disks[table_index].Write(right_writer, right_writer_buf, right_entry_size_bytes);
             right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index].Truncate(right_writer);
 
-            if (table_index > 2) {
-                // Sorts the left table by position
-                // For example sorts table6 by pos5 (position into table 5).
-                // The reason we sort, is so we can iterate through both tables at once. For
-                // example, if we read a right entry (pos, offset) = (456, 2), the next one might be
-                // (458, 19), and in the left table, we are reading entries around pos 450, etc..
-                std::cout << "\tSorting table " << int{table_index - 1} << std::endl;
-                Timer sort_timer;
-                left_writer = sort_manager.ExecuteSort(memory, memorySize);
-                sort_timer.PrintElapsed("\tSort time:");
-            } else {
+            if (table_index == 2) {
                 // Writes remaining entries for table1
                 tmp_1_disks[table_index - 1].Write(
                     left_writer,
                     left_writer_buf,
                     (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes);
                 left_writer += (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
-            }
 
-            // Writes the 0 entry (EOT) for left table
-            memset(left_writer_buf, 0x00, left_entry_size_bytes);
-            tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf, left_entry_size_bytes);
-            left_writer += left_entry_size_bytes;
-            tmp_1_disks[table_index - 1].Truncate(left_writer);
+                // Writes the 0 entry (EOT) for left table
+                memset(left_writer_buf, 0x00, left_entry_size_bytes);
+                tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf, left_entry_size_bytes);
+                left_writer += left_entry_size_bytes;
+                tmp_1_disks[table_index - 1].Truncate(left_writer);
+            } else {
+                L_sort_manager->FlushCache();
+                R_sort_manager = L_sort_manager;
+            }
+            delete[] right_entry_buf_SM;
         }
+        delete L_sort_manager;
         return new_table_sizes;
     }
 

@@ -46,11 +46,9 @@ public:
             uint16_t entry_size,
             const std::string &tmp_dirname,
             const std::string &filename,
-            Disk *output_file,
             uint32_t begin_bits) {
         this->memory_start = memory;
         this->memory_size = memory_size;
-        this->output_file = output_file;
         this->size_per_bucket = memory_size / num_buckets;
         this->log_num_buckets = log_num_buckets;
         this->entry_size = entry_size;
@@ -72,7 +70,6 @@ public:
         this->final_position_start = 0;
         this->final_position_end = 0;
         this->next_bucket_to_sort = 0;
-        this->output_file_written = 0;
     }
 
     inline void AddToCache(Bits &entry) {
@@ -173,19 +170,14 @@ public:
         this->bucket_files[bucket_i].Close();
         fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
 
-        this->final_position_start = this->output_file_written;
-        this->output_file_written += this->bucket_write_pointers[bucket_i];
-        this->final_position_end = this->output_file_written;
+        this->final_position_start = this->final_position_end;
+        this->final_position_end += this->bucket_write_pointers[bucket_i];
         this->next_bucket_to_sort++;
     }
 
     inline void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size) {
         this->memory_start = new_memory;
         this->memory_size = new_memory_size;
-    }
-
-    inline uint64_t GetBytesWritten() {
-        return this->output_file_written;
     }
 
     inline void AssertAllWritten() {
@@ -195,9 +187,6 @@ public:
         uint64_t bytes_written_sum = 0;
         for (auto s : this->bucket_write_pointers) {
             bytes_written_sum += s;
-        }
-        if (!(bytes_written_sum == this->output_file_written)) {
-            throw std::string("Did not write the correct number of entries");
         }
     }
 
@@ -241,8 +230,6 @@ public:
     uint64_t memory_size;
     // One file for each bucket
     std::vector<FileDisk> bucket_files;
-    // One output file for the result of the sort
-    Disk *output_file;
     // Size of each entry
     uint16_t entry_size;
     // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
@@ -263,7 +250,6 @@ public:
     uint64_t final_position_start;
     uint64_t final_position_end;
     uint64_t next_bucket_to_sort;
-    uint64_t output_file_written;
 };
 
 

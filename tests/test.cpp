@@ -813,10 +813,9 @@ TEST_CASE("Sort on disk")
         uint32_t size = 32;
         vector<Bits> input;
         uint32_t begin = 0;
-        FakeDisk disk_2 = FakeDisk(5000000);
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
-        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", &disk_2, 0);
+        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -845,10 +844,9 @@ TEST_CASE("Sort on disk")
         uint32_t size = 32;
         vector<Bits> input;
         uint32_t begin = 0;
-        FakeDisk disk_2 = FakeDisk(5000000);
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
-        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", &disk_2, 0);
+        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
