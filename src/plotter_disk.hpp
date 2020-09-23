@@ -54,8 +54,10 @@ namespace fs = ghc::filesystem;
 const uint32_t kOffsetSize = 10;
 
 // Number of buckets to use for SortOnDisk.
-const uint32_t kNumSortBuckets = 16;
-const uint32_t kLogNumSortBuckets = 4;
+const uint32_t kMinBuckets = 16;
+const uint32_t kMaxBuckets = 64;
+
+const double kMemSortProportion = 0.75;
 
 // During backprop and compress, the write pointer is ahead of the read pointer
 // Note that the large the offset, the higher these values must be
@@ -103,6 +105,22 @@ public:
 
         memorySize = ((uint64_t)buffmegabytes) * 1024 * 1024;
 
+        double  max_table_size = 0;
+        for (size_t i = 1; i <= 7; i++) {
+            double memory_i = 1.1 * ((uint64_t)1 << k) * GetMaxEntrySize(k, i, true);
+            if (memory_i > max_table_size) max_table_size = memory_i;
+        }
+        this->numBuckets = 2 * Util::RoundPow2(ceil(((double)max_table_size) / (memorySize * kMemSortProportion)));
+
+        if (this->numBuckets < kMinBuckets) {
+            this->numBuckets = kMinBuckets;
+        } else if (this->numBuckets > kMaxBuckets) {
+            std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) << " MiB" << std::endl;
+            exit(1);
+        }
+        this->logNumBuckets = log(this->numBuckets);
+        assert(log(this->numBuckets) == ceil(log(this->numBuckets)));
+
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
                   << tmp2_dirname << std::endl;
@@ -110,6 +128,7 @@ public:
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << memorySize << std::endl;
+        std::cout << "Using " << this->numBuckets << " buckets." << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -385,6 +404,8 @@ public:
     }
 
 private:
+    uint64_t numBuckets;
+    uint64_t logNumBuckets;
     uint64_t memorySize;
     uint8_t *parkToFileBytes;
     uint32_t parkToFileBytesSize;
@@ -464,21 +485,19 @@ private:
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
-        uint8_t buf[14];
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
-        SortManager sorting = SortManager(
+        LazySortManager* t1_sorting = new LazySortManager(
             memory,
             memorySize,
-            kNumSortBuckets,
-            kLogNumSortBuckets,
+            this->numBuckets,
+            this->logNumBuckets,
             t1_entry_size_bytes,
             tmp_dirname,
-            filename,
+            filename + "_1",
             &tmp_1_disks[1],
-            &tmp_1_disks[0],
             0);
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
@@ -489,7 +508,7 @@ private:
                 Bits to_write = std::get<0>(kv) + std::get<1>(kv);
 
                 // We write the x, y pair
-                sorting.AddToCache(to_write);
+                t1_sorting->AddToCache(to_write);
 
                 if (x + 1 > max_value) {
                     break;
@@ -503,12 +522,7 @@ private:
         f1_start_time.PrintElapsed("F1 complete, time:");
         Timer f1_sort_time;
         std::cout << "\tSorting table 1" << std::endl;
-        uint64_t end_of_file_i = sorting.ExecuteSort(memory, memorySize);
-        f1_sort_time.PrintElapsed("\tSort time: ");
-
-        // A zero entry is the end of table symbol.
-        memset(buf, 0x00, t1_entry_size_bytes);
-        tmp_1_disks[1].Write(end_of_file_i, buf, t1_entry_size_bytes);
+        t1_sorting->FlushCache();
         table_sizes[1] = x + 1;
 
         // Total number of entries in the current table (f1)
@@ -520,6 +534,9 @@ private:
 
         // Number of buckets that y values will be put into.
         double num_buckets = (((uint64_t)1) << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
+
+        LazySortManager* L_sort_manager = t1_sorting;
+        LazySortManager* R_sort_manager;
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
@@ -541,28 +558,41 @@ private:
             // Streams to read and right to tables. We will have handles to two tables. We will
             // read through the left table, compute matches, and evaluate f for matching entries,
             // writing results to the right table.
+
+            // The memory will be used like this, with most memory allocated towards the SortManager, since it needs
+            // to sort large amounts of data.
+            // [----------------------------LSM/LR---------------------------|-----RSM/RW------|--LW--]
             uint64_t left_reader = 0;
             uint64_t left_writer = 0;
             uint64_t right_writer = 0;
-            uint8_t *right_writer_buf = &(memory[0]);
-            uint64_t right_writer_buf_size = 5 * memorySize / 6;
-            uint8_t *left_writer_buf = &(memory[right_writer_buf_size]);
-            uint64_t left_buf_entries = (memorySize - right_writer_buf_size) / compressed_entry_size_bytes;
-            uint64_t right_buf_entries = right_writer_buf_size / right_entry_size_bytes;
+            uint64_t left_reader_buf_size = 3 * memorySize / 4;
+            uint64_t right_writer_buf_size =  3 * (memorySize - left_reader_buf_size) / 4;
+            uint64_t left_writer_buf_size = (memorySize - left_reader_buf_size - right_writer_buf_size);
+
+            uint8_t *left_reader_buf = &(memory[0]);
+            uint8_t *right_writer_buf = &(memory[left_reader_buf_size]);
+            uint8_t *left_writer_buf =  &(memory[left_reader_buf_size + right_writer_buf_size]);
+
+            uint64_t left_writer_buf_entries = left_writer_buf_size / compressed_entry_size_bytes;
+            uint64_t right_writer_buf_entries = right_writer_buf_size / right_entry_size_bytes;
+            uint64_t left_reader_count = 0;
             uint64_t left_writer_count = 0;
             uint64_t right_writer_count = 0;
 
-            SortManager sort_manager(
-                right_writer_buf,
-                right_writer_buf_size,
-                kNumSortBuckets,
-                kLogNumSortBuckets,
-                right_entry_size_bytes,
-                tmp_dirname,
-                filename,
-                &tmp_1_disks[table_index + 1],
-                &tmp_1_disks[0],
-                0);
+            // Assign the first 3/4 of memory to the left reader (which contains the data from the previous iteration),
+            // And will need to perform large sorts.
+            L_sort_manager->ChangeMemory(left_reader_buf, left_reader_buf_size);
+
+            R_sort_manager = new LazySortManager(
+                    right_writer_buf,
+                    right_writer_buf_size,
+                    this->numBuckets,
+                    this->logNumBuckets,
+                    right_entry_size_bytes,
+                    tmp_dirname,
+                    filename + "_" + to_string(table_index + 1),
+                    &tmp_1_disks[table_index + 1],
+                    0);
 
             FxCalculator f(k, table_index + 1);
 
@@ -578,7 +608,7 @@ private:
             uint64_t matches = 0;       // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            auto *left_buf = new uint8_t[entry_size_bytes + 7];
+            uint8_t left_buf[entry_size_bytes];
             uint8_t *right_buf;
             uint8_t *tmp_buf;
 
@@ -606,33 +636,41 @@ private:
                 PlotEntry left_entry = PlotEntry();
                 left_entry.right_metadata = 0;
                 // Reads a left entry from disk
-                tmp_1_disks[table_index].Read(left_reader, left_buf, entry_size_bytes);
-
-                left_reader += entry_size_bytes;
-
-                if (table_index == 1) {
-                    // For table 1, we only have y and metadata
-                    left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
-                    left_entry.left_metadata =
-                        Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
+                if (left_reader_count == table_sizes[table_index] - 1) {
+                    end_of_table = true;
+                    left_entry.y = 0;
+                    left_entry.left_metadata = 0;
+                    left_entry.right_metadata = 0;
+                    left_entry.used = false;
                 } else {
-                    // For tables 2-6, we we also have pos and offset. We need to read this because
-                    // this entry will be written again to the table without the y (and some entries
-                    // are dropped).
-                    left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
-                    left_entry.read_posoffset =
-                        Util::SliceInt64FromBytes(left_buf, k + kExtraBits, pos_size + kOffsetSize);
-                    if (metadata_size <= 128) {
-                        left_entry.left_metadata = Util::SliceInt128FromBytes(
-                            left_buf, k + kExtraBits + pos_size + kOffsetSize, metadata_size);
+                    L_sort_manager->Read(left_reader, left_buf, entry_size_bytes);
+                    left_reader_count++;
+                    left_reader += entry_size_bytes;
+
+                    if (table_index == 1) {
+                        // For table 1, we only have y and metadata
+                        left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
+                        left_entry.left_metadata =
+                                Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
                     } else {
-                        // Large metadatas that don't fit into 128 bits. (k > 32).
-                        left_entry.left_metadata = Util::SliceInt128FromBytes(
-                            left_buf, k + kExtraBits + pos_size + kOffsetSize, 128);
-                        left_entry.right_metadata = Util::SliceInt128FromBytes(
-                            left_buf,
-                            k + kExtraBits + pos_size + kOffsetSize + 128,
-                            metadata_size - 128);
+                        // For tables 2-6, we we also have pos and offset. We need to read this because
+                        // this entry will be written again to the table without the y (and some entries
+                        // are dropped).
+                        left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
+                        left_entry.read_posoffset =
+                                Util::SliceInt64FromBytes(left_buf, k + kExtraBits, pos_size + kOffsetSize);
+                        if (metadata_size <= 128) {
+                            left_entry.left_metadata = Util::SliceInt128FromBytes(
+                                    left_buf, k + kExtraBits + pos_size + kOffsetSize, metadata_size);
+                        } else {
+                            // Large metadatas that don't fit into 128 bits. (k > 32).
+                            left_entry.left_metadata = Util::SliceInt128FromBytes(
+                                    left_buf, k + kExtraBits + pos_size + kOffsetSize, 128);
+                            left_entry.right_metadata = Util::SliceInt128FromBytes(
+                                    left_buf,
+                                    k + kExtraBits + pos_size + kOffsetSize + 128,
+                                    metadata_size - 128);
+                        }
                     }
                 }
 
@@ -641,9 +679,6 @@ private:
                 left_entry.pos = pos;
                 left_entry.used = false;
 
-                end_of_table =
-                    (left_entry.y == 0 && left_entry.left_metadata == 0 &&
-                     left_entry.right_metadata == 0);
                 uint64_t y_bucket = left_entry.y / kBC;
 
                 // Keep reading left entries into bucket_L and R, until we run out of things
@@ -716,7 +751,7 @@ private:
                                 new_left_entry =
                                     Bits(entry->read_posoffset, pos_size + kOffsetSize);
                             }
-                            tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
+                            tmp_buf = left_writer_buf + (left_writer_count % left_writer_buf_entries) *
                                                             compressed_entry_size_bytes;
                             // The new position for this entry = the total amount of thing written
                             // to L so far. Since we only write entries in not_dropped, about 14% of
@@ -725,12 +760,12 @@ private:
                                 left_writer_count - R_position_base;
                             left_writer_count++;
                             new_left_entry.ToBytes(tmp_buf);
-                            if (left_writer_count % left_buf_entries == 0) {
+                            if (left_writer_count % left_writer_buf_entries == 0) {
                                 tmp_1_disks[table_index].Write(
                                     left_writer,
                                     left_writer_buf,
-                                    left_buf_entries * compressed_entry_size_bytes);
-                                left_writer += left_buf_entries * compressed_entry_size_bytes;
+                                    left_writer_buf_entries * compressed_entry_size_bytes);
+                                left_writer += left_writer_buf_entries * compressed_entry_size_bytes;
                             }
                         }
 
@@ -819,20 +854,20 @@ private:
 
                             right_buf =
                                 right_writer_buf +
-                                (right_writer_count % right_buf_entries) * right_entry_size_bytes;
+                                (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
                             right_writer_count++;
 
                             // Writes the new entry into the right table
                             if (table_index < 6) {
-                                sort_manager.AddToCache(new_entry);
+                                R_sort_manager->AddToCache(new_entry);
                             } else {
                                 new_entry.ToBytes(right_buf);
-                                if (right_writer_count % right_buf_entries == 0) {
+                                if (right_writer_count % right_writer_buf_entries == 0) {
                                     tmp_1_disks[table_index + 1].Write(
                                         right_writer,
                                         right_writer_buf,
-                                        right_buf_entries * right_entry_size_bytes);
-                                    right_writer += right_buf_entries * right_entry_size_bytes;
+                                        right_writer_buf_entries * right_entry_size_bytes);
+                                    right_writer += right_writer_buf_entries * right_entry_size_bytes;
                                 }
                             }
                         }
@@ -864,53 +899,50 @@ private:
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
 
             table_sizes[table_index] = left_writer_count + 1;
-            if (table_index == 6) {
-                table_sizes[7] = right_writer_count + 1;
-            }
+            table_sizes[table_index + 1] = right_writer_count + 1;
+
             // Finishes writing L table, and writes the 0 entry (EOT) for left table
             // Also truncates the file after the final write position, deleting no longer useful
             // working space
             tmp_1_disks[table_index].Write(
                 left_writer,
                 left_writer_buf,
-                (left_writer_count % left_buf_entries) * compressed_entry_size_bytes);
-            left_writer += (left_writer_count % left_buf_entries) * compressed_entry_size_bytes;
+                (left_writer_count % left_writer_buf_entries) * compressed_entry_size_bytes);
+            left_writer += (left_writer_count % left_writer_buf_entries) * compressed_entry_size_bytes;
 
             memset(left_buf, 0x00, compressed_entry_size_bytes);
             tmp_1_disks[table_index].Write(left_writer, left_buf, compressed_entry_size_bytes);
             left_writer += compressed_entry_size_bytes;
             tmp_1_disks[table_index].Truncate(left_writer);
 
+            delete L_sort_manager;
             if (table_index < 6) {
-                // Performs a sort on the right table. Table 7 does not need sorting, since we don't
-                // need to compute matches
-                Timer sort_timer;
-                std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
-                right_writer = sort_manager.ExecuteSort(memory, memorySize);
-                sort_timer.PrintElapsed("\tSort time:");
+                R_sort_manager->FlushCache();
+                right_writer = R_sort_manager->GetBytesWritten();
+                L_sort_manager = R_sort_manager;
+                std::cout << "Wrote R bytes: " << right_writer << std::endl;
             } else {
                 // Writes remaining entries. In tables 2-6, entries are written using the sort
                 // manager instead
                 tmp_1_disks[table_index + 1].Write(
                     right_writer,
                     right_writer_buf,
-                    (right_writer_count % right_buf_entries) * right_entry_size_bytes);
-                right_writer += (right_writer_count % right_buf_entries) * right_entry_size_bytes;
+                    (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes);
+                right_writer += (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
+                // Writes the 0 entry (EOT) for right table
+                memset(right_writer_buf, 0x00, right_entry_size_bytes);
+                tmp_1_disks[table_index + 1].Write(
+                    right_writer, right_writer_buf, right_entry_size_bytes);
+                right_writer += right_entry_size_bytes;
             }
-
-            // Writes the 0 entry (EOT) for right table
-            memset(right_writer_buf, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(
-                right_writer, right_writer_buf, right_entry_size_bytes);
-            right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(right_writer);
 
             table_timer.PrintElapsed("Forward propagation table time:");
 
-            delete[] left_buf;
             delete[] L_position_map;
             delete[] R_position_map;
         }
+        delete R_sort_manager;
 
         table_sizes[0] = 0;
         return table_sizes;
@@ -978,8 +1010,8 @@ private:
             SortManager sort_manager(
                 left_writer_buf,
                 sort_manager_buf_size,
-                kNumSortBuckets,
-                kLogNumSortBuckets,
+                this->numBuckets,
+                this->logNumBuckets,
                 left_entry_size_bytes,
                 tmp_dirname,
                 filename,
@@ -1450,8 +1482,8 @@ private:
             SortManager sort_manager(
                 memory,
                 sort_manager_buf_size,
-                kNumSortBuckets,
-                kLogNumSortBuckets,
+                this->numBuckets,
+                this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
                 filename,
@@ -1639,8 +1671,8 @@ private:
             SortManager sort_manager_2(
                 memory,
                 sort_manager_buf_size,
-                kNumSortBuckets,
-                kLogNumSortBuckets,
+                this->numBuckets,
+                this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
                 filename,
