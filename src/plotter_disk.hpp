@@ -88,7 +88,7 @@ extern "C" {
 int numCPU();
 }
 
-#define STRIPESIZE 4096
+#define STRIPESIZE 8192
 #define NUMTHREADS (numCPU())
 
 typedef struct {
@@ -178,14 +178,13 @@ void* thread(void* arg)
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
     uint8_t* right_writer_buf = &(memory[0]);
-    uint8_t* left_writer_buf = &(memory[memorySize / 2]);
-    uint64_t left_buf_entries = memorySize / 2 / compressed_entry_size_bytes;
-    uint64_t right_buf_entries = memorySize / 2 / right_entry_size_bytes;
+    uint8_t* left_writer_buf = &(memory[memorySize / 3]);
+    uint8_t* left_reader_buf = &(memory[2 * memorySize / 3]);
+    uint64_t left_buf_entries = memorySize / 3 / compressed_entry_size_bytes;
+    uint64_t right_buf_entries = memorySize / 3 / right_entry_size_bytes;
+    uint64_t left_reader_buf_entries = memorySize / 3 / entry_size_bytes;
 
     FxCalculator f(k, table_index + 1);
-
-    // Buffers for storing a left or a right entry, used for disk IO
-    uint8_t* left_buf = new uint8_t[entry_size_bytes + 7];
 
     // Stores map of old positions to new positions (positions after dropping entries from L
     // table that did not match) Map ke
@@ -204,6 +203,7 @@ void* thread(void* arg)
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
+        uint64_t left_reader_count = 0;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
         uint64_t stripe_start_correction = 0xffffffffffffffff;
@@ -248,10 +248,21 @@ void* thread(void* arg)
             stripe_start_correction = 0;
         }
 
+        sem_wait(ptd->theirs);
+        if (pos < prevtableentries + 1) {
+            uint64_t readamt = std::min(
+                (uint64_t)(STRIPESIZE + 2000) * entry_size_bytes,
+                ((prevtableentries + 1) * entry_size_bytes) - left_reader);
+
+            (*ptmp_1_disks)[table_index].Read(left_reader, left_reader_buf, readamt);
+            left_reader_count = 0;
+        }
+        sem_post(ptd->mine);
+
         while (pos < prevtableentries + 1) {
             // Reads a left entry from disk
-            (*ptmp_1_disks)[table_index].Read(left_reader, left_buf, entry_size_bytes);
-            left_reader += entry_size_bytes;
+            uint8_t* left_buf = &(left_reader_buf[left_reader_count * entry_size_bytes]);
+            left_reader_count++;
 
             PlotEntry left_entry = GetLeftEntry(table_index, left_buf, k, metadata_size, pos_size);
 
@@ -263,6 +274,7 @@ void* thread(void* arg)
             end_of_table =
                 (left_entry.y == 0 && left_entry.left_metadata == 0 &&
                  left_entry.right_metadata == 0);
+
             uint64_t y_bucket = left_entry.y / kBC;
 
             if (!bMatch) {
@@ -353,15 +365,17 @@ void* thread(void* arg)
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
-                            uint8_t* tmp_buf = left_writer_buf + (left_writer_count % left_buf_entries) *
-                                                            compressed_entry_size_bytes;
+                            uint8_t* tmp_buf =
+                                left_writer_buf + (left_writer_count % left_buf_entries) *
+                                                      compressed_entry_size_bytes;
 
                             left_writer_count++;
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
 
                             // Rewrite left entry with just pos and offset, to reduce working space
-                            Bits new_left_entry = Bits((table_index == 1)?entry->left_metadata:entry->read_posoffset,
-                                (table_index == 1)?k:pos_size + kOffsetSize);
+                            Bits new_left_entry = Bits(
+                                (table_index == 1) ? entry->left_metadata : entry->read_posoffset,
+                                (table_index == 1) ? k : pos_size + kOffsetSize);
 
                             new_left_entry.ToBytes(tmp_buf);
                         }
@@ -378,7 +392,7 @@ void* thread(void* arg)
                         PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
 
                         if (bStripeStartPair)
-                            ++matches;
+                            matches++;
 
                         // Sets the R entry to used so that we don't drop in next iteration
                         R_entry.used = true;
@@ -508,7 +522,6 @@ void* thread(void* arg)
         }
 
         sem_wait(ptd->theirs);
-        // printf("\nEntered %d..error %d\n",ptd->index,err);
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
         uint32_t startbyte = ysize / 8;
@@ -556,7 +569,6 @@ void* thread(void* arg)
 
     delete[] L_position_map;
     delete[] R_position_map;
-    delete[] left_buf;
 
     return 0;
 }
@@ -634,12 +646,12 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0], (uint64_t)0));
+            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0]));  //, (uint64_t)0));
             for (int i = 1; i < 8; i++) {
                 uint64_t tablesize = ((uint64_t)1) << (k + 1);
                 tablesize = tablesize * GetMaxEntrySize(k, i, true);
                 cout << "tablesize " << i << " " << tablesize << endl;
-                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], tablesize));
+                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i]));  //, tablesize));
             }
 
             FileDisk tmp2_disk(tmp_2_filename);
@@ -1042,14 +1054,16 @@ private:
                 mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
             }
 
+            uint64_t threadMemSize = memorySize / NUMTHREADS;
+
             for (int i = 0; i < NUMTHREADS; i++) {
                 td[i].index = i;
                 td[i].mine = mutex[i];
                 td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
 
                 td[i].prevtableentries = prevtableentries;
-                td[i].memorySize = right_entry_size_bytes * STRIPESIZE * 4;
-                td[i].memory = new uint8_t[td[i].memorySize];
+                td[i].memorySize = threadMemSize;
+                td[i].memory = &(memory[threadMemSize * i]);
                 td[i].right_entry_size_bytes = right_entry_size_bytes;
                 td[i].k = k;
                 td[i].table_index = table_index;
@@ -1069,7 +1083,6 @@ private:
                 sem_close(mutex[i]);
                 sprintf(semname, "sem %d", i);
                 sem_unlink(semname);
-                delete[] td[i].memory;
             }
 
             // end of parallel execution
@@ -1100,9 +1113,10 @@ private:
             // Resets variables
             bucket_sizes = g_right_bucket_sizes;
             g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
+            if (g_matches != g_right_writer_count)
+                cout << "UNMATCHED!" << endl;
 
-            prevtableentries = g_matches;
-
+            prevtableentries = g_right_writer_count;
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
 
