@@ -129,7 +129,7 @@ public:
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << memorySize << std::endl;
-        std::cout << "Using " << this->numBuckets << " buckets." << "log " << this->logNumBuckets << std::endl;
+        std::cout << "Using " << this->numBuckets << " buckets" << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -520,8 +520,6 @@ private:
             }
         }
         f1_start_time.PrintElapsed("F1 complete, time:");
-        Timer f1_sort_time;
-        std::cout << "\tSorting table 1" << std::endl;
         t1_sorting->FlushCache();
         table_sizes[1] = x + 1;
 

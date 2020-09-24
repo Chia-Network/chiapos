@@ -499,7 +499,7 @@ void HexToBytes(const string& hex, uint8_t* result)
     }
 }
 
-void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t num_proofs)
 {
     DiskProver prover(filename);
     uint8_t* proof_data = new uint8_t[8 * k];
@@ -528,27 +528,28 @@ void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint
     }
     std::cout << "Success: " << success << "/" << iterations << " "
               << (100 * ((double)success / (double)iterations)) << "%" << std::endl;
+    REQUIRE(success == num_proofs);
     REQUIRE(success > 0.5 * iterations);
     REQUIRE(success < 1.5 * iterations);
     delete[] proof_data;
 }
 
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t buffer)
+void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t buffer, uint32_t num_proofs)
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
     plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
-    TestProofOfSpace(filename, iterations, k, plot_id);
+    TestProofOfSpace(filename, iterations, k, plot_id, num_proofs);
     REQUIRE(remove(filename.c_str()) == 0);
 }
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot k15") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 15, plot_id_1, 1); }
-    SECTION("Disk plot k16") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1, 100); }
-    SECTION("Disk plot k17") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3, 100); }
-    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100); }
-    SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100); }
+    SECTION("Disk plot k15") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 15, plot_id_1, 1, 77); }
+    SECTION("Disk plot k16") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1, 100, 83); }
+    SECTION("Disk plot k17") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3, 100, 441); }
+    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4946); }
+    SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100, 107); }
 }
 
 TEST_CASE("Invalid plot")

@@ -120,17 +120,10 @@ public:
 
         uint32_t entry_len_memory = this->entry_size - this->begin_bits / 8;
 
-        std::cout << "\t\tFor quicksort, need " +
-                     to_string(entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0)) + "GiB."
-                  << std::endl;
-        std::cout << "\t\tFor the fast uniform sort, need " +
-                     to_string(
-                             Util::RoundSize(bucket_entries) * entry_len_memory /
-                             (1024.0 * 1024.0 * 1024.0)) +
-                     "GiB."
-                  << std::endl;
-        std::cout << "\t\tHave "
-                  << to_string(entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0)) + "GiB";
+        double have_ram = entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
+        double qs_ram = entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0);
+        double u_ram = Util::RoundSize(bucket_entries) * entry_len_memory /
+                (1024.0 * 1024.0 * 1024.0);
 
         if (bucket_entries > entries_fit_in_memory) {
             std::cout << "Not enough memory for sort in memory. Need to sort " +
@@ -146,7 +139,7 @@ public:
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
-            std::cout << "\t\tDoing uniform sort" << std::endl;
+            std::cout << "\tDoing uniform sort. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
             UniformSort::SortToMemory(
                     this->bucket_files[bucket_i],
                     0,
@@ -158,7 +151,7 @@ public:
             // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform
             // quicksort if so (SortInMemory algorithm won't always perform well), or if we don't have enough memory for
             // uniform sort
-            std::cout << "\t\tDoing QS" << std::endl;
+            std::cout << "\tDoing QS. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort << std::endl;
             this->bucket_files[bucket_i].Read(0, this->memory_start,
                                               bucket_entries * this->entry_size);
             QuickSort::Sort(this->memory_start, this->entry_size, bucket_entries, this->begin_bits);

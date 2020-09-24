@@ -74,8 +74,7 @@ class TestPythonBindings(unittest.TestCase):
             f"total proofs {total_proofs} out of {iterations}\
             {total_proofs / iterations}"
         )
-        assert total_proofs > 4000
-        assert total_proofs < 6000
+        assert total_proofs == 4946
         pr = None
         sha256_plot_hash = sha256()
         with open("myplot.dat", "rb") as f:
@@ -85,7 +84,7 @@ class TestPythonBindings(unittest.TestCase):
             plot_hash = str(sha256_plot_hash.hexdigest())
         assert (
             plot_hash
-            == "80e32f560f3a4347760d6baae8d16fbaf484948088bff05c51bdcc24b7bc40d9"
+            == "121e768628c6b000fe9d621ce35404baf4a29c139496ab7e54f183aef1f0f84e"
         )
         print(f"\nPlotfile asserted sha256: {plot_hash}\n")
         Path("myplot.dat").unlink()
