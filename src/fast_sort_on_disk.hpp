@@ -60,9 +60,12 @@ public:
             this->mem_bucket_pointers.push_back(memory + bucket_i * size_per_bucket);
             this->mem_bucket_sizes.push_back(0);
             this->bucket_write_pointers.push_back(0);
+            ostringstream bucket_number_padded;
+            bucket_number_padded << std::internal << std::setfill('0') << std::setw(3) << bucket_i;
+
             fs::path bucket_filename =
                     fs::path(tmp_dirname) /
-                    fs::path(filename + ".sort_bucket_" + to_string(bucket_i) + ".tmp");
+                    fs::path(filename + ".sort_bucket_" + bucket_number_padded.str() + ".tmp");
             fs::remove(bucket_filename);
             this->bucket_files.emplace_back(FileDisk(bucket_filename));
         }
@@ -101,6 +104,7 @@ public:
     }
 
     inline void SortBucket(int quicksort) {
+        this->done = true;
         if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
             throw std::string("Trying to sort bucket which does not exist.");
         }
@@ -129,7 +133,7 @@ public:
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
-            std::cout << "\tDoing uniform sort. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
+            std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
             UniformSort::SortToMemory(
                     this->bucket_files[bucket_i],
                     0,
@@ -141,7 +145,7 @@ public:
             // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)? Perform
             // quicksort if so (SortInMemory algorithm won't always perform well), or if we don't have enough memory for
             // uniform sort
-            std::cout << "\tDoing QS. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort << std::endl;
+            std::cout << "\tBucket " << bucket_i << " QS. Ram: " << std::fixed << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort << std::endl;
             this->bucket_files[bucket_i].Read(0, this->memory_start,
                                               bucket_entries * this->entry_size);
             QuickSort::Sort(this->memory_start, this->entry_size, bucket_entries, this->begin_bits);
@@ -158,8 +162,16 @@ public:
     }
 
     inline void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size) {
+        this->FlushCache();
         this->memory_start = new_memory;
         this->memory_size = new_memory_size;
+        this->size_per_bucket = new_memory_size / this->mem_bucket_pointers.size();
+        for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
+            this->mem_bucket_pointers[bucket_i] = (new_memory + bucket_i * size_per_bucket);
+        }
+        this->final_position_start = 0;
+        this->final_position_end = 0;
+        this->next_bucket_to_sort = 0;
     }
 
     inline void AssertAllWritten() {

@@ -18,7 +18,7 @@
 #ifndef _WIN32
 
 #include <unistd.h>
-
+#include <sys/resource.h>
 #endif
 
 #include <math.h>
@@ -99,11 +99,26 @@ public:
         uint32_t id_len,
         uint32_t buffmegabytes = 2 * 1024)
     {
+
+#ifndef _WIN32
+        struct rlimit the_limit = { 300, 300 };
+        if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
+            std::cout << "setrlimit failed" << std::endl;
+            exit(1);
+        }
+#endif
+
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             std::cout << "Plot size k=" << std::to_string(k) << " is invalid" << std::endl;
             return;
         }
-
+        if (buffmegabytes < 10) {
+            std::cout << "Please provide at least 10MiB of ram." << std::endl;
+            exit(1);
+        }
+        // Subtract some ram to account for dynamic allocation through the code
+        uint64_t submbytes = (5 + (int)min(buffmegabytes * 0.05, (double)50));
+        buffmegabytes -= submbytes;
         memorySize = ((uint64_t)buffmegabytes) * 1024 * 1024;
 
         double  max_table_size = 0;
@@ -116,7 +131,7 @@ public:
         if (this->numBuckets < kMinBuckets) {
             this->numBuckets = kMinBuckets;
         } else if (this->numBuckets > kMaxBuckets) {
-            std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) << " MiB" << std::endl;
+            std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) + submbytes << " MiB" << std::endl;
             exit(1);
         }
         this->logNumBuckets = log2(this->numBuckets);

@@ -51,7 +51,7 @@ class TestPythonBindings(unittest.TestCase):
         )
         pl = None
 
-        pr = DiskProver(str(Path("myplot.dat")))
+        pr = DiskProver("myplot.dat")
 
         total_proofs: int = 0
         iterations: int = 5000
