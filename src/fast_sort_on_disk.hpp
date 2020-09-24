@@ -67,7 +67,7 @@ public:
                     fs::path(tmp_dirname) /
                     fs::path(filename + ".sort_bucket_" + bucket_number_padded.str() + ".tmp");
             fs::remove(bucket_filename);
-            this->bucket_files.emplace_back(FileDisk(bucket_filename));
+            this->bucket_files.push_back(FileDisk(bucket_filename));
         }
         this->final_position_start = 0;
         this->final_position_end = 0;
