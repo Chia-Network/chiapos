@@ -81,7 +81,7 @@ public:
         uint64_t bucket_index = ExtractNum(entry, this->begin_bits, this->log_num_buckets);
         uint64_t mem_write_offset = mem_bucket_sizes[bucket_index] * entry_size;
         if (mem_write_offset + entry_size > this->size_per_bucket) {
-            this->FlushCache();
+            this->FlushTable(bucket_index);
             mem_write_offset = 0;
         }
 
@@ -187,18 +187,7 @@ public:
 
     inline void FlushCache() {
         for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
-            uint64_t start_write = this->bucket_write_pointers[bucket_i];
-            uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
-
-            // Flush each bucket to disk
-            bucket_files[bucket_i].Write(
-                    start_write, this->mem_bucket_pointers[bucket_i], write_len);
-            this->bucket_write_pointers[bucket_i] += write_len;
-
-            // Reset memory caches
-            this->mem_bucket_pointers[bucket_i] =
-                    this->memory_start + bucket_i * this->size_per_bucket;
-            this->mem_bucket_sizes[bucket_i] = 0;
+            FlushTable(bucket_i);
         }
     }
 
@@ -215,6 +204,21 @@ public:
     inline static uint64_t ExtractNum(Bits &bytes, uint32_t begin_bits, uint32_t take_bits)
     {
         return (uint64_t)(bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
+    }
+
+    inline void FlushTable(uint16_t bucket_i) {
+        uint64_t start_write = this->bucket_write_pointers[bucket_i];
+        uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
+
+        // Flush the bucket to disk
+        bucket_files[bucket_i].Write(
+                start_write, this->mem_bucket_pointers[bucket_i], write_len);
+        this->bucket_write_pointers[bucket_i] += write_len;
+
+        // Reset memory caches
+        this->mem_bucket_pointers[bucket_i] =
+                this->memory_start + bucket_i * this->size_per_bucket;
+        this->mem_bucket_sizes[bucket_i] = 0;
     }
 
     // Start of the whole memory array. This will be diveded into buckets

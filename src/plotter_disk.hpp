@@ -101,7 +101,7 @@ public:
     {
 
 #ifndef _WIN32
-        struct rlimit the_limit = { 300, 300 };
+        struct rlimit the_limit = { 600, 600 };
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
             std::cout << "setrlimit failed" << std::endl;
         }
@@ -511,7 +511,7 @@ private:
             this->logNumBuckets,
             t1_entry_size_bytes,
             tmp_dirname,
-            filename + "_1",
+            filename + ".p1.t1",
             0);
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
@@ -1511,8 +1511,8 @@ private:
             R_sort_manager = new LazySortManager(
                 right_writer_buf,
                 right_writer_buf_size,
-                this->numBuckets,
-                this->logNumBuckets,
+                this->numBuckets * 2,
+                this->logNumBuckets + 1,
                 right_entry_size_bytes,
                 tmp_dirname,
                 filename + ".p3.t" + to_string(table_index + 1),
