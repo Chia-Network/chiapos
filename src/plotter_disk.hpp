@@ -91,8 +91,8 @@ const Bits empty_bits;
 typedef struct {
     int index;
 #ifdef _WIN32
-    HANDLE* mine;
-    HANDLE* theirs;
+    HANDLE mine;
+    HANDLE theirs;
 #else
     sem_t* mine;
     sem_t* theirs;
@@ -1116,7 +1116,7 @@ private:
                 td[i].ptmp_1_disks = &tmp_1_disks;
 
 #ifdef _WIN32
-                t[i] = CreateThread(0, 0, myThread, &(td[i]), 0, NULL);
+                t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
 #else
                 pthread_create(&(t[i]), NULL, thread, &(td[i]));
 #endif
