@@ -605,7 +605,7 @@ private:
             uint64_t matches = 0;       // Total matches
 
             // Buffers for storing a left or a right entry, used for disk IO
-            uint8_t left_buf[entry_size_bytes];
+            uint8_t *left_buf;
             uint8_t *right_buf;
             uint8_t *tmp_buf;
 
@@ -640,7 +640,7 @@ private:
                     left_entry.right_metadata = 0;
                     left_entry.used = false;
                 } else {
-                    L_sort_manager->Read(left_reader, left_buf, entry_size_bytes);
+                    left_buf = L_sort_manager->ReadEntry(left_reader);
                     left_reader_count++;
                     left_reader += entry_size_bytes;
 
@@ -1114,8 +1114,7 @@ private:
                                         right_reader_buf +
                                         (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
                             } else {
-                                R_sort_manager->Read(right_reader, right_entry_buf_SM, right_entry_size_bytes);
-                                right_entry_buf = right_entry_buf_SM;
+                                right_entry_buf = R_sort_manager->ReadEntry(right_reader);
                                 right_reader += right_entry_size_bytes;
                             }
                             right_reader_count++;
@@ -1476,7 +1475,6 @@ private:
 
             uint64_t left_reader = 0;
             uint64_t right_reader = 0;
-            uint64_t right_writer = 0;
             // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
             // [---------------------------SM/LR---------------------|----------RW--------|---RR---]
             uint64_t sort_manager_buf_size = floor(kMemSortProportion * memorySize);
@@ -1607,8 +1605,7 @@ private:
                             left_entry_disk_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
                                                                     left_entry_size_bytes;
                         } else {
-                            L_sort_manager->Read(left_reader, left_entry_buf_sm, left_entry_size_bytes, 1);
-                            left_entry_disk_buf = left_entry_buf_sm;
+                            left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader, 1);
                             left_reader += left_entry_size_bytes;
                         }
                         left_reader_count++;
@@ -1681,7 +1678,6 @@ private:
             // The memory will be used like this, with most memory allocated towards the LeftSortManager, since it needs it
             // [---------------------------LSM/RR-----------------------------------|---------RSM/RW---------]
             right_reader = 0;
-            right_writer = 0;
             right_reader_buf_size =  floor(kMemSortProportion * memorySize);
             right_writer_buf_size =  memorySize - right_reader_buf_size;
             right_reader_buf = &(memory[0]);
@@ -1714,7 +1710,7 @@ private:
             uint128_t last_line_point = 0;
             uint64_t park_index = 0;
 
-            uint8_t right_reader_entry_buf[right_entry_size_bytes];
+            uint8_t* right_reader_entry_buf;
 
             // Now we will write on of the final tables, since we have a table sorted by line point.
             // The final table will simply store the deltas between each line_point, in fixed space
@@ -1722,7 +1718,7 @@ private:
             Bits right_entry_bits;
             int added_to_cache = 0;
             for (uint64_t index = 0; index < total_r_entries; index++) {
-                R_sort_manager->Read(right_reader, right_reader_entry_buf, right_entry_size_bytes, 2);
+                right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader, 2);
                 right_reader += right_entry_size_bytes;
                 right_reader_count++;
 
@@ -1879,7 +1875,7 @@ private:
         vector<uint8_t> deltas_to_write;
         uint32_t right_entry_size_bytes = res.right_entry_size_bits / 8;
 
-        auto right_entry_buf = new uint8_t[right_entry_size_bytes + 7];
+        uint8_t* right_entry_buf;
         auto C1_entry_buf = new uint8_t[Util::ByteAlign(k) / 8];
         auto C3_entry_buf = new uint8_t[size_C3];
         auto P7_entry_buf = new uint8_t[P7_park_size];
@@ -1891,8 +1887,7 @@ private:
         // We read each table7 entry, which is sorted by f7, but we don't need f7 anymore. Instead,
         // we will just store pos6, and the deltas in table C3, and checkpoints in tables C1 and C2.
         for (uint64_t f7_position = 0; f7_position < res.final_entries_written; f7_position++) {
-            res.table7_sm->Read(plot_file_reader, right_entry_buf, right_entry_size_bytes, 1);
-            res.table7_sm->Read(plot_file_reader, right_entry_buf, right_entry_size_bytes, 1);
+            right_entry_buf = res.table7_sm->ReadEntry(plot_file_reader, 1);
 
             plot_file_reader += right_entry_size_bytes;
             uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, 0, k);
@@ -1985,7 +1980,6 @@ private:
         delete[] C3_entry_buf;
         delete[] C1_entry_buf;
         delete[] P7_entry_buf;
-        delete[] right_entry_buf;
 
         final_file_writer_1 = res.header_size - 8 * 3;
         uint8_t table_pointer_bytes[8];

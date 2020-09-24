@@ -707,9 +707,9 @@ TEST_CASE("Sort on disk")
         manager.FlushCache();
         uint8_t buf[size];
         sort(input.begin(), input.end());
-        uint8_t buf3[size];
+        uint8_t *buf3;
         for (uint32_t i = 0; i < iters; i++) {
-            manager.Read(begin + i * size, buf3, size);
+            buf3 = manager.ReadEntry(begin + i * size);
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }
@@ -740,9 +740,9 @@ TEST_CASE("Sort on disk")
         std::cout << "executed" << std::endl;
         uint8_t buf[size];
         sort(input.begin(), input.end());
-        uint8_t buf3[size];
+        uint8_t *buf3;
         for (uint32_t i = 0; i < iters; i++) {
-            manager.Read(begin + i * size, buf3, size);
+            buf3 = manager.ReadEntry(begin + i * size);
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }

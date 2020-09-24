@@ -88,26 +88,16 @@ public:
         mem_bucket_sizes[bucket_index] += 1;
     }
 
-    inline void Read(uint64_t position, uint8_t *buffer, uint64_t num_bytes_to_copy, int quicksort = 0) {
-        if (position < this->final_position_start) {
-            throw std::string("Invalid read position.");
-        }
+    inline uint8_t* ReadEntry(uint64_t position, int quicksort = 0) {
+        assert(position >= this->final_position_start);
+
         while (position >= this->final_position_end) {
             SortBucket(quicksort);
         }
         assert(this->final_position_end > position);
         assert(this->final_position_start >= position);
 
-        uint64_t bytes_copied = 0;
-        do {
-            uint64_t bytes_to_copy = std::min(num_bytes_to_copy, this->final_position_end - position);
-            memcpy(buffer + bytes_copied, this->memory_start + (position - this->final_position_start), bytes_to_copy);
-            bytes_copied += bytes_to_copy;
-            if (bytes_copied < num_bytes_to_copy) {
-                SortBucket(quicksort);
-            }
-        } while (bytes_copied < num_bytes_to_copy);
-        assert (bytes_copied == num_bytes_to_copy);
+        return this->memory_start + (position - this->final_position_start);
     }
 
     inline void SortBucket(int quicksort) {
