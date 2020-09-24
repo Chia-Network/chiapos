@@ -22,7 +22,6 @@
 #include "encoding.hpp"
 #include "disk.hpp"
 #include "fast_sort_on_disk.hpp"
-#include "sort_on_disk.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
@@ -43,13 +42,6 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
         paramInt >>= 8;
     }
     return arrayOfByte;
-}
-static std::string HexStr(const uint8_t* data, size_t len) {
-    std::stringstream s;
-    s << std::hex;
-    for (int i=0; i < len; ++i)
-        s << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
-    return s.str();
 }
 
 static uint128_t to_uint128(uint64_t hi, uint64_t lo) { return (uint128_t)hi << 64 | lo; }
@@ -691,121 +683,6 @@ TEST_CASE("Sort on disk")
 
         REQUIRE(memcmp(buf, read_buf, 5) == 0);
         remove("test_file.bin");
-    }
-
-    SECTION("Bucket store")
-    {
-        uint32_t iters = 10000;
-        uint32_t size = 16;
-        vector<Bits> input;
-
-        for (uint32_t i = 0; i < iters; i++) {
-            uint8_t rand_arr[size];
-            for (uint32_t i = 0; i < size; i++) {
-                rand_arr[i] = rand() % 256;
-            }
-            input.push_back(Bits(rand_arr, size, size * 8));
-        }
-
-        set<Bits> iset(input.begin(), input.end());
-        uint32_t input_index = 0;
-        vector<Bits> output;
-
-        uint8_t* mem = new uint8_t[iters];
-        BucketStore bs = BucketStore(mem, iters, 16, 0, 4, 5);
-        bs.Audit();
-
-        uint8_t buf[size];
-        while (true) {
-            while (!bs.IsFull() && input_index != input.size()) {
-                input[input_index].ToBytes(buf);
-                bs.Store(buf, size);
-                bs.Audit();
-                input_index += 1;
-            }
-            uint32_t m = bs.MaxBucket();
-            uint64_t final_size;
-            uint64_t* bucket_handle = bs.BucketHandle(m, 1000000, final_size);
-            uint32_t entry_size = size / 8;
-            uint8_t last_size = (size * 8) % 64;
-            if (last_size == 0)
-                last_size = 64;
-            for (uint32_t i = 0; i < final_size; i += entry_size) {
-                Sorting::EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
-                Bits x(buf, size, size * 8);
-                REQUIRE(iset.find(x) != iset.end());
-                REQUIRE(Util::ExtractNum((uint8_t*)buf, size, 0, 4) == m);
-                output.push_back(x);
-            }
-            if (bs.IsEmpty()) {
-                delete[] bucket_handle;
-                break;
-            }
-            delete[] bucket_handle;
-        }
-        sort(input.begin(), input.end());
-        sort(output.begin(), output.end());
-
-        set<Bits> output_set(output.begin(), output.end());
-        REQUIRE(output_set.size() == output.size());
-        for (uint32_t i = 0; i < output.size(); i++) {
-            REQUIRE(input[i] == output[i]);
-        }
-
-        delete[] mem;
-    }
-
-  SECTION("Sort on disk") {
-        uint32_t iters = 100000;
-        uint32_t size = 32;
-        vector<Bits> input;
-        uint32_t begin = 0;
-        FakeDisk disk = FakeDisk(5000000);
-        FakeDisk disk_2 = FakeDisk(5000000);
-        FakeDisk spare = FakeDisk(5000000);
-        FakeDisk spare_2 = FakeDisk(5000000);
-        const uint32_t memory_len = 10000;
-        uint8_t* memory = new uint8_t[memory_len];
-        SortManager manager = SortManager(memory, memory_len, 16, 4, size, ".", "test-files", &disk_2, &spare_2, 0);
-        int total_written_1 = 0;
-        for (uint32_t i = 0; i < iters; i ++) {
-            vector<unsigned char> hash_input = intToBytes(i, 4);
-            vector<unsigned char> hash(picosha2::k_digest_size);
-            picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-
-            disk.Write(begin + i * size, hash.data(), size);
-            total_written_1 += size;
-            Bits to_write = Bits(hash.data(), size, size*8);
-            input.emplace_back(to_write);
-            manager.AddToCache(to_write);
-        }
-        std::cout << "executing" << std::endl;
-        int total_written_2 = manager.ExecuteSort(memory, memory_len);
-        std::cout << "executed" << std::endl;
-        REQUIRE(total_written_1 == total_written_2);
-
-        vector<uint64_t> bucket_sizes(16, 0);
-        uint8_t buf[size];
-        for (Bits& x : input) {
-            x.ToBytes(buf);
-            bucket_sizes[Util::ExtractNum(buf, size, 0, 4)] += 1;
-        }
-
-        Sorting::SortOnDisk(disk, disk, begin, begin, spare, size, 0, bucket_sizes, memory, memory_len);
-
-        sort(input.begin(), input.end());
-
-        uint8_t buf2[size];
-        uint8_t buf3[size];
-        for (uint32_t i = 0; i < iters; i++) {
-            disk.Read(begin + i * size, buf2, size);
-            disk_2.Read(begin + i * size, buf3, size);
-            input[i].ToBytes(buf);
-            REQUIRE(memcmp(buf, buf2, size) == 0);
-            REQUIRE(memcmp(buf, buf3, size) == 0);
-        }
-
-        delete[] memory;
     }
 
     SECTION("Lazy Sort Manager QS") {

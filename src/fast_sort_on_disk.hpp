@@ -34,7 +34,6 @@ namespace fs = ghc::filesystem;
 #include "./util.hpp"
 #include "./uniformsort.hpp"
 #include "./quicksort.hpp"
-#include "sort_on_disk.hpp"
 
 class LazySortManager {
 public:
@@ -89,7 +88,7 @@ public:
         mem_bucket_sizes[bucket_index] += 1;
     }
 
-    inline void Read(uint64_t position, uint8_t *buffer, uint64_t num_bytes_to_copy, bool quicksort = 0) {
+    inline void Read(uint64_t position, uint8_t *buffer, uint64_t num_bytes_to_copy, int quicksort = 0) {
         if (position < this->final_position_start) {
             throw std::string("Invalid read position.");
         }
@@ -102,7 +101,7 @@ public:
         uint64_t bytes_copied = 0;
         do {
             uint64_t bytes_to_copy = std::min(num_bytes_to_copy, this->final_position_end - position);
-            memcpy(buffer, this->memory_start + (position - this->final_position_start), bytes_to_copy);
+            memcpy(buffer + bytes_copied, this->memory_start + (position - this->final_position_start), bytes_to_copy);
             bytes_copied += bytes_to_copy;
             if (bytes_copied < num_bytes_to_copy) {
                 SortBucket(quicksort);
@@ -111,11 +110,10 @@ public:
         assert (bytes_copied == num_bytes_to_copy);
     }
 
-    inline void SortBucket(bool quicksort) {
+    inline void SortBucket(int quicksort) {
         if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
             throw std::string("Trying to sort bucket which does not exist.");
         }
-
         uint64_t bucket_i = this->next_bucket_to_sort;
         uint64_t bucket_entries = bucket_write_pointers[bucket_i] / this->entry_size;
         uint64_t entries_fit_in_memory = this->memory_size / this->entry_size;
@@ -143,10 +141,11 @@ public:
                       << std::endl;
             exit(1);
         }
-
+        bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1 ) || this->bucket_write_pointers[bucket_i + 1] == 0;
+        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
-        if (quicksort == 0 && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
+        if (!force_quicksort && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
             std::cout << "\t\tDoing uniform sort" << std::endl;
             UniformSort::SortToMemory(
                     this->bucket_files[bucket_i],
@@ -172,7 +171,7 @@ public:
 
         this->final_position_start = this->final_position_end;
         this->final_position_end += this->bucket_write_pointers[bucket_i];
-        this->next_bucket_to_sort++;
+        this->next_bucket_to_sort += 1;
     }
 
     inline void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size) {
@@ -250,184 +249,6 @@ public:
     uint64_t final_position_start;
     uint64_t final_position_end;
     uint64_t next_bucket_to_sort;
-};
-
-
-class SortManager {
-public:
-    SortManager(
-            uint8_t *memory,
-            uint64_t memory_size,
-            uint32_t num_buckets,
-            uint32_t log_num_buckets,
-            uint16_t entry_size,
-            const std::string &tmp_dirname,
-            const std::string &filename,
-            Disk *output_file,
-            Disk *spare,
-            uint32_t begin_bits)
-    {
-        this->memory_start = memory;
-        this->memory_size = memory_size;
-        this->output_file = output_file;
-        this->spare = spare;
-        this->size_per_bucket = memory_size / num_buckets;
-        this->log_num_buckets = log_num_buckets;
-        this->entry_size = entry_size;
-        this->begin_bits = begin_bits;
-        this->done = false;
-        // Cross platform way to concatenate paths, gulrak library.
-        std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
-        this->sub_bucket_sizes = std::vector<std::vector<uint64_t>>();
-
-        for (size_t bucket_i = 0; bucket_i < num_buckets; bucket_i++) {
-            this->mem_bucket_pointers.push_back(memory + bucket_i * size_per_bucket);
-            this->mem_bucket_sizes.push_back(0);
-            this->bucket_write_pointers.push_back(0);
-            this->sub_bucket_sizes.emplace_back(std::vector<uint64_t>(num_buckets, 0));
-            fs::path bucket_filename =
-                    fs::path(tmp_dirname) /
-                    fs::path(filename + ".sort_bucket_" + to_string(bucket_i) + ".tmp");
-            fs::remove(bucket_filename);
-            this->bucket_files.emplace_back(FileDisk(bucket_filename));
-        }
-    }
-
-    inline void AddToCache(Bits &entry)
-    {
-        if (this->done) {
-            throw std::string("Already finished.");
-        }
-        uint64_t bucket_index = ExtractNum(entry, this->begin_bits, this->log_num_buckets);
-        uint64_t mem_write_offset = mem_bucket_sizes[bucket_index] * entry_size;
-        if (mem_write_offset + entry_size > this->size_per_bucket) {
-            this->FlushCache();
-            mem_write_offset = 0;
-        }
-
-        uint64_t sub_bucket_index =
-                ExtractNum(entry, this->begin_bits + this->log_num_buckets, this->log_num_buckets);
-
-        this->sub_bucket_sizes[bucket_index][sub_bucket_index] += 1;
-
-        uint8_t *mem_write_pointer = mem_bucket_pointers[bucket_index] + mem_write_offset;
-        assert(Util::ByteAlign(entry.GetSize()) / 8 == this->entry_size);
-        entry.ToBytes(mem_write_pointer);
-        mem_bucket_sizes[bucket_index] += 1;
-    }
-
-    inline uint64_t ExecuteSort(uint8_t *sort_memory, uint64_t memory_len, bool quicksort = 0)
-    {
-        if (this->done) {
-            throw std::string("Already finished.");
-        }
-        this->done = true;
-        this->FlushCache();
-        uint64_t output_file_written = 0;
-
-        for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
-            // Reads an entire bucket into memory
-            std::cout << "Total bytes reading into memory: "
-                      << to_string(
-                              this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0))
-                      << " Mem size " << to_string(this->memory_size / (1024.0 * 1024.0 * 1024.0))
-                      << std::endl;
-            if (this->bucket_write_pointers[bucket_i] > this->memory_size) {
-                std::cout << "Not enough memory for sort in memory. Need to sort " +
-                             to_string(
-                                     this->bucket_write_pointers[bucket_i] /
-                                     (1024.0 * 1024.0 * 1024.0)) +
-                             "GiB"
-                          << std::endl;
-            }
-
-            // This actually sorts in memory if the entire data fits in our memory buffer (passes
-            // the above check)
-            Sorting::SortOnDisk(
-                    this->bucket_files[bucket_i],
-                    *this->output_file,
-                    0,
-                    output_file_written,
-                    *this->spare,
-                    this->entry_size,
-                    this->begin_bits + this->log_num_buckets,
-                    this->sub_bucket_sizes[bucket_i],
-                    sort_memory,
-                    memory_len,
-                    quicksort);
-            std::cout << "FInished executing sort" << std::endl;
-
-            // Deletes the bucket file
-            this->bucket_files[bucket_i].Close();
-            fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
-
-            output_file_written += this->bucket_write_pointers[bucket_i];
-        }
-        return output_file_written;
-    }
-
-    ~SortManager() {
-        // Close and delete files in case we exit without doing the sort
-        if (!this->done) {
-            for (auto &fd : this->bucket_files) {
-                fd.Close();
-                fs::remove(fs::path(fd.GetFileName()));
-            }
-        }
-    }
-
-private:
-    inline void FlushCache()
-    {
-        for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
-            uint64_t start_write = this->bucket_write_pointers[bucket_i];
-            uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
-
-            // Flush each bucket to disk
-            bucket_files[bucket_i].Write(
-                    start_write, this->mem_bucket_pointers[bucket_i], write_len);
-            this->bucket_write_pointers[bucket_i] += write_len;
-
-            // Reset memory caches
-            this->mem_bucket_pointers[bucket_i] =
-                    this->memory_start + bucket_i * this->size_per_bucket;
-            this->mem_bucket_sizes[bucket_i] = 0;
-        }
-    }
-
-    inline static uint64_t ExtractNum(Bits &bytes, uint32_t begin_bits, uint32_t take_bits)
-    {
-        return (uint64_t)(bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
-    }
-
-    // Start of the whole memory array. This will be diveded into buckets
-    uint8_t *memory_start;
-    // Size of the whole memory array
-    uint64_t memory_size;
-    // One file for each bucket
-    std::vector<FileDisk> bucket_files;
-    // One output file for the result of the sort
-    Disk *output_file;
-    // One spare file for sorting
-    Disk *spare;
-    // Size of each entry
-    uint16_t entry_size;
-    // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
-    uint32_t begin_bits;
-    // Portion of memory to allocate to each bucket
-    uint64_t size_per_bucket;
-    // Log of the number of buckets; num bits to use to determine bucket
-    uint32_t log_num_buckets;
-    // One pointer to the start of each bucket memory
-    vector<uint8_t *> mem_bucket_pointers;
-    // The number of entries written to each bucket
-    vector<uint64_t> mem_bucket_sizes;
-    // The amount of data written to each disk bucket
-    vector<uint64_t> bucket_write_pointers;
-
-    // When doing recursive sort on disk, we need to subdivide each bucket into subbuckets
-    vector<vector<uint64_t>> sub_bucket_sizes;
-    bool done;
 };
 
 #endif  // SRC_CPP_FAST_SORT_ON_DISK_HPP_

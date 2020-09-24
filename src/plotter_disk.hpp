@@ -55,7 +55,7 @@ const uint32_t kOffsetSize = 10;
 
 // Number of buckets to use for SortOnDisk.
 const uint32_t kMinBuckets = 16;
-const uint32_t kMaxBuckets = 64;
+const uint32_t kMaxBuckets = 128;
 
 const double kMemSortProportion = 0.75;
 
@@ -77,6 +77,7 @@ struct Phase3Results {
     uint32_t right_entry_size_bits;
 
     uint32_t header_size;
+    LazySortManager* table7_sm;
 };
 
 const Bits empty_bits;
@@ -118,8 +119,8 @@ public:
             std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) << " MiB" << std::endl;
             exit(1);
         }
-        this->logNumBuckets = log(this->numBuckets);
-        assert(log(this->numBuckets) == ceil(log(this->numBuckets)));
+        this->logNumBuckets = log2(this->numBuckets);
+        assert(log2(this->numBuckets) == ceil(log2(this->numBuckets)));
 
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
@@ -128,7 +129,7 @@ public:
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << memorySize << std::endl;
-        std::cout << "Using " << this->numBuckets << " buckets." << std::endl;
+        std::cout << "Using " << this->numBuckets << " buckets." << "log " << this->logNumBuckets << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -232,7 +233,7 @@ public:
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
             Timer p4;
-            WriteCTables(k, k + 1, tmp2_disk, tmp_1_disks, res);
+            WriteCTables(k, k + 1, tmp2_disk, res);
             p4.PrintElapsed("Time for phase 4 =");
 
             // Elements in table_sizes represent the total number of entries written by the end of
@@ -1447,6 +1448,9 @@ private:
         uint64_t final_entries_written = 0;
         uint32_t right_entry_size_bytes = 0;
 
+        LazySortManager* L_sort_manager;
+        LazySortManager* R_sort_manager;
+
         // Iterates through all tables, starting at 1, with L and R pointers.
         // For each table, R entries are rewritten with line points. Then, the right table is
         // sorted by line_point. After this, the right table entries are rewritten as (sort_key,
@@ -1476,27 +1480,32 @@ private:
             uint64_t right_reader = 0;
             uint64_t right_writer = 0;
             // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
-            // [------------------SM---------------------|---LR---|---RR---]
-            uint64_t sort_manager_buf_size = 3 * memorySize / 4;
-            uint64_t other_buf_size = (memorySize - sort_manager_buf_size) / 2;
-            uint8_t *left_reader_buf = &(memory[sort_manager_buf_size]);
-            uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + other_buf_size]);
-            uint64_t left_reader_buf_entries = other_buf_size / left_entry_size_bytes;
-            uint64_t right_reader_buf_entries = other_buf_size / right_entry_size_bytes;
+            // [---------------------------SM/LR---------------------|----------RW--------|---RR---]
+            uint64_t sort_manager_buf_size = floor(kMemSortProportion * memorySize);
+            uint64_t right_writer_buf_size = 3 * (memorySize - sort_manager_buf_size) / 4;
+            uint64_t right_reader_buf_size = memorySize - sort_manager_buf_size - right_writer_buf_size;
+            uint8_t *left_reader_buf = &(memory[0]);
+            uint8_t *right_writer_buf = &(memory[sort_manager_buf_size]);
+            uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + right_writer_buf_size]);
+            uint64_t left_reader_buf_entries = sort_manager_buf_size / left_entry_size_bytes;
+            uint64_t right_reader_buf_entries = right_reader_buf_size / right_entry_size_bytes;
             uint64_t left_reader_count = 0;
             uint64_t right_reader_count = 0;
             uint64_t total_r_entries = 0;
 
-            SortManager sort_manager(
-                memory,
-                sort_manager_buf_size,
+
+            if (table_index > 1) {
+                L_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
+            }
+
+            R_sort_manager = new LazySortManager(
+                right_writer_buf,
+                right_writer_buf_size,
                 this->numBuckets,
                 this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
                 filename,
-                &tmp_1_disks[table_index + 1],
-                &tmp_1_disks[0],
                 0);
 
             bool should_read_entry = true;
@@ -1515,6 +1524,8 @@ private:
 
             uint8_t *right_entry_buf;
             uint8_t *left_entry_disk_buf;
+            uint8_t *left_entry_buf_sm = new uint8_t[left_entry_size_bytes];
+
             uint64_t entry_sort_key, entry_pos, entry_offset;
             uint64_t cached_entry_sort_key = 0;
             uint64_t cached_entry_pos = 0;
@@ -1527,29 +1538,34 @@ private:
                 if (end_of_right_table || current_pos <= greatest_pos) {
                     while (!end_of_right_table) {
                         if (should_read_entry) {
+                            if (right_reader_count == table_sizes[table_index + 1] - 1) {
+                                end_of_right_table = true;
+                                end_of_table_pos = current_pos;
+                                break;
+                            }
                             // The right entries are in the format from backprop, (sort_key, pos,
                             // offset)
                             if (right_reader_count % right_reader_buf_entries == 0) {
                                 uint64_t readAmt = std::min(
-                                    right_reader_buf_entries * right_entry_size_bytes,
-                                    (table_sizes[table_index + 1] - right_reader_count) *
+                                        right_reader_buf_entries * right_entry_size_bytes,
+                                        (table_sizes[table_index + 1] - right_reader_count) *
                                         right_entry_size_bytes);
 
                                 tmp_1_disks[table_index + 1].Read(
-                                    right_reader, right_reader_buf, readAmt);
+                                        right_reader, right_reader_buf, readAmt);
                                 right_reader += readAmt;
                             }
                             right_entry_buf =
-                                right_reader_buf +
-                                (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
+                                    right_reader_buf +
+                                    (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
                             right_reader_count++;
 
                             entry_sort_key =
-                                Util::SliceInt64FromBytes(right_entry_buf, 0, right_sort_key_size);
+                                    Util::SliceInt64FromBytes(right_entry_buf, 0, right_sort_key_size);
                             entry_pos = Util::SliceInt64FromBytes(
-                                right_entry_buf, right_sort_key_size, pos_size);
+                                    right_entry_buf, right_sort_key_size, pos_size);
                             entry_offset = Util::SliceInt64FromBytes(
-                                right_entry_buf, right_sort_key_size + pos_size, kOffsetSize);
+                                    right_entry_buf, right_sort_key_size + pos_size, kOffsetSize);
                         } else if (cached_entry_pos == current_pos) {
                             entry_sort_key = cached_entry_sort_key;
                             entry_pos = cached_entry_pos;
@@ -1563,16 +1579,12 @@ private:
                         if (entry_pos + entry_offset > greatest_pos) {
                             greatest_pos = entry_pos + entry_offset;
                         }
-                        if (entry_sort_key == 0 && entry_pos == 0 && entry_offset == 0) {
-                            end_of_right_table = true;
-                            end_of_table_pos = current_pos;
-                            break;
-                        } else if (entry_pos == current_pos) {
+                        if (entry_pos == current_pos) {
                             uint64_t old_write_pos = entry_pos % kReadMinusWrite;
                             old_sort_keys[old_write_pos][old_counters[old_write_pos]] =
-                                entry_sort_key;
+                                    entry_sort_key;
                             old_offsets[old_write_pos][old_counters[old_write_pos]] =
-                                (entry_pos + entry_offset);
+                                    (entry_pos + entry_offset);
                             ++old_counters[old_write_pos];
                         } else {
                             should_read_entry = false;
@@ -1582,19 +1594,27 @@ private:
                             break;
                         }
                     }
-                    // The left entries are in the new format: (sort_key, new_pos), except for table
-                    // 1: (y, x).
-                    if (left_reader_count % left_reader_buf_entries == 0) {
-                        uint64_t readAmt = std::min(
-                            left_reader_buf_entries * left_entry_size_bytes,
-                            (table_sizes[table_index] - left_reader_count) * left_entry_size_bytes);
+                    if (left_reader_count < table_sizes[table_index] - 1) {
+                        // The left entries are in the new format: (sort_key, new_pos), except for table
+                        // 1: (y, x).
+                        if (table_index == 1) {
+                            if (left_reader_count % left_reader_buf_entries == 0) {
+                                uint64_t readAmt = std::min(
+                                        left_reader_buf_entries * left_entry_size_bytes,
+                                        (table_sizes[table_index] - left_reader_count) * left_entry_size_bytes);
 
-                        tmp_1_disks[table_index].Read(left_reader, left_reader_buf, readAmt);
-                        left_reader += readAmt;
+                                tmp_1_disks[table_index].Read(left_reader, left_reader_buf, readAmt);
+                                left_reader += readAmt;
+                            }
+                            left_entry_disk_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
+                                                                    left_entry_size_bytes;
+                        } else {
+                            L_sort_manager->Read(left_reader, left_entry_buf_sm, left_entry_size_bytes, 1);
+                            left_entry_disk_buf = left_entry_buf_sm;
+                            left_reader += left_entry_size_bytes;
+                        }
+                        left_reader_count++;
                     }
-                    left_entry_disk_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
-                                                                left_entry_size_bytes;
-                    left_reader_count++;
 
                     // We read the "new_pos" from the L table, which for table 1 is just x. For
                     // other tables, the new_pos
@@ -1642,7 +1662,7 @@ private:
                             old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
                             right_sort_key_size);
 
-                        sort_manager.AddToCache(to_write);
+                        R_sort_manager->AddToCache(to_write);
                         total_r_entries++;
                     }
                 }
@@ -1650,42 +1670,44 @@ private:
             }
             computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
 
-            Timer sort_timer;
-            std::cout << "\tSorting table " << int{table_index + 1} << std::endl;
-            right_writer = sort_manager.ExecuteSort(memory, memorySize, 1);
-            std::cout << "Wrote total bytes right1 " << right_writer << std::endl;
-            sort_timer.PrintElapsed("\tSort time:");
-
-            memset(memory, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(right_writer, memory, right_entry_size_bytes);
-            right_writer += right_entry_size_bytes;
-            tmp_1_disks[table_index + 1].Truncate(right_writer);
-
             // Remove no longer needed file
             tmp_1_disks[table_index].Truncate(0);
 
+            // Flush cache so all entries are written to buckets
+            R_sort_manager->FlushCache();
+
+            delete[] left_entry_buf_sm;
+
             Timer computation_pass_2_timer;
 
+            // The memory will be used like this, with most memory allocated towards the LeftSortManager, since it needs it
+            // [---------------------------LSM/RR-----------------------------------|---------RSM/RW---------]
             right_reader = 0;
             right_writer = 0;
-            sort_manager_buf_size = 5 * memorySize / 6;
-            right_reader_buf = &(memory[sort_manager_buf_size]);
-            right_reader_buf_entries = (memorySize - sort_manager_buf_size) / right_entry_size_bytes;
+            right_reader_buf_size =  floor(kMemSortProportion * memorySize);
+            right_writer_buf_size =  memorySize - right_reader_buf_size;
+            right_reader_buf = &(memory[0]);
+            right_writer_buf = &(memory[right_reader_buf_size]);
             right_reader_count = 0;
             uint64_t final_table_writer = final_table_begin_pointers[table_index];
 
             final_entries_written = 0;
 
-            SortManager sort_manager_2(
-                memory,
-                sort_manager_buf_size,
+            if (table_index > 1) {
+                // Make sure all files are removed
+                delete L_sort_manager;
+            }
+
+            // L sort manager will be used for the writer, and R sort manager will be used for the reader
+            R_sort_manager->ChangeMemory(right_reader_buf, right_reader_buf_size);
+            L_sort_manager = new LazySortManager(
+                right_writer_buf,
+                right_writer_buf_size,
                 this->numBuckets,
                 this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
                 filename,
-                &tmp_1_disks[table_index + 1],
-                &tmp_1_disks[0],
                 0);
 
             std::vector<uint8_t> park_deltas;
@@ -1694,34 +1716,28 @@ private:
             uint128_t last_line_point = 0;
             uint64_t park_index = 0;
 
+            uint8_t right_reader_entry_buf[right_entry_size_bytes];
+
             // Now we will write on of the final tables, since we have a table sorted by line point.
             // The final table will simply store the deltas between each line_point, in fixed space
             // groups(parks), with a checkpoint in each group.
             Bits right_entry_bits;
             int added_to_cache = 0;
             for (uint64_t index = 0; index < total_r_entries; index++) {
-                if (right_reader_count % right_reader_buf_entries == 0) {
-                    uint64_t readAmt = std::min(
-                        right_reader_buf_entries * right_entry_size_bytes,
-                        (total_r_entries - right_reader_count) * right_entry_size_bytes);
-
-                    tmp_1_disks[table_index + 1].Read(right_reader, right_reader_buf, readAmt);
-                    right_reader += readAmt;
-                }
-                right_entry_buf = right_reader_buf +
-                                  (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
+                R_sort_manager->Read(right_reader, right_reader_entry_buf, right_entry_size_bytes, 2);
+                right_reader += right_entry_size_bytes;
                 right_reader_count++;
 
                 // Right entry is read as (line_point, sort_key)
-                uint128_t line_point = Util::SliceInt128FromBytes(right_entry_buf, 0, 2 * k);
+                uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, 2 * k);
                 uint64_t sort_key =
-                    Util::SliceInt64FromBytes(right_entry_buf, 2 * k, right_sort_key_size);
+                    Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
 
                 // Write the new position (index) and the sort key
                 Bits to_write = Bits(sort_key, right_sort_key_size);
                 to_write += Bits(index, k + 1);
 
-                sort_manager_2.AddToCache(to_write);
+                L_sort_manager->AddToCache(to_write);
                 added_to_cache++;
 
                 // Every EPP entries, writes a park
@@ -1757,10 +1773,6 @@ private:
                 uint64_t stub = big_delta & ((1ULL << (k - kStubMinusBits)) - 1);
                 uint64_t small_delta = big_delta >> (k - kStubMinusBits);
 
-                // std::cout << "LP and last LP: " << (int)line_point << " ... " <<
-                // (int)last_line_point << std::endl; std::cout << "Big delta: " << big_delta <<
-                // std::endl; std::cout << "Small delta: " << small_delta << std::endl;
-
                 assert(small_delta < 256);
 
                 if ((index % kEntriesPerPark != 0)) {
@@ -1769,22 +1781,10 @@ private:
                 }
                 last_line_point = line_point;
             }
+            delete R_sort_manager;
+            L_sort_manager->FlushCache();
 
             computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
-
-            Timer sort_timer_2;
-            std::cout << "\tRe-Sorting table " << int{table_index + 1} << std::endl;
-            // This sort is needed so that in the next iteration, we can iterate through both tables
-            // at ones. Note that sort_key represents y ordering, and the pos, offset coordinates
-            // from forward/backprop represent positions in y ordered tables.
-            right_writer = sort_manager_2.ExecuteSort(memory, memorySize);
-            std::cout << "Wrote total bytes right2 " << right_writer << std::endl;
-            sort_timer_2.PrintElapsed("\tSort time:");
-
-            memset(memory, 0x00, right_entry_size_bytes);
-            tmp_1_disks[table_index + 1].Write(right_writer, memory, right_entry_size_bytes);
-            right_writer += right_entry_size_bytes;
-            tmp_1_disks[table_index + 1].Truncate(right_writer);
 
             if (park_deltas.size() > 0) {
                 // Since we don't have a perfect multiple of EPP entries, this writes the last ones
@@ -1815,12 +1815,15 @@ private:
             table_timer.PrintElapsed("Total compress table time:");
         }
 
+        L_sort_manager->ChangeMemory(memory, memorySize);
+
         // These results will be used to write table P7 and the checkpoint tables in phase 4.
         return Phase3Results{
             final_table_begin_pointers,
             final_entries_written,
             right_entry_size_bytes * 8,
-            header_size};
+            header_size,
+            L_sort_manager};
     }
 
     // Writes the checkpoint tables. The purpose of these tables, is to store a list of ~2^k values
@@ -1843,7 +1846,6 @@ private:
         uint8_t k,
         uint8_t pos_size,
         FileDisk &tmp2_disk /*filename*/,
-        std::vector<FileDisk> &tmp_1_disks /*plot_filename*/,
         Phase3Results &res)
     {
         uint32_t P7_park_size = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
@@ -1891,7 +1893,9 @@ private:
         // We read each table7 entry, which is sorted by f7, but we don't need f7 anymore. Instead,
         // we will just store pos6, and the deltas in table C3, and checkpoints in tables C1 and C2.
         for (uint64_t f7_position = 0; f7_position < res.final_entries_written; f7_position++) {
-            tmp_1_disks[7].Read(plot_file_reader, (right_entry_buf), right_entry_size_bytes);
+            res.table7_sm->Read(plot_file_reader, right_entry_buf, right_entry_size_bytes, 1);
+            res.table7_sm->Read(plot_file_reader, right_entry_buf, right_entry_size_bytes, 1);
+
             plot_file_reader += right_entry_size_bytes;
             uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, 0, k);
             uint64_t entry_new_pos = Util::SliceInt64FromBytes(right_entry_buf, k, pos_size);
@@ -1942,6 +1946,7 @@ private:
             }
         }
         Encoding::ANSFree(kC3R);
+        delete res.table7_sm;
 
         // Writes the final park to disk
         memset(P7_entry_buf, 0, P7_park_size);
