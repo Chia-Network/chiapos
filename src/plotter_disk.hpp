@@ -86,7 +86,7 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 const Bits empty_bits;
 
 #define STRIPESIZE 8192
-#define NUMTHREADS 1
+#define NUMTHREADS 2
 
 typedef struct {
     int index;
@@ -185,12 +185,12 @@ void* thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint8_t* right_writer_buf = &(memory[0]);
-    uint8_t* left_writer_buf = &(memory[memorySize / 3]);
-    uint8_t* left_reader_buf = &(memory[2 * memorySize / 3]);
-    uint64_t left_buf_entries = memorySize / 3 / compressed_entry_size_bytes;
-    uint64_t right_buf_entries = memorySize / 3 / right_entry_size_bytes;
-    uint64_t left_reader_buf_entries = memorySize / 3 / entry_size_bytes;
+    uint64_t left_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t right_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t left_reader_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
+    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
+    uint8_t* left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
 
     FxCalculator f(k, table_index + 1);
 
@@ -598,6 +598,10 @@ exit(0);
 
     delete[] L_position_map;
     delete[] R_position_map;
+
+    delete[] right_writer_buf;
+    delete[] left_writer_buf;
+    delete[] left_reader_buf;
 
     return 0;
 }
