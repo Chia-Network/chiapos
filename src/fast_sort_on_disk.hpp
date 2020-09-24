@@ -153,8 +153,9 @@ public:
         }
 
         // Deletes the bucket file
+        std::string filename = this->bucket_files[bucket_i].GetFileName();
         this->bucket_files[bucket_i].Close();
-        fs::remove(fs::path(this->bucket_files[bucket_i].GetFileName()));
+        fs::remove(fs::path(filename));
 
         this->final_position_start = this->final_position_end;
         this->final_position_end += this->bucket_write_pointers[bucket_i];
@@ -203,12 +204,10 @@ public:
 
     ~LazySortManager() {
         // Close and delete files in case we exit without doing the sort
-        if (!this->done) {
-            for (auto &fd : this->bucket_files) {
-                fd.Close();
-                fs::remove(fs::path(fd.GetFileName()));
-            }
-            this->done = true;
+        for (auto &fd : this->bucket_files) {
+            std::string filename = fd.GetFileName();
+            fd.Close();
+            fs::remove(fs::path(fd.GetFileName()));
         }
     }
 

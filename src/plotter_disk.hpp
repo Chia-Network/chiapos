@@ -602,7 +602,7 @@ private:
                     this->logNumBuckets,
                     right_entry_size_bytes,
                     tmp_dirname,
-                    filename + "_" + to_string(table_index + 1),
+                    filename + ".p1.t" + to_string(table_index + 1),
                     0);
 
             FxCalculator f(k, table_index + 1);
@@ -1030,7 +1030,7 @@ private:
                 this->logNumBuckets,
                 left_entry_size_bytes,
                 tmp_dirname,
-                filename + "_" + to_string(table_index - 1),
+                filename + ".p2.t" + to_string(table_index - 1),
                 0);
 
             // We will divide by 2, so it must be even.
@@ -1515,7 +1515,7 @@ private:
                 this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
-                filename,
+                filename + ".p3.t" + to_string(table_index + 1),
                 0);
 
             bool should_read_entry = true;
@@ -1715,7 +1715,7 @@ private:
                 this->logNumBuckets,
                 right_entry_size_bytes,
                 tmp_dirname,
-                filename,
+                filename + ".p3s.t" + to_string(table_index + 1),
                 0);
 
             std::vector<uint8_t> park_deltas;
