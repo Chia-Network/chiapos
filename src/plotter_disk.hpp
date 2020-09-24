@@ -16,11 +16,12 @@
 #define SRC_CPP_PLOTTER_DISK_HPP_
 
 #ifndef _WIN32
-#include <unistd.h>
-#endif
-#include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <unistd.h>
+#endif
+
+#include <math.h>
 #include <stdio.h>
 
 #include <algorithm>
@@ -93,8 +94,13 @@ int numCPU();
 
 typedef struct {
     int index;
+#ifdef _WIN32
+    HANDLE* mine;
+    HANDLE* theirs;
+#else
     sem_t* mine;
     sem_t* theirs;
+#endif
     uint8_t* memory;
     uint64_t memorySize;
     uint64_t right_entry_size_bytes;
@@ -156,9 +162,15 @@ PlotEntry GetLeftEntry(
     return left_entry;
 }
 
+#ifdef _WIN32
+DWORD WINAPI thread(LPVOID lpParameter)
+{
+    THREADDATA* ptd = (THREADDATA*)lpParameter;
+#else
 void* thread(void* arg)
 {
     THREADDATA* ptd = (THREADDATA*)arg;
+#endif
 
     std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
@@ -248,16 +260,24 @@ void* thread(void* arg)
             stripe_start_correction = 0;
         }
 
+#ifdef _WIN32
+        WaitForSingleObject(ptd->theirs, INFINITE);
+#else
         sem_wait(ptd->theirs);
+#endif
         if (pos < prevtableentries + 1) {
             uint64_t readamt = std::min(
-                (uint64_t)(STRIPESIZE + 2000) * entry_size_bytes,
+                ((uint64_t)(STRIPESIZE) + 2500) * entry_size_bytes,
                 ((prevtableentries + 1) * entry_size_bytes) - left_reader);
 
             (*ptmp_1_disks)[table_index].Read(left_reader, left_reader_buf, readamt);
             left_reader_count = 0;
         }
+#ifdef _WIN32
+        ReleaseSemaphore(ptd->mine, 1, NULL);
+#else
         sem_post(ptd->mine);
+#endif
 
         while (pos < prevtableentries + 1) {
             // Reads a left entry from disk
@@ -365,8 +385,10 @@ void* thread(void* arg)
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
+if(left_writer_count>=left_buf_entries)
+exit(0);
                             uint8_t* tmp_buf =
-                                left_writer_buf + (left_writer_count % left_buf_entries) *
+                                left_writer_buf + left_writer_count *
                                                       compressed_entry_size_bytes;
 
                             left_writer_count++;
@@ -465,10 +487,13 @@ void* thread(void* arg)
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
+if(right_writer_count>=right_buf_entries)
+exit(0);
+
                         if (bStripeStartPair) {
                             uint8_t* right_buf =
                                 right_writer_buf +
-                                (right_writer_count % right_buf_entries) * right_entry_size_bytes;
+                                right_writer_count * right_entry_size_bytes;
                             right_writer_count++;
 
                             // memset(right_buf, 0xff, right_entry_size_bytes);
@@ -521,7 +546,11 @@ void* thread(void* arg)
             ++pos;
         }
 
+#ifdef _WIN32
+        WaitForSingleObject(ptd->theirs, INFINITE);
+#else
         sem_wait(ptd->theirs);
+#endif
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
         uint32_t startbyte = ysize / 8;
@@ -564,7 +593,11 @@ void* thread(void* arg)
 
         // signal
         // printf("\nJust Exiting %d...\n",ptd->index);
+#ifdef _WIN32
+        ReleaseSemaphore(ptd->mine, 1, NULL);
+#else
         sem_post(ptd->mine);
+#endif
     }
 
     delete[] L_position_map;
@@ -783,7 +816,7 @@ public:
             }
 
             if (!bRenamed) {
-#ifdef WIN32
+#ifdef _WIN32
                 Sleep(5 * 60000);
 #else
                 sleep(5 * 60);
@@ -1044,14 +1077,27 @@ private:
 
             Timer computation_pass_timer;
 
-            pthread_t t[NUMTHREADS];
             THREADDATA td[NUMTHREADS];
+#ifdef _WIN32
+            HANDLE t[NUMTHREADS];
+            HANDLE mutex[NUMTHREADS];
+#else
+            pthread_t t[NUMTHREADS];
             sem_t* mutex[NUMTHREADS];
             char semname[20];
+#endif
 
             for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+                mutex[i] = CreateSemaphore(
+                    NULL,   // default security attributes
+                    0,      // initial count
+                    1,      // maximum count
+                    NULL);  // unnamed semaphore
+#else
                 sprintf(semname, "sem %d", i);
                 mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+#endif
             }
 
             uint64_t threadMemSize = memorySize / NUMTHREADS;
@@ -1073,16 +1119,36 @@ private:
                 td[i].compressed_entry_size_bytes = compressed_entry_size_bytes;
                 td[i].ptmp_1_disks = &tmp_1_disks;
 
+#ifdef _WIN32
+                t[i] = CreateThread(0, 0, myThread, &(td[i]), 0, NULL);
+#else
                 pthread_create(&(t[i]), NULL, thread, &(td[i]));
+#endif
             }
 
+#ifdef _WIN32
+            ReleaseSemaphore(mutex[NUMTHREADS - 1], 1, NULL);
+#else
             sem_post(mutex[NUMTHREADS - 1]);
+#endif
 
-            for (int i = 0; i < NUMTHREADS; i++) pthread_join(t[i], NULL);
             for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+                WaitForSingleObject(t[i], INFINITE);
+                CloseHandle(t[i]);
+#else
+                pthread_join(t[i], NULL);
+#endif
+            }
+
+            for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+                CloseHandle(mutex[i]);
+#else
                 sem_close(mutex[i]);
                 sprintf(semname, "sem %d", i);
                 sem_unlink(semname);
+#endif
             }
 
             // end of parallel execution
