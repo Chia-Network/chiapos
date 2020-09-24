@@ -104,7 +104,6 @@ public:
         struct rlimit the_limit = { 300, 300 };
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
             std::cout << "setrlimit failed" << std::endl;
-            exit(1);
         }
 #endif
 
