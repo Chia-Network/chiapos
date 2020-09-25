@@ -117,8 +117,7 @@ public:
         }
         // Subtract some ram to account for dynamic allocation through the code
         uint64_t submbytes = (5 + (int)min(buffmegabytes * 0.05, (double)50));
-        buffmegabytes -= submbytes;
-        memorySize = ((uint64_t)buffmegabytes) * 1024 * 1024;
+        memorySize = ((uint64_t)(buffmegabytes - submbytes)) * 1024 * 1024;
 
         double  max_table_size = 0;
         for (size_t i = 1; i <= 7; i++) {
@@ -139,10 +138,9 @@ public:
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
                   << tmp2_dirname << std::endl;
-        std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
-        std::cout << "Buffer size is: " << memorySize << std::endl;
+        std::cout << "Buffer size is: " << buffmegabytes << "MiB" << std::endl;
         std::cout << "Using " << this->numBuckets << " buckets" << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
@@ -565,8 +563,6 @@ private:
 
             total_table_entries = 0;
 
-            Timer computation_pass_timer;
-
             // Streams to read and right to tables. We will have handles to two tables. We will
             // read through the left table, compute matches, and evaluate f for matching entries,
             // writing results to the right table.
@@ -906,8 +902,6 @@ private:
             // Total matches found in the left table
             std::cout << "\tTotal matches: " << matches
                       << ". Per bucket: " << (matches / num_buckets) << std::endl;
-
-            computation_pass_timer.PrintElapsed("\tComputation pass time:");
 
             table_sizes[table_index] = left_writer_count + 1;
             table_sizes[table_index + 1] = right_writer_count + 1;
