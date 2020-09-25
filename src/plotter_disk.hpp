@@ -90,13 +90,13 @@ int numCPU();
 }
 
 #define STRIPESIZE 8192
-#define NUMTHREADS (numCPU())
+#define NUMTHREADS 2
 
 typedef struct {
     int index;
 #ifdef _WIN32
-    HANDLE* mine;
-    HANDLE* theirs;
+    HANDLE mine;
+    HANDLE theirs;
 #else
     sem_t* mine;
     sem_t* theirs;
@@ -189,12 +189,12 @@ void* thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint8_t* right_writer_buf = &(memory[0]);
-    uint8_t* left_writer_buf = &(memory[memorySize / 3]);
-    uint8_t* left_reader_buf = &(memory[2 * memorySize / 3]);
-    uint64_t left_buf_entries = memorySize / 3 / compressed_entry_size_bytes;
-    uint64_t right_buf_entries = memorySize / 3 / right_entry_size_bytes;
-    uint64_t left_reader_buf_entries = memorySize / 3 / entry_size_bytes;
+    uint64_t left_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t right_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t left_reader_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
+    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
+    uint8_t* left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
 
     FxCalculator f(k, table_index + 1);
 
@@ -603,6 +603,10 @@ exit(0);
     delete[] L_position_map;
     delete[] R_position_map;
 
+    delete[] right_writer_buf;
+    delete[] left_writer_buf;
+    delete[] left_reader_buf;
+
     return 0;
 }
 
@@ -679,12 +683,12 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0]));  //, (uint64_t)0));
+            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0], (uint64_t)0));
             for (int i = 1; i < 8; i++) {
                 uint64_t tablesize = ((uint64_t)1) << (k + 1);
                 tablesize = tablesize * GetMaxEntrySize(k, i, true);
                 cout << "tablesize " << i << " " << tablesize << endl;
-                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i]));  //, tablesize));
+                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i], tablesize));
             }
 
             FileDisk tmp2_disk(tmp_2_filename);
@@ -1120,7 +1124,7 @@ private:
                 td[i].ptmp_1_disks = &tmp_1_disks;
 
 #ifdef _WIN32
-                t[i] = CreateThread(0, 0, myThread, &(td[i]), 0, NULL);
+                t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
 #else
                 pthread_create(&(t[i]), NULL, thread, &(td[i]));
 #endif
