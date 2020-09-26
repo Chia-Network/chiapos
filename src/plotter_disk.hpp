@@ -81,8 +81,6 @@ struct Phase3Results {
     uint32_t header_size;
 };
 
-const Bits empty_bits;
-
 #define STRIPESIZE 8192
 #define NUMTHREADS 2
 
@@ -106,14 +104,27 @@ typedef struct {
     std::vector<FileDisk>* ptmp_1_disks;
 } THREADDATA;
 
-uint64_t g_left_writer;
-uint64_t g_right_writer;
-uint64_t g_left_writer_count;
-uint64_t g_right_writer_count;
-uint64_t g_matches;
+struct GlobalData {
+    uint64_t left_writer_count;
+    uint64_t right_writer_count;
+    uint64_t left_reader_count;
+    uint64_t matches;
+    LazySortManager* L_sort_manager;
+    LazySortManager* R_sort_manager;
+    uint64_t left_reader_buf_size;
+    uint64_t right_writer_buf_size;
+    uint64_t left_writer_buf_size;
+    uint8_t *left_reader_buf;
+    uint8_t *right_writer_buf;
+    uint8_t *left_writer_buf;
+    uint64_t left_writer_buf_entries;
+    uint64_t right_writer_buf_entries;
+    uint64_t left_writer;
+    uint64_t right_writer;
+};
 
-LazySortManager* g_L_sort_manager;
-LazySortManager* g_R_sort_manager;
+GlobalData globals;
+
 
 PlotEntry GetLeftEntry(
     uint8_t table_index,
@@ -245,7 +256,6 @@ void* thread(void* arg)
             bStripePregamePair = true;
             bStripeStartPair = true;
             stripe_start_correction = 0;
-            //cout << "Starting stripe " << stripe << endl;
         }
 
 #ifdef _WIN32
@@ -535,7 +545,7 @@ exit(0);
         uint32_t startbyte = ysize / 8;
         uint32_t endbyte = (ysize + pos_size + 7) / 8 - 1;
         uint64_t shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
-        uint64_t correction = (g_left_writer_count - stripe_start_correction) << shiftamt;
+        uint64_t correction = (globals.left_writer_count - stripe_start_correction) << shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
@@ -556,14 +566,14 @@ exit(0);
         (*ptmp_1_disks)[table_index + 1].Write(
             g_right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
         g_right_writer += right_writer_count * right_entry_size_bytes;
-        g_right_writer_count += right_writer_count;
+        globals.right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
             g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
         g_left_writer += left_writer_count * compressed_entry_size_bytes;
-        g_left_writer_count += left_writer_count;
+        globals.left_writer_count += left_writer_count;
 
-        g_matches += matches;
+        globals.matches += matches;
 
         // signal
         // printf("\nJust Exiting %d...\n",ptd->index);
@@ -993,7 +1003,7 @@ private:
         uint64_t prevtableentries = 0;
 
         uint32_t t1_entry_size_bytes = GetMaxEntrySize(k, 1, true);
-        g_L_sort_manager = new LazySortManager(
+        globals.L_sort_manager = new LazySortManager(
                 memory,
                 memorySize,
                 this->numBuckets,
@@ -1018,7 +1028,7 @@ private:
             // For each pair x, y in the batch
             for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
                 Bits to_write = std::get<0>(kv) + std::get<1>(kv);
-                g_L_sort_manager->AddToCache(to_write);
+                globals.L_sort_manager->AddToCache(to_write);
 
                 if (x + 1 > max_value) {
                     break;
@@ -1030,17 +1040,14 @@ private:
             }
         }
         f1_start_time.PrintElapsed("F1 complete, time:");
-        g_L_sort_manager->FlushCache();
+        globals.L_sort_manager->FlushCache();
         table_sizes[1] = x + 1;
 
         double num_buckets = (((uint64_t)1) << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
 
-        g_L_sort_manager = t1_sorting;
-
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
-        uint64_t max_spare_written = 0;
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
@@ -1054,34 +1061,43 @@ private:
             right_entry_size_bytes = GetMaxEntrySize(k, table_index + 1, true);
 
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
-
-            std::cout << "\tSorting table " << int{table_index} << std::endl;
-
-            // Performs a sort on the left table,
-            Timer sort_timer;
-            uint64_t spare_written = Sorting::SortOnDisk(
-                tmp_1_disks[table_index],
-                0,
-                tmp_1_disks[0],
-                entry_size_bytes,
-                0,
-                bucket_sizes,
-                memory,
-                memorySize);
-            if (spare_written > max_spare_written) {
-                max_spare_written = spare_written;
-            }
-            sort_timer.PrintElapsed("\tSort time:");
-
             // Start of parallel execution
 
             FxCalculator f(k, table_index + 1);  // dummy to load static table
 
-            g_matches = 0;
-            g_left_writer = 0;
-            g_right_writer = 0;
-            g_left_writer_count = 0;
-            g_right_writer_count = 0;
+            globals.matches = 0;
+            // The memory will be used like this, with most memory allocated towards the SortManager, since it needs
+            // to sort large amounts of data.
+            // [----------------------------LSM/LR---------------------------|-----RSM/RW------|--LW--]
+            globals.left_reader_buf_size = floor(kMemSortProportion * memorySize);
+            globals.right_writer_buf_size =  3 * (memorySize - globals.left_reader_buf_size) / 4;
+            globals.left_writer_buf_size = (memorySize - globals.left_reader_buf_size - globals.right_writer_buf_size);
+
+            globals.left_reader_buf = &(memory[0]);
+            uint8_t* right_writer_buf = &(memory[globals.left_reader_buf_size]);
+            globals.left_writer_buf =  &(memory[globals.left_reader_buf_size + globals.right_writer_buf_size]);
+
+            uint64_t left_writer_buf_entries = globals.left_writer_buf_size / compressed_entry_size_bytes;
+            globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
+            globals.left_reader_count = 0;
+            globals.left_writer_count = 0;
+            globals.right_writer_count = 0;
+
+            // Assign the first 3/4 of memory to the left reader (which contains the data from the previous iteration),
+            // And will need to perform large sorts.
+            globals.L_sort_manager->ChangeMemory(globals.left_reader_buf, globals.left_reader_buf_size);
+
+            globals.R_sort_manager = new LazySortManager(
+                    right_writer_buf,
+                    globals.right_writer_buf_size,
+                    this->numBuckets,
+                    this->logNumBuckets,
+                    right_entry_size_bytes,
+                    tmp_dirname,
+                    filename + ".p1.t" + to_string(table_index + 1),
+                    0,
+                    STRIPESIZE);
+
 
             Timer computation_pass_timer;
 
@@ -1158,13 +1174,12 @@ private:
             // end of parallel execution
 
             // Total matches found in the left table
-            std::cout << "\tTotal matches: " << g_matches
-                      << ". Per bucket: " << (g_matches / num_buckets) << std::endl;
+            std::cout << "\tTotal matches: " << globals.matches
+                      << ". Per bucket: " << (globals.matches / num_buckets) << std::endl;
 
-            table_sizes[table_index] = g_left_writer_count + 1;
-            if (table_index == 6) {
-                table_sizes[7] = g_right_writer_count + 1;
-            }
+            table_sizes[table_index] = globals.left_writer_count + 1;
+            table_sizes[table_index + 1] = globals.right_writer_count + 1;
+
             // Finishes writing L table, and writes the 0 entry (EOT) for left table
             // Also truncates the file after the final write position, deleting no longer useful
             // working space
@@ -1173,24 +1188,34 @@ private:
                 new uint8_t[std::max(compressed_entry_size_bytes, right_entry_size_bytes)];
             memset(zero_buf, 0x00, std::max(compressed_entry_size_bytes, right_entry_size_bytes));
 
-            tmp_1_disks[table_index].Write(g_left_writer, zero_buf, compressed_entry_size_bytes);
-            g_left_writer += compressed_entry_size_bytes;
-            tmp_1_disks[table_index].Truncate(g_left_writer);
-
-            // Writes the 0 entry (EOT) for right table
-            tmp_1_disks[table_index + 1].Write(g_right_writer, zero_buf, right_entry_size_bytes);
+            tmp_1_disks[table_index].Write(globals.left_writer, zero_buf, compressed_entry_size_bytes);
+            globals.left_writer += compressed_entry_size_bytes;
+            tmp_1_disks[table_index].Truncate(globals.left_writer);
+            delete globals.L_sort_manager;
+            if (table_index < 6) {
+                globals.R_sort_manager->FlushCache();
+                globals.L_sort_manager = globals.R_sort_manager;
+            } else {
+                // Writes the 0 entry (EOT) for right table
+                tmp_1_disks[table_index + 1].Write(globals.right_writer, zero_buf, right_entry_size_bytes);
+                globals.right_writer += right_entry_size_bytes;
+                tmp_1_disks[table_index + 1].Truncate(globals.right_writer);
+            }
 
             // Resets variables
-            if (g_matches != g_right_writer_count)
+            if (globals.matches != globals.right_writer_count) {
                 cout << "UNMATCHED!" << endl;
+                exit(1);
+            }
 
-            prevtableentries = g_right_writer_count;
+            prevtableentries = globals.right_writer_count;
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
             table_timer.PrintElapsed("Forward propagation table time:");
 
             delete[] zero_buf;
         }
-        table_sizes[0] = max_spare_written;
+        table_sizes[0] = 0;
+        delete globals.R_sort_manager;
 
         return table_sizes;
     }
