@@ -220,14 +220,11 @@ void* thread(void* arg)
         std::vector<PlotEntry> bucket_L;
         std::vector<PlotEntry> bucket_R;
 
-        uint64_t bucket = 0;
+        uint64_t bucket = 0xffffffffffffffff;
         bool end_of_table = false;  // We finished all entries in the left table
 
-        uint64_t ignorebucket = 0xffffffffffffffff;
-        bool bMatch = false;
         bool bFirstStripeOvertimePair = false;
         bool bSecondStripOvertimePair = false;
-        bool bThirdStripeOvertimePair = false;
 
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
@@ -245,11 +242,10 @@ void* thread(void* arg)
         std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
 
         if (pos == 0) {
-            bMatch = true;
             bStripePregamePair = true;
             bStripeStartPair = true;
-            stripe_left_writer_count = 0;
             stripe_start_correction = 0;
+            //cout << "Starting stripe " << stripe << endl;
         }
 
 #ifdef _WIN32
@@ -289,21 +285,10 @@ void* thread(void* arg)
 
             uint64_t y_bucket = left_entry.y / kBC;
 
-            if (!bMatch) {
-                if (ignorebucket == 0xffffffffffffffff) {
-                    ignorebucket = y_bucket;
-                } else {
-                    if ((y_bucket != ignorebucket)) {
-                        bucket = y_bucket;
-                        bMatch = true;
-                    }
-                }
-            }
-            if (!bMatch) {
-                stripe_left_writer_count++;
-                R_position_base = stripe_left_writer_count;
-                pos++;
-                continue;
+            if(bucket == 0xffffffffffffffff)
+            {
+                //cout << "Stripe " << stripe << endl;
+                bucket = y_bucket;
             }
 
             // Keep reading left entries into bucket_L and R, until we run out of things
@@ -312,7 +297,7 @@ void* thread(void* arg)
             } else if (y_bucket == bucket + 1) {
                 bucket_R.emplace_back(std::move(left_entry));
             } else {
-                // cout << "matching! " << bucket << " and " << bucket + 1 << endl;
+                //cout << "matching! " << bucket << " and " << bucket + 1 << endl;
                 // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
@@ -378,7 +363,10 @@ void* thread(void* arg)
                             }
 
 if(left_writer_count>=left_buf_entries)
+{
+cout << "left_writer_count overrun" << endl;
 exit(0);
+}
                             uint8_t* tmp_buf =
                                 left_writer_buf + left_writer_count *
                                                       compressed_entry_size_bytes;
@@ -480,7 +468,10 @@ exit(0);
                         new_entry += std::get<1>(f_output);
 
 if(right_writer_count>=right_buf_entries)
+{
+cout << "right_writer_count overrun" << endl;
 exit(0);
+}
 
                         if (bStripeStartPair) {
                             uint8_t* right_buf =
@@ -501,8 +492,6 @@ exit(0);
                         bFirstStripeOvertimePair = true;
                     else if (!bSecondStripOvertimePair)
                         bSecondStripOvertimePair = true;
-                    else if (!bThirdStripeOvertimePair)
-                        bThirdStripeOvertimePair = true;
                     else {
                         break;
                     }
@@ -510,7 +499,10 @@ exit(0);
                     if (!bStripePregamePair)
                         bStripePregamePair = true;
                     else if (!bStripeStartPair)
+                    {
+                        //cout << "Starting stripe " << stripe << endl;
                         bStripeStartPair = true;
+                    }
                 }
 
                 if (y_bucket == bucket + 2) {
