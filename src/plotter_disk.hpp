@@ -86,7 +86,7 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 const Bits empty_bits;
 
 #define STRIPESIZE 8192
-#define NUMTHREADS 6
+#define NUMTHREADS 2
 
 typedef struct {
     int index;
