@@ -54,7 +54,8 @@ public:
         this->entry_size = entry_size;
         this->begin_bits = begin_bits;
         this->done = false;
-        this->prev_bucket_buf_size = stripe_size + 5 * (kBC / kExtraBits);
+        this->prev_bucket_buf_size = 2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size;
+        std::cout << "Prev bucket size" << this->prev_bucket_buf_size / 7 << std::endl;
         this->prev_bucket_buf = new uint8_t[this->prev_bucket_buf_size];
         this->prev_bucket_position_start = 0;
         // Cross platform way to concatenate paths, gulrak library.
@@ -78,7 +79,7 @@ public:
         this->next_bucket_to_sort = 0;
     }
 
-    inline void AddToCache(Bits &entry) {
+    inline void AddToCache(const Bits &entry) {
         if (this->done) {
             throw std::string("Already finished.");
         }
@@ -95,24 +96,27 @@ public:
         mem_bucket_sizes[bucket_index] += 1;
     }
 
+
     inline uint8_t* ReadEntry(uint64_t position, int quicksort = 0) {
         if (position < this->final_position_start) {
-            assert(position >= this->final_position_start);
-
+            assert(position >= this->prev_bucket_position_start);
+            return (this->prev_bucket_buf + (position - this->prev_bucket_position_start));
         }
 
         while (position >= this->final_position_end) {
-            SortBucket(quicksort);
+            std::cout << "Triggerring sort!" << position / 7 << std::endl;
+            std::cout << "Close?" << this->CloseToNewBucket(position) << std::endl;
+            exit(1);
+//            SortBucket(quicksort);
         }
         assert(this->final_position_end > position);
         assert(this->final_position_start >= position);
-
         return this->memory_start + (position - this->final_position_start);
     }
 
     inline bool CloseToNewBucket(uint64_t position) const {
         assert (position <= this->final_position_end);
-        return (position + prev_bucket_buf_size >= this->final_position_end);
+        return (position + prev_bucket_buf_size / 2 >= this->final_position_end && this->next_bucket_to_sort != this->mem_bucket_pointers.size());
     }
 
     inline void TriggerNewBucket(uint64_t position, bool quicksort) {
@@ -123,7 +127,7 @@ public:
         uint64_t cache_size = this->final_position_end - position;
         memcpy(this->prev_bucket_buf, this->memory_start + position - this->final_position_start, cache_size);
         SortBucket(quicksort);
-        this->prev_bucket_position_start
+        this->prev_bucket_position_start = position;
     }
 
     inline void SortBucket(int quicksort) {
@@ -225,7 +229,7 @@ public:
     }
 
 private:
-    inline static uint64_t ExtractNum(Bits &bytes, uint32_t begin_bits, uint32_t take_bits)
+    inline static uint64_t ExtractNum(const Bits &bytes, uint32_t begin_bits, uint32_t take_bits)
     {
         return (uint64_t)(bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
     }

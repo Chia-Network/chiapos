@@ -107,7 +107,6 @@ typedef struct {
 struct GlobalData {
     uint64_t left_writer_count;
     uint64_t right_writer_count;
-    uint64_t left_reader_count;
     uint64_t matches;
     LazySortManager* L_sort_manager;
     LazySortManager* R_sort_manager;
@@ -115,7 +114,6 @@ struct GlobalData {
     uint64_t right_writer_buf_size;
     uint64_t left_writer_buf_size;
     uint8_t *left_reader_buf;
-    uint8_t *right_writer_buf;
     uint8_t *left_writer_buf;
     uint64_t left_writer_buf_entries;
     uint64_t right_writer_buf_entries;
@@ -176,7 +174,7 @@ void* thread(void* arg)
 {
     THREADDATA* ptd = (THREADDATA*)arg;
 #endif
-
+    std::cout << "Starting thread" << ptd->index << std::endl;
     std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
     uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
@@ -194,10 +192,8 @@ void* thread(void* arg)
     // writing results to the right table.
     uint64_t left_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
     uint64_t right_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
-    uint64_t left_reader_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
     uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
-    uint8_t* left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
 
     FxCalculator f(k, table_index + 1);
 
@@ -214,11 +210,15 @@ void* thread(void* arg)
     uint64_t totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
     uint64_t threadstripes = (totalstripes + NUMTHREADS - 1) / NUMTHREADS;
 
+    std::vector<Bits> to_write_R_entries;
+
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
+        std::cout << "Starting stripe " << (stripe * NUMTHREADS + ptd->index) << " pos " << pos << " to " << endpos << std::endl;
         uint64_t left_reader = pos * entry_size_bytes;
-        uint64_t left_reader_count = 0;
+        uint64_t left_reader_prev_stripe = (pos - STRIPESIZE) * entry_size_bytes;
+        uint64_t left_reader_next_stripe = (pos + STRIPESIZE) * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
         uint64_t stripe_start_correction = 0xffffffffffffffff;
@@ -240,6 +240,8 @@ void* thread(void* arg)
 
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
+        bool triggered_new_bucket = false;
+        bool next_stripe_triggers_new_bucket = false;
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
@@ -259,40 +261,61 @@ void* thread(void* arg)
             stripe_start_correction = 0;
         }
 
+//        std::cout << ptd->index << " waiting 0" << std::endl;
 #ifdef _WIN32
         WaitForSingleObject(ptd->theirs, INFINITE);
 #else
         sem_wait(ptd->theirs);
 #endif
-        if (pos < prevtableentries + 1) {
-            uint64_t readamt = std::min(
-                ((uint64_t)(STRIPESIZE) + 2500) * entry_size_bytes,
-                ((prevtableentries + 1) * entry_size_bytes) - left_reader);
+//        std::cout << ptd->index << " waited 0" << std::endl;
 
-            (*ptmp_1_disks)[table_index].Read(left_reader, left_reader_buf, readamt);
-            left_reader_count = 0;
+
+        if (globals.L_sort_manager->CloseToNewBucket(left_reader) && !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe)) {
+//            std::cout << ptd->index << " waiting 1" << std::endl;
+#ifdef _WIN32
+            WaitForSingleObject(ptd->theirs, INFINITE);
+#else
+            sem_wait(ptd->theirs);
+#endif
+//            std::cout << ptd->index << " waited 1" << std::endl;
+            triggered_new_bucket = true;
+            globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+        } else if (globals.L_sort_manager->CloseToNewBucket(left_reader_next_stripe)) {
+            next_stripe_triggers_new_bucket = true;
         }
+
 #ifdef _WIN32
         ReleaseSemaphore(ptd->mine, 1, NULL);
 #else
         sem_post(ptd->mine);
 #endif
+//        std::cout << ptd->index << " posted 0" << std::endl;
+
+
 
         while (pos < prevtableentries + 1) {
-            // Reads a left entry from disk
-            uint8_t* left_buf = &(left_reader_buf[left_reader_count * entry_size_bytes]);
-            left_reader_count++;
+//            if (pos % 1000 == 0) {
+//                std::cout << "pos " << pos << " thread " << ptd->index << std::endl;
+//            }
+            PlotEntry left_entry = PlotEntry();
+            if (pos == prevtableentries) {
+                end_of_table = true;
+                left_entry.y = 0;
+                left_entry.left_metadata = 0;
+                left_entry.right_metadata = 0;
+                left_entry.used = false;
+            } else {
+                // Reads a left entry from disk
+                uint8_t* left_buf = globals.L_sort_manager->ReadEntry(left_reader);
+                left_reader += entry_size_bytes;
 
-            PlotEntry left_entry = GetLeftEntry(table_index, left_buf, k, metadata_size, pos_size);
+                left_entry = GetLeftEntry(table_index, left_buf, k, metadata_size, pos_size);
+            }
 
             // This is not the pos that was read from disk,but the position of the entry we read,
             // within L table.
             left_entry.pos = pos;
             left_entry.used = false;
-
-            end_of_table =
-                (left_entry.y == 0 && left_entry.left_metadata == 0 &&
-                 left_entry.right_metadata == 0);
 
             uint64_t y_bucket = left_entry.y / kBC;
 
@@ -304,19 +327,19 @@ void* thread(void* arg)
 
             // Keep reading left entries into bucket_L and R, until we run out of things
             if (y_bucket == bucket) {
-                bucket_L.emplace_back(std::move(left_entry));
+                bucket_L.emplace_back(left_entry);
             } else if (y_bucket == bucket + 1) {
-                bucket_R.emplace_back(std::move(left_entry));
+                bucket_R.emplace_back(left_entry);
             } else {
                 //cout << "matching! " << bucket << " and " << bucket + 1 << endl;
                 // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
                 // happens in the next iteration of the loop, since we need to remap positions.
-                if (bucket_L.size() > 0) {
+                if (!bucket_L.empty()) {
                     not_dropped.clear();
 
-                    if (bucket_R.size() > 0) {
+                    if (!bucket_R.empty()) {
                         // Compute all matches between the two buckets and save indeces.
                         match_indexes = f.FindMatches(bucket_L, bucket_R);
 
@@ -373,11 +396,10 @@ void* thread(void* arg)
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
-if(left_writer_count>=left_buf_entries)
-{
-cout << "left_writer_count overrun" << endl;
-exit(0);
-}
+                            if(left_writer_count>=left_buf_entries) {
+                                cout << "left_writer_count overrun" << endl;
+                                exit(1);
+                            }
                             uint8_t* tmp_buf =
                                 left_writer_buf + left_writer_count *
                                                       compressed_entry_size_bytes;
@@ -478,22 +500,22 @@ exit(0);
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
-if(right_writer_count>=right_buf_entries)
-{
-cout << "right_writer_count overrun" << endl;
-exit(0);
-}
+                        if(right_writer_count>=right_buf_entries){
+                            cout << "right_writer_count overrun" << endl;
+                            exit(1);
+                        }
 
                         if (bStripeStartPair) {
-                            uint8_t* right_buf =
-                                right_writer_buf +
-                                right_writer_count * right_entry_size_bytes;
                             right_writer_count++;
-
-                            // memset(right_buf, 0xff, right_entry_size_bytes);
-
-                            // Writes the new entry into the right table
-                            new_entry.ToBytes(right_buf);
+                            if (table_index < 6) {
+                                to_write_R_entries.emplace_back(new_entry);
+                            } else {
+                                // to_write_R_entries
+                                uint8_t *right_buf =
+                                        right_writer_buf +
+                                        right_writer_count * right_entry_size_bytes;
+                                new_entry.ToBytes(right_buf);
+                            }
                         }
                     }
                 }
@@ -513,7 +535,6 @@ exit(0);
                         bStripePregamePair = true;
                     else if (!bStripeStartPair)
                     {
-                        //cout << "Starting stripe " << stripe << endl;
                         bStripeStartPair = true;
                     }
                 }
@@ -537,12 +558,23 @@ exit(0);
             // Increase the read pointer in the left table, by one
             ++pos;
         }
-
+        if (next_stripe_triggers_new_bucket) {
 #ifdef _WIN32
-        WaitForSingleObject(ptd->theirs, INFINITE);
+            ReleaseSemaphore(ptd->mine, 1, NULL);
 #else
-        sem_wait(ptd->theirs);
+            sem_post(ptd->mine);
 #endif
+//            std::cout << ptd->index << " posted 2" << std::endl;
+        }
+        if (!triggered_new_bucket) {
+//            std::cout << ptd->index << " waiting 2" << std::endl;
+#ifdef _WIN32
+            WaitForSingleObject(ptd->theirs, INFINITE);
+#else
+            sem_wait(ptd->theirs);
+#endif
+//            std::cout << ptd->index << " waited 2" << std::endl;
+        }
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
         uint32_t startbyte = ysize / 8;
@@ -564,27 +596,41 @@ exit(0);
                 posaccum = posaccum >> 8;
             }
         }
-
-        // Write it out
-        (*ptmp_1_disks)[table_index + 1].Write(
-            g_right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
-        g_right_writer += right_writer_count * right_entry_size_bytes;
-        globals.right_writer_count += right_writer_count;
+        std::cout << "Ending stripe " << (stripe * NUMTHREADS + ptd->index) << "writing " << right_writer_count << std::endl;
+        if (table_index < 6) {
+            // Writes out the write table for tables 2-6
+            for (const Bits& entry : to_write_R_entries) {
+                globals.R_sort_manager->AddToCache(entry);
+            }
+            globals.right_writer_count += right_writer_count;
+        } else {
+            // Writes out the write table for table 7
+            // Write it out
+            (*ptmp_1_disks)[table_index + 1].Write(
+                globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
+            globals.right_writer += right_writer_count * right_entry_size_bytes;
+            globals.right_writer_count += right_writer_count;
+//            std::cout << "Writing table 7 " << globals.right_writer_count << std::endl;
+        }
 
         (*ptmp_1_disks)[table_index].Write(
-            g_left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
-        g_left_writer += left_writer_count * compressed_entry_size_bytes;
+            globals.left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
+        globals.left_writer += left_writer_count * compressed_entry_size_bytes;
         globals.left_writer_count += left_writer_count;
 
         globals.matches += matches;
+        std::cout << globals.matches << " " << globals.right_writer_count << " " << (globals.matches - globals.right_writer_count) << std::endl;
+//        assert(globals.matches == globals.right_writer_count);
 
-        // signal
-        // printf("\nJust Exiting %d...\n",ptd->index);
+        if (!next_stripe_triggers_new_bucket) {
+//            std::cout << ptd->index << " posting 2" << std::endl;
 #ifdef _WIN32
-        ReleaseSemaphore(ptd->mine, 1, NULL);
+            ReleaseSemaphore(ptd->mine, 1, NULL);
 #else
-        sem_post(ptd->mine);
+            sem_post(ptd->mine);
 #endif
+//            std::cout << ptd->index << " posted 2" << std::endl;
+        }
     }
 
     delete[] L_position_map;
@@ -592,8 +638,6 @@ exit(0);
 
     delete[] right_writer_buf;
     delete[] left_writer_buf;
-    delete[] left_reader_buf;
-
     return 0;
 }
 
@@ -997,8 +1041,6 @@ private:
         std::string tmp_dirname,
         std::string filename)
     {
-        uint64_t plot_file = 0;
-
         std::cout << "Computing table 1" << std::endl;
         Timer f1_start_time;
         F1Calculator f1(k, id);
@@ -1018,7 +1060,6 @@ private:
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
-        uint8_t buf[14];
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
@@ -1032,6 +1073,7 @@ private:
             for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
                 Bits to_write = std::get<0>(kv) + std::get<1>(kv);
                 globals.L_sort_manager->AddToCache(to_write);
+                prevtableentries++;
 
                 if (x + 1 > max_value) {
                     break;
@@ -1082,7 +1124,6 @@ private:
 
             uint64_t left_writer_buf_entries = globals.left_writer_buf_size / compressed_entry_size_bytes;
             globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
-            globals.left_reader_count = 0;
             globals.left_writer_count = 0;
             globals.right_writer_count = 0;
 
@@ -1101,6 +1142,7 @@ private:
                     0,
                     STRIPESIZE);
 
+            globals.L_sort_manager->TriggerNewBucket(0, 0);
 
             Timer computation_pass_timer;
 
@@ -1208,6 +1250,7 @@ private:
             // Resets variables
             if (globals.matches != globals.right_writer_count) {
                 cout << "UNMATCHED!" << endl;
+                std::cout << globals.matches << " " << globals.right_writer_count << std::endl;
                 exit(1);
             }
 
