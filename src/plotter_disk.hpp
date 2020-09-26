@@ -44,6 +44,7 @@ namespace fs = ghc::filesystem;
 #include "encoding.hpp"
 #include "pos_constants.hpp"
 #include "sort_on_disk.hpp"
+#include "fast_sort_on_disk.hpp"
 #include "util.hpp"
 
 // Constants that are only relevant for the plotting process.
@@ -52,10 +53,6 @@ namespace fs = ghc::filesystem;
 // Distance between matching entries is stored in the offset
 const uint32_t kOffsetSize = 10;
 
-// Number of buckets to use for SortOnDisk.
-const uint32_t kNumSortBuckets = 16;
-const uint32_t kLogNumSortBuckets = 4;
-
 // During backprop and compress, the write pointer is ahead of the read pointer
 // Note that the large the offset, the higher these values must be
 const uint32_t kReadMinusWrite = 1U << kOffsetSize;
@@ -63,6 +60,14 @@ const uint32_t kCachedPositionsSize = kReadMinusWrite * 4;
 
 // Max matches a single entry can have, used for hardcoded memory allocation
 const uint32_t kMaxMatchesSingleEntry = 30;
+const uint32_t kMinBuckets = 16;
+const uint32_t kMaxBuckets = 128;
+
+// TODO: remove
+const uint32_t kNumSortBuckets = 16;
+const uint32_t kLogNumSortBuckets = 4;
+
+const double kMemSortProportion = 0.75;
 
 // Results of phase 3. These are passed into Phase 4, so the checkpoint tables
 // can be properly built.
@@ -75,13 +80,6 @@ struct Phase3Results {
 
     uint32_t header_size;
 };
-
-static void print_buf(const unsigned char* buf, size_t buf_len)
-{
-    size_t i = 0;
-    for (i = 0; i < buf_len; ++i)
-        fprintf(stdout, "%02X%s", buf[i], (i + 1) % 16 == 0 ? "\r\n" : " ");
-}
 
 const Bits empty_bits;
 
@@ -97,8 +95,6 @@ typedef struct {
     sem_t* mine;
     sem_t* theirs;
 #endif
-    uint8_t* memory;
-    uint64_t memorySize;
     uint64_t right_entry_size_bytes;
     uint8_t k;
     uint8_t table_index;
@@ -114,8 +110,10 @@ uint64_t g_left_writer;
 uint64_t g_right_writer;
 uint64_t g_left_writer_count;
 uint64_t g_right_writer_count;
-std::vector<uint64_t> g_right_bucket_sizes(kNumSortBuckets, 0);
 uint64_t g_matches;
+
+LazySortManager* g_L_sort_manager;
+LazySortManager* g_R_sort_manager;
 
 PlotEntry GetLeftEntry(
     uint8_t table_index,
@@ -177,8 +175,6 @@ void* thread(void* arg)
     uint32_t entry_size_bytes = ptd->entry_size_bytes;
     uint8_t pos_size = ptd->pos_size;
     uint64_t prevtableentries = ptd->prevtableentries;
-    uint8_t* memory = ptd->memory;
-    uint64_t memorySize = ptd->memorySize;
     uint32_t compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks = ptd->ptmp_1_disks;
 
@@ -496,11 +492,6 @@ exit(0);
 
                             // Writes the new entry into the right table
                             new_entry.ToBytes(right_buf);
-
-                            // Computes sort bucket, so we can sort the table by y later, more
-                            // easily
-                            right_bucket_sizes[SortOnDiskUtils::ExtractNum(
-                                right_buf, right_entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
                         }
                     }
                 }
@@ -582,11 +573,6 @@ exit(0);
 
         g_matches += matches;
 
-        for (int i = 0; i < kNumSortBuckets; i++) {
-            g_right_bucket_sizes[i] += right_bucket_sizes[i];
-            right_bucket_sizes[i] = 0;
-        }
-
         // signal
         // printf("\nJust Exiting %d...\n",ptd->index);
 #ifdef _WIN32
@@ -623,12 +609,40 @@ public:
         uint32_t id_len,
         uint32_t buffmegabytes = 2 * 1024)
     {
+#ifndef _WIN32
+        struct rlimit the_limit = { 600, 600 };
+        if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
+            std::cout << "setrlimit failed" << std::endl;
+        }
+#endif
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             std::cout << "Plot size k=" << std::to_string(k) << " is invalid" << std::endl;
             return;
         }
 
+        if (buffmegabytes < 10) {
+            std::cout << "Please provide at least 10MiB of ram." << std::endl;
+            exit(1);
+        }
+        // Subtract some ram to account for dynamic allocation through the code
+        uint64_t submbytes = (5 + (int)min(buffmegabytes * 0.05, (double)50));
+        buffmegabytes -= submbytes;
         memorySize = ((uint64_t)buffmegabytes) * 1024 * 1024;
+        double  max_table_size = 0;
+        for (size_t i = 1; i <= 7; i++) {
+            double memory_i = 1.1 * ((uint64_t)1 << k) * GetMaxEntrySize(k, i, true);
+            if (memory_i > max_table_size) max_table_size = memory_i;
+        }
+        this->numBuckets = 2 * Util::RoundPow2(ceil(((double)max_table_size) / (memorySize * kMemSortProportion)));
+
+        if (this->numBuckets < kMinBuckets) {
+            this->numBuckets = kMinBuckets;
+        } else if (this->numBuckets > kMaxBuckets) {
+            std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) + submbytes << " MiB" << std::endl;
+            exit(1);
+        }
+        this->logNumBuckets = log2(this->numBuckets);
+        assert(log2(this->numBuckets) == ceil(log2(this->numBuckets)));
 
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
@@ -637,6 +651,8 @@ public:
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << memorySize << std::endl;
+        std::cout << "Using " << this->numBuckets << " buckets" << std::endl;
+
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -711,7 +727,7 @@ public:
             Timer p1;
             Timer all_phases;
             std::vector<uint64_t> table_sizes =
-                WritePlotFile(memory, tmp_1_disks, k, id, memo, memo_len);
+                WritePlotFile(memory, tmp_1_disks, k, id, tmp_dirname, filename);
             p1.PrintElapsed("Time for phase 1 =");
 
             std::cout << std::endl
@@ -904,6 +920,8 @@ public:
     }
 
 private:
+    uint64_t numBuckets;
+    uint64_t logNumBuckets;
     uint64_t memorySize;
     uint8_t* parkToFileBytes;
     uint32_t parkToFileBytesSize;
@@ -971,8 +989,8 @@ private:
         std::vector<FileDisk>& tmp_1_disks,
         uint8_t k,
         const uint8_t* id,
-        const uint8_t* memo,
-        uint8_t memo_len)
+        std::string tmp_dirname,
+        std::string filename)
     {
         uint64_t plot_file = 0;
 
@@ -982,7 +1000,16 @@ private:
         uint64_t x = 0;
         uint64_t prevtableentries = 0;
 
-        uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
+        uint32_t t1_entry_size_bytes = GetMaxEntrySize(k, 1, true);
+        g_L_sort_manager = new LazySortManager(
+                memory,
+                memorySize,
+                this->numBuckets,
+                this->logNumBuckets,
+                t1_entry_size_bytes,
+                tmp_dirname,
+                filename + ".p1.t1",
+                0, STRIPESIZE);
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
@@ -998,16 +1025,8 @@ private:
         for (uint64_t lp = 0; lp <= (((uint64_t)1) << (k - kBatchSizes)); lp++) {
             // For each pair x, y in the batch
             for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
-                // TODO(mariano): fix inefficient memory alloc here
-                (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
-
-                // We write the x, y pair
-                tmp_1_disks[1].Write(plot_file, (buf), entry_size_bytes);
-                plot_file += entry_size_bytes;
-                prevtableentries++;
-
-                bucket_sizes[SortOnDiskUtils::ExtractNum(
-                    buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
+                Bits to_write = std::get<0>(kv) + std::get<1>(kv);
+                g_L_sort_manager->AddToCache(to_write);
 
                 if (x + 1 > max_value) {
                     break;
@@ -1018,21 +1037,18 @@ private:
                 break;
             }
         }
-        // A zero entry is the end of table symbol.
-        memset(buf, 0x00, entry_size_bytes);
-        tmp_1_disks[1].Write(plot_file, buf, entry_size_bytes);
+        f1_start_time.PrintElapsed("F1 complete, time:");
+        g_L_sort_manager->FlushCache();
         table_sizes[1] = x + 1;
-        plot_file += entry_size_bytes;
 
-        f1_start_time.PrintElapsed("F1 complete, Time = ");
+        double num_buckets = (((uint64_t)1) << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
+
+        g_L_sort_manager = t1_sorting;
 
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
         uint64_t max_spare_written = 0;
-
-        // Number of buckets that y values will be put into.
-        double num_buckets = ((uint64_t)1 << (k + kExtraBits)) / static_cast<double>(kBC) + 1;
 
         // For tables 1 through 6, sort the table, calculate matches, and write
         // the next table. This is the left table index.
@@ -1100,16 +1116,12 @@ private:
 #endif
             }
 
-            uint64_t threadMemSize = memorySize / NUMTHREADS;
-
             for (int i = 0; i < NUMTHREADS; i++) {
                 td[i].index = i;
                 td[i].mine = mutex[i];
                 td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
 
                 td[i].prevtableentries = prevtableentries;
-                td[i].memorySize = threadMemSize;
-                td[i].memory = &(memory[threadMemSize * i]);
                 td[i].right_entry_size_bytes = right_entry_size_bytes;
                 td[i].k = k;
                 td[i].table_index = table_index;
@@ -1177,8 +1189,6 @@ private:
             tmp_1_disks[table_index + 1].Write(g_right_writer, zero_buf, right_entry_size_bytes);
 
             // Resets variables
-            bucket_sizes = g_right_bucket_sizes;
-            g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
             if (g_matches != g_right_writer_count)
                 cout << "UNMATCHED!" << endl;
 
