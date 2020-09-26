@@ -46,6 +46,7 @@ namespace fs = ghc::filesystem;
 #include "sort_on_disk.hpp"
 #include "fast_sort_on_disk.hpp"
 #include "util.hpp"
+#include "threading.hpp"
 
 // Constants that are only relevant for the plotting process.
 // Other constants can be found in pos_constants.hpp
@@ -174,7 +175,7 @@ void* thread(void* arg)
 {
     THREADDATA* ptd = (THREADDATA*)arg;
 #endif
-    std::cout << "Starting thread" << ptd->index << std::endl;
+
     std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
     uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
@@ -261,42 +262,18 @@ void* thread(void* arg)
             stripe_start_correction = 0;
         }
 
-//        std::cout << ptd->index << " waiting 0" << std::endl;
-#ifdef _WIN32
-        WaitForSingleObject(ptd->theirs, INFINITE);
-#else
-        sem_wait(ptd->theirs);
-#endif
-//        std::cout << ptd->index << " waited 0" << std::endl;
-
+        SemaphoreUtils::Wait(ptd->theirs);
 
         if (globals.L_sort_manager->CloseToNewBucket(left_reader) && !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe)) {
-//            std::cout << ptd->index << " waiting 1" << std::endl;
-#ifdef _WIN32
-            WaitForSingleObject(ptd->theirs, INFINITE);
-#else
-            sem_wait(ptd->theirs);
-#endif
-//            std::cout << ptd->index << " waited 1" << std::endl;
+            SemaphoreUtils::Wait(ptd->theirs);
             triggered_new_bucket = true;
             globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
         } else if (globals.L_sort_manager->CloseToNewBucket(left_reader_next_stripe)) {
             next_stripe_triggers_new_bucket = true;
         }
-
-#ifdef _WIN32
-        ReleaseSemaphore(ptd->mine, 1, NULL);
-#else
-        sem_post(ptd->mine);
-#endif
-//        std::cout << ptd->index << " posted 0" << std::endl;
-
-
+        SemaphoreUtils::Post(ptd->mine);
 
         while (pos < prevtableentries + 1) {
-//            if (pos % 1000 == 0) {
-//                std::cout << "pos " << pos << " thread " << ptd->index << std::endl;
-//            }
             PlotEntry left_entry = PlotEntry();
             if (pos == prevtableentries) {
                 end_of_table = true;
@@ -559,21 +536,10 @@ void* thread(void* arg)
             ++pos;
         }
         if (next_stripe_triggers_new_bucket) {
-#ifdef _WIN32
-            ReleaseSemaphore(ptd->mine, 1, NULL);
-#else
-            sem_post(ptd->mine);
-#endif
-//            std::cout << ptd->index << " posted 2" << std::endl;
+            SemaphoreUtils::Post(ptd->mine);
         }
         if (!triggered_new_bucket) {
-//            std::cout << ptd->index << " waiting 2" << std::endl;
-#ifdef _WIN32
-            WaitForSingleObject(ptd->theirs, INFINITE);
-#else
-            sem_wait(ptd->theirs);
-#endif
-//            std::cout << ptd->index << " waited 2" << std::endl;
+            SemaphoreUtils::Wait(ptd->theirs);
         }
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
@@ -596,7 +562,6 @@ void* thread(void* arg)
                 posaccum = posaccum >> 8;
             }
         }
-        std::cout << "Ending stripe " << (stripe * NUMTHREADS + ptd->index) << "writing " << right_writer_count << std::endl;
         if (table_index < 6) {
             // Writes out the write table for tables 2-6
             for (const Bits& entry : to_write_R_entries) {
@@ -604,13 +569,12 @@ void* thread(void* arg)
             }
             globals.right_writer_count += right_writer_count;
         } else {
-            // Writes out the write table for table 7
-            // Write it out
+            // Writes out the right table for table 7
+            // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
                 globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
             globals.right_writer += right_writer_count * right_entry_size_bytes;
             globals.right_writer_count += right_writer_count;
-//            std::cout << "Writing table 7 " << globals.right_writer_count << std::endl;
         }
 
         (*ptmp_1_disks)[table_index].Write(
@@ -620,16 +584,9 @@ void* thread(void* arg)
 
         globals.matches += matches;
         std::cout << globals.matches << " " << globals.right_writer_count << " " << (globals.matches - globals.right_writer_count) << std::endl;
-//        assert(globals.matches == globals.right_writer_count);
 
         if (!next_stripe_triggers_new_bucket) {
-//            std::cout << ptd->index << " posting 2" << std::endl;
-#ifdef _WIN32
-            ReleaseSemaphore(ptd->mine, 1, NULL);
-#else
-            sem_post(ptd->mine);
-#endif
-//            std::cout << ptd->index << " posted 2" << std::endl;
+            SemaphoreUtils::Post(ptd->mine);
         }
     }
 
