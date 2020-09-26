@@ -86,7 +86,7 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 const Bits empty_bits;
 
 #define STRIPESIZE 8192
-#define NUMTHREADS 2
+#define NUMTHREADS 6
 
 typedef struct {
     int index;
@@ -228,7 +228,8 @@ void* thread(void* arg)
         bool end_of_table = false;  // We finished all entries in the left table
 
         bool bFirstStripeOvertimePair = false;
-        bool bSecondStripOvertimePair = false;
+        bool bSecondStripeOvertimePair = false;
+        bool bThirdStripeOvertimePair = false;
 
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
@@ -499,8 +500,10 @@ exit(0);
                 if (pos >= endpos) {
                     if (!bFirstStripeOvertimePair)
                         bFirstStripeOvertimePair = true;
-                    else if (!bSecondStripOvertimePair)
-                        bSecondStripOvertimePair = true;
+                    else if (!bSecondStripeOvertimePair)
+                        bSecondStripeOvertimePair = true;
+                    else if (!bThirdStripeOvertimePair)
+                        bThirdStripeOvertimePair = true;
                     else {
                         break;
                     }
