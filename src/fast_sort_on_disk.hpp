@@ -99,34 +99,48 @@ public:
 
     inline uint8_t* ReadEntry(uint64_t position, int quicksort = 0) {
         if (position < this->final_position_start) {
-            assert(position >= this->prev_bucket_position_start);
+            if (!(position >= this->prev_bucket_position_start)) {
+                throw std::string("Invalid prev bucket start");
+            }
             return (this->prev_bucket_buf + (position - this->prev_bucket_position_start));
         }
 
         while (position >= this->final_position_end) {
-            std::cout << "Triggerring sort!" << position / 7 << std::endl;
             std::cout << "Close?" << this->CloseToNewBucket(position) << std::endl;
+            std::cout << "positoi " << position / this->entry_size << std::endl;
             exit(1);
 //            SortBucket(quicksort);
         }
-        assert(this->final_position_end > position);
-        assert(this->final_position_start >= position);
+        if (!(this->final_position_end > position)) {
+            throw std::string("Position too large");
+        }
+        if (!(this->final_position_start <= position)) {
+            throw std::string("Position too small");
+        }
         return this->memory_start + (position - this->final_position_start);
     }
 
     inline bool CloseToNewBucket(uint64_t position) const {
-        assert (position <= this->final_position_end);
-        return (position + prev_bucket_buf_size / 2 >= this->final_position_end && this->next_bucket_to_sort != this->mem_bucket_pointers.size());
+         if (!(position <= this->final_position_end)) {
+             return this->next_bucket_to_sort < this->mem_bucket_pointers.size();
+         };
+        return (position + prev_bucket_buf_size / 2 >= this->final_position_end && this->next_bucket_to_sort < this->mem_bucket_pointers.size());
     }
 
     inline void TriggerNewBucket(uint64_t position, bool quicksort) {
-        assert (position <= this->final_position_end);
-        assert(position >= this->final_position_start);
+        if (!(position <= this->final_position_end)) {
+            throw std::string("Triggering bucket too late");
+        }
+        if (!(position >= this->final_position_start)) {
+            throw std::string("Triggering bucket too early");
+        }
 
         // position is the first position that we need in the new array
-        uint64_t cache_size = this->final_position_end - position;
+        uint64_t cache_size = (this->final_position_end - position);
+        memset(this->prev_bucket_buf, 0x00, this->prev_bucket_buf_size);
         memcpy(this->prev_bucket_buf, this->memory_start + position - this->final_position_start, cache_size);
         SortBucket(quicksort);
+//        std::cout << "Triggerring new bucket " << this->final_position_start / this->entry_size << " " << this->final_position_end / this->entry_size << std::endl;
         this->prev_bucket_position_start = position;
     }
 
@@ -156,7 +170,8 @@ public:
             exit(1);
         }
         bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1 ) || this->bucket_write_pointers[bucket_i + 1] == 0;
-        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
+//        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
+        bool force_quicksort = true;
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {

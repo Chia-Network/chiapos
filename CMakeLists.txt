@@ -48,7 +48,7 @@ set(BLAKE3_SRC
     src/b3/blake3_sse41_x86-64_unix.S
 )
 
-pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
+#pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
 
 add_executable(ProofOfSpace
     src/cli.cpp
@@ -56,31 +56,31 @@ add_executable(ProofOfSpace
     ${BLAKE3_SRC}
 )
 
-add_executable(RunTests
-    tests/test-main.cpp
-    tests/test.cpp
-    src/chacha8.c
-    ${BLAKE3_SRC}
-)
+#add_executable(RunTests
+#    tests/test-main.cpp
+#    tests/test.cpp
+#    src/chacha8.c
+#    ${BLAKE3_SRC}
+#)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  target_link_libraries(chiapos PRIVATE fse)
-  target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(RunTests fse)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-  target_link_libraries(chiapos PRIVATE fse)
-  target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(RunTests fse)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  target_link_libraries(chiapos PRIVATE fse)
-  target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(RunTests fse)
-elseif (WIN32)
-  target_link_libraries(chiapos PRIVATE fse)
-  target_link_libraries(ProofOfSpace fse)
-  target_link_libraries(RunTests fse)
-else()
-  target_link_libraries(chiapos PRIVATE rt pthread fse stdc++fs)
-  target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
-  target_link_libraries(RunTests rt pthread fse stdc++fs)
-endif()
+#if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+#  target_link_libraries(chiapos PRIVATE fse)
+target_link_libraries(ProofOfSpace fse)
+#  target_link_libraries(RunTests fse)
+#elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
+#  target_link_libraries(chiapos PRIVATE fse)
+#  target_link_libraries(ProofOfSpace fse)
+#  target_link_libraries(RunTests fse)
+#elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+#  target_link_libraries(chiapos PRIVATE fse)
+#  target_link_libraries(ProofOfSpace fse)
+#  target_link_libraries(RunTests fse)
+#elseif (WIN32)
+#  target_link_libraries(chiapos PRIVATE fse)
+#  target_link_libraries(ProofOfSpace fse)
+#  target_link_libraries(RunTests fse)
+#else()
+#  target_link_libraries(chiapos PRIVATE rt pthread fse stdc++fs)
+#  target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
+#  target_link_libraries(RunTests rt pthread fse stdc++fs)
+#endif()

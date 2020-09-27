@@ -216,10 +216,9 @@ void* thread(void* arg)
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
-        std::cout << "Starting stripe " << (stripe * NUMTHREADS + ptd->index) << " pos " << pos << " to " << endpos << std::endl;
+//        std::cout << "Starting stripe " << (stripe * NUMTHREADS + ptd->index) << " pos " << pos << " to " << endpos << std::endl;
         uint64_t left_reader = pos * entry_size_bytes;
         uint64_t left_reader_prev_stripe = (pos - STRIPESIZE) * entry_size_bytes;
-        uint64_t left_reader_next_stripe = (pos + STRIPESIZE) * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
         uint64_t stripe_start_correction = 0xffffffffffffffff;
@@ -232,17 +231,17 @@ void* thread(void* arg)
         std::vector<PlotEntry> bucket_L;
         std::vector<PlotEntry> bucket_R;
 
-        uint64_t bucket = 0xffffffffffffffff;
+        uint64_t bucket = 0;
         bool end_of_table = false;  // We finished all entries in the left table
 
+        uint64_t ignorebucket = 0xffffffffffffffff;
+        bool bMatch = false;
         bool bFirstStripeOvertimePair = false;
-        bool bSecondStripeOvertimePair = false;
+        bool bSecondStripOvertimePair = false;
         bool bThirdStripeOvertimePair = false;
 
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
-        bool triggered_new_bucket = false;
-        bool next_stripe_triggers_new_bucket = false;
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
@@ -257,25 +256,27 @@ void* thread(void* arg)
         std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
 
         if (pos == 0) {
+            bMatch = true;
             bStripePregamePair = true;
             bStripeStartPair = true;
+            stripe_left_writer_count = 0;
             stripe_start_correction = 0;
         }
 
-        SemaphoreUtils::Wait(ptd->theirs);
 
-        if (globals.L_sort_manager->CloseToNewBucket(left_reader) && !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe)) {
+        bool need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
+
+        if (need_new_bucket) {
+            bool will_trigger_bucket = !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe);
             SemaphoreUtils::Wait(ptd->theirs);
-            triggered_new_bucket = true;
-            globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
-        } else if (globals.L_sort_manager->CloseToNewBucket(left_reader_next_stripe)) {
-            next_stripe_triggers_new_bucket = true;
+            if (will_trigger_bucket) {
+                globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+            }
         }
-        SemaphoreUtils::Post(ptd->mine);
 
         while (pos < prevtableentries + 1) {
             PlotEntry left_entry = PlotEntry();
-            if (pos == prevtableentries) {
+            if (pos >= prevtableentries) {
                 end_of_table = true;
                 left_entry.y = 0;
                 left_entry.left_metadata = 0;
@@ -293,13 +294,25 @@ void* thread(void* arg)
             // within L table.
             left_entry.pos = pos;
             left_entry.used = false;
+//            std::cout << "Pos" << pos << " left y: " << left_entry.y << std::endl;
 
             uint64_t y_bucket = left_entry.y / kBC;
 
-            if(bucket == 0xffffffffffffffff)
-            {
-                //cout << "Stripe " << stripe << endl;
-                bucket = y_bucket;
+            if (!bMatch) {
+                if (ignorebucket == 0xffffffffffffffff) {
+                    ignorebucket = y_bucket;
+                } else {
+                    if ((y_bucket != ignorebucket)) {
+                        bucket = y_bucket;
+                        bMatch = true;
+                    }
+                }
+            }
+            if (!bMatch) {
+                stripe_left_writer_count++;
+                R_position_base = stripe_left_writer_count;
+                pos++;
+                continue;
             }
 
             // Keep reading left entries into bucket_L and R, until we run out of things
@@ -308,7 +321,7 @@ void* thread(void* arg)
             } else if (y_bucket == bucket + 1) {
                 bucket_R.emplace_back(left_entry);
             } else {
-                //cout << "matching! " << bucket << " and " << bucket + 1 << endl;
+                // cout << "matching! " << bucket << " and " << bucket + 1 << endl;
                 // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
@@ -484,8 +497,8 @@ void* thread(void* arg)
 
                         if (bStripeStartPair) {
                             right_writer_count++;
-                            if (table_index < 6) {
-                                to_write_R_entries.emplace_back(new_entry);
+                            if (table_index < 6 && false) {
+                                to_write_R_entries.push_back(new_entry);
                             } else {
                                 // to_write_R_entries
                                 uint8_t *right_buf =
@@ -500,8 +513,8 @@ void* thread(void* arg)
                 if (pos >= endpos) {
                     if (!bFirstStripeOvertimePair)
                         bFirstStripeOvertimePair = true;
-                    else if (!bSecondStripeOvertimePair)
-                        bSecondStripeOvertimePair = true;
+                    else if (!bSecondStripOvertimePair)
+                        bSecondStripOvertimePair = true;
                     else if (!bThirdStripeOvertimePair)
                         bThirdStripeOvertimePair = true;
                     else {
@@ -511,9 +524,7 @@ void* thread(void* arg)
                     if (!bStripePregamePair)
                         bStripePregamePair = true;
                     else if (!bStripeStartPair)
-                    {
                         bStripeStartPair = true;
-                    }
                 }
 
                 if (y_bucket == bucket + 2) {
@@ -535,10 +546,9 @@ void* thread(void* arg)
             // Increase the read pointer in the left table, by one
             ++pos;
         }
-        if (next_stripe_triggers_new_bucket) {
-            SemaphoreUtils::Post(ptd->mine);
-        }
-        if (!triggered_new_bucket) {
+
+        if (!need_new_bucket) {
+            // If we needed new bucket, we already waited
             SemaphoreUtils::Wait(ptd->theirs);
         }
 
@@ -563,19 +573,21 @@ void* thread(void* arg)
             }
         }
         if (table_index < 6) {
+//            for (const Bits& entry : to_write_R_entries) {
+//                globals.R_sort_manager->AddToCache(entry);
+//            }
             // Writes out the write table for tables 2-6
-            for (const Bits& entry : to_write_R_entries) {
-                globals.R_sort_manager->AddToCache(entry);
+            for (uint64_t i = 0; i < right_writer_count; i++) {
+                globals.R_sort_manager->AddToCache(Bits(right_writer_buf + i * right_entry_size_bytes, right_entry_size_bytes, right_entry_size_bytes * 8));
+//            for (const Bits& entry : to_write_R_entries) {
             }
-            globals.right_writer_count += right_writer_count;
         } else {
-            // Writes out the right table for table 7
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
                 globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
-            globals.right_writer += right_writer_count * right_entry_size_bytes;
-            globals.right_writer_count += right_writer_count;
         }
+        globals.right_writer += right_writer_count * right_entry_size_bytes;
+        globals.right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
             globals.left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
@@ -583,11 +595,8 @@ void* thread(void* arg)
         globals.left_writer_count += left_writer_count;
 
         globals.matches += matches;
-        std::cout << globals.matches << " " << globals.right_writer_count << " " << (globals.matches - globals.right_writer_count) << std::endl;
 
-        if (!next_stripe_triggers_new_bucket) {
-            SemaphoreUtils::Post(ptd->mine);
-        }
+        SemaphoreUtils::Post(ptd->mine);
     }
 
     delete[] L_position_map;
@@ -1210,6 +1219,9 @@ private:
                 std::cout << globals.matches << " " << globals.right_writer_count << std::endl;
                 exit(1);
             }
+            if (table_index == 1) {
+                exit(0);
+            }
 
             prevtableentries = globals.right_writer_count;
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
@@ -1666,7 +1678,7 @@ private:
             std::cout << "index-parkToFileBytes " << index - parkToFileBytes
                       << " parkToFileBytesSize " << parkToFileBytesSize << std::endl;
 
-        final_disk.Write(writer, (uint8_t*)parkToFileBytes, index - parkToFileBytes);
+        final_disk.Write(writer, (uint8_t*)parkToFileBytes, parkToFileBytesSize);
     }
 
     // Compresses the plot file tables into the final file. In order to do this, entries must be
