@@ -86,7 +86,7 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 const Bits empty_bits;
 
 #define STRIPESIZE 8192
-#define NUMTHREADS 1
+#define NUMTHREADS 2
 
 typedef struct {
     int index;
@@ -192,7 +192,6 @@ void* F1thread(void* arg)
     uint8_t buf[14];
 
     uint64_t right_buf_entries = 2 << (kBatchSizes - 1);
-    cout << " right_buf_entries " << right_buf_entries << endl;
 
     F1Calculator f1(k, ptd->id);
 
@@ -201,47 +200,41 @@ void* F1thread(void* arg)
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
     for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + 2) {  // NUMTHREADS) {
+         lp = lp + NUMTHREADS) {  // NUMTHREADS) {
         // For each pair x, y in the batch
 
         uint64_t plot_file = 0;
         uint64_t right_writer_count = 0;
-        uint64_t x = lp * 2 << (kBatchSizes - 1);
+        uint64_t x = lp * (2 << (kBatchSizes - 1));
         std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
-        cout << "x " << x << " k " << (int)k << endl;
 
-        for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
-            /*                // TODO(mariano): fix inefficient memory alloc here
-                            (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
+        for (auto kv : f1.CalculateBuckets(
+                 Bits(x, k), min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1)))) {
+            // TODO(mariano): fix inefficient memory alloc here
+            (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
 
-                            // We write the x, y pair
-            memcpy(right_writer_buf+plot_file,(buf), entry_size_bytes);
-                            plot_file += entry_size_bytes;
+            // We write the x, y pair
+            memcpy(right_writer_buf + plot_file, (buf), entry_size_bytes);
+            plot_file += entry_size_bytes;
             right_writer_count++;
 
-                            right_bucket_sizes[SortOnDiskUtils::ExtractNum(
-                                buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
-            */
+            right_bucket_sizes[SortOnDiskUtils::ExtractNum(
+                buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
+
             if (x + 1 > max_value) {
                 break;
             }
             ++x;
         }
 
-        if (x + 1 > max_value) {
-            break;
-        }
 #ifdef _WIN32
         WaitForSingleObject(ptd->theirs, INFINITE);
 #else
         sem_wait(ptd->theirs);
 #endif
 
-        cout << "Thread " << ptd->index << " loop " << lp << " of "
-             << (((uint64_t)1) << (k - kBatchSizes)) << " right_writer_count " << right_writer_count
-             << endl;
-
         // Write it out
+
         (*ptmp_1_disk)
             .Write(g_right_writer, right_writer_buf, right_writer_count * entry_size_bytes);
         g_right_writer += right_writer_count * entry_size_bytes;
@@ -251,6 +244,10 @@ void* F1thread(void* arg)
         for (int i = 0; i < kNumSortBuckets; i++) {
             g_right_bucket_sizes[i] += right_bucket_sizes[i];
             right_bucket_sizes[i] = 0;
+
+            if (x + 1 > max_value) {
+                break;
+            }
         }
 
 #ifdef _WIN32
@@ -259,6 +256,8 @@ void* F1thread(void* arg)
         sem_post(ptd->mine);
 #endif
     }
+
+    delete[] right_writer_buf;
 
     return 0;
 }
@@ -1175,9 +1174,13 @@ private:
         // A zero entry is the end of table symbol.
         uint8_t buf[14];
         memset(buf, 0x00, entry_size_bytes);
-        tmp_1_disks[1].Write(plot_file, buf, entry_size_bytes);
-        table_sizes[1] = x + 1;
-        plot_file += entry_size_bytes;
+        tmp_1_disks[1].Write(g_right_writer, buf, entry_size_bytes);
+
+        table_sizes[1] = g_right_writer_count+1;
+        g_right_writer += entry_size_bytes;
+
+            bucket_sizes = g_right_bucket_sizes;
+            g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
 
@@ -1212,7 +1215,7 @@ private:
                 tmp_1_disks[0],
                 entry_size_bytes,
                 0,
-                g_right_bucket_sizes,
+                bucket_sizes,
                 memory,
                 memorySize);
             if (spare_written > max_spare_written) {
