@@ -1078,23 +1078,21 @@ private:
         const uint8_t* memo,
         uint8_t memo_len)
     {
-        uint64_t plot_file = 0;
-
-        std::cout << "Computing table 1" << std::endl;
-        Timer f1_start_time;
-        F1Calculator f1(k, id);
-        uint64_t x = 0;
-        uint64_t prevtableentries = 0;
-
-        uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
-
-        // The max value our input (x), can take. A proof of space is 64 of these x values.
-        uint64_t max_value = ((uint64_t)1 << (k)) - 1;
+uint64_t prevtableentries=0;
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
         std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
+{
+// F1 scope
+        std::cout << "Computing table 1" << std::endl;
+        Timer f1_start_time;
+
+// Dummy to load static table
+F1Calculator f1(k, id);
+
+        uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
 
         // Start of parallel execution
 
@@ -1131,7 +1129,6 @@ private:
             td[i].mine = mutex[i];
             td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
 
-            td[i].x = x;
             td[i].k = k;
             td[i].ptmp_1_disk = &(tmp_1_disks[1]);
             td[i].entry_size_bytes = entry_size_bytes;
@@ -1181,11 +1178,18 @@ private:
         table_sizes[1] = g_right_writer_count;
         g_right_writer += entry_size_bytes;
 
-        bucket_sizes = g_right_bucket_sizes;
-        g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
-cout << "table_sizes[1] " << table_sizes[1] << endl;
-
+for(int i=0;i<kNumSortBuckets;i++)
+{
+bucket_sizes[i]=g_right_bucket_sizes[i];
+cout << "bucket " << i << " size " << bucket_sizes[i] << endl;
+g_right_bucket_sizes[i]=0;
+}
         f1_start_time.PrintElapsed("F1 complete, Time = ");
+
+g_right_writer=0;
+g_right_writer_count=0;
+
+}
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
