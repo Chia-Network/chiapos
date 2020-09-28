@@ -244,10 +244,6 @@ void* F1thread(void* arg)
         for (int i = 0; i < kNumSortBuckets; i++) {
             g_right_bucket_sizes[i] += right_bucket_sizes[i];
             right_bucket_sizes[i] = 0;
-
-            if (x + 1 > max_value) {
-                break;
-            }
         }
 
 #ifdef _WIN32
@@ -255,6 +251,10 @@ void* F1thread(void* arg)
 #else
         sem_post(ptd->mine);
 #endif
+
+        if (x + 1 > max_value) {
+            break;
+        }
     }
 
     delete[] right_writer_buf;
@@ -1176,14 +1176,13 @@ private:
         memset(buf, 0x00, entry_size_bytes);
         tmp_1_disks[1].Write(g_right_writer, buf, entry_size_bytes);
 
-        table_sizes[1] = g_right_writer_count+1;
+        table_sizes[1] = g_right_writer_count;
         g_right_writer += entry_size_bytes;
 
-            bucket_sizes = g_right_bucket_sizes;
-            g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
+        bucket_sizes = g_right_bucket_sizes;
+        g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
-
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
