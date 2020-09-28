@@ -208,8 +208,10 @@ void* F1thread(void* arg)
         uint64_t x = lp * (2 << (kBatchSizes - 1));
         std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
+        uint64_t loopcount=min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1));
+
         for (auto kv : f1.CalculateBuckets(
-                 Bits(x, k), min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1)))) {
+                 Bits(x, k), loopcount)) {
             // TODO(mariano): fix inefficient memory alloc here
             (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
 
@@ -1117,7 +1119,7 @@ private:
                 1,      // maximum count
                 NULL);  // unnamed semaphore
 #else
-            sprintf(semname, "sem %d", i);
+            sprintf(semname, "f1 sem %d", i);
             mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
 #endif
         }
