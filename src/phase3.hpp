@@ -240,7 +240,7 @@ Phase3Results RunPhase3(
             if (end_of_right_table || current_pos <= greatest_pos) {
                 while (!end_of_right_table) {
                     if (should_read_entry) {
-                        if (right_reader_count == table_sizes[table_index + 1] - 1) {
+                        if (right_reader_count == table_sizes[table_index + 1]) {
                             end_of_right_table = true;
                             end_of_table_pos = current_pos;
                             break;
@@ -295,7 +295,7 @@ Phase3Results RunPhase3(
                         break;
                     }
                 }
-                if (left_reader_count < table_sizes[table_index] - 1) {
+                if (left_reader_count < table_sizes[table_index]) {
                     // The left entries are in the new format: (sort_key, new_pos), except for table
                     // 1: (y, x).
                     if (table_index == 1) {

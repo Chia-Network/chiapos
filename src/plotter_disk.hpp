@@ -18,8 +18,8 @@
 #ifndef _WIN32
 #include <pthread.h>
 #include <semaphore.h>
-#include <unistd.h>
 #include <sys/resource.h>
+#include <unistd.h>
 #endif
 
 #include <math.h>
@@ -90,7 +90,7 @@ public:
         if (num_threads_input != 0) {
             num_threads = num_threads_input;
         } else {
-            num_threads = 2;
+            num_threads = 1;
         }
         if (buf_megabytes_input != 0) {
             buf_megabytes = buf_megabytes_input;
@@ -103,11 +103,12 @@ public:
         }
 
         // Subtract some ram to account for dynamic allocation through the code
-        uint64_t thread_memory =
-            num_threads * (2 * (stripe_size + 5000)) * EntrySizes::GetMaxEntrySize(k, 4, true) / (1024*1024);
+        uint64_t thread_memory = num_threads * (2 * (stripe_size + 5000)) *
+                                 EntrySizes::GetMaxEntrySize(k, 4, true) / (1024 * 1024);
         uint64_t sub_mbytes = (5 + (int)min(buf_megabytes * 0.05, (double)50) + thread_memory);
         if (sub_mbytes > buf_megabytes) {
-            throw InsufficientMemoryException("Please provide more memory. At least " + std::to_string(sub_mbytes));
+            throw InsufficientMemoryException(
+                "Please provide more memory. At least " + std::to_string(sub_mbytes));
         }
         uint64_t memory_size = ((uint64_t)(buf_megabytes - sub_mbytes)) * 1024 * 1024;
         double max_table_size = 0;
@@ -201,7 +202,8 @@ public:
 
             FileDisk tmp2_disk(tmp_2_filename);
             if (!tmp2_disk.isOpen()) {
-                throw InvalidValueException("Could not open " + std::string(tmp_2_filename.c_str()));
+                throw InvalidValueException(
+                    "Could not open " + std::string(tmp_2_filename.c_str()));
             }
 
             assert(id_len == kIdLen);

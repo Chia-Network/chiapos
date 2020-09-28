@@ -38,7 +38,7 @@
 // C1 (checkpoint values)
 // C2 (checkpoint values into)
 // C3 (deltas of f7s between C1 checkpoints)
-void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk /*filename*/, Phase3Results &res)
+void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &res)
 {
     uint32_t P7_park_size = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
     uint64_t number_of_p7_parks =

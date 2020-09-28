@@ -171,7 +171,7 @@ std::vector<uint64_t> RunPhase2(
 
                 while (!end_of_right_table) {
                     if (should_read_entry) {
-                        if (right_reader_count == new_table_sizes[table_index] - 1) {
+                        if (right_reader_count == new_table_sizes[table_index]) {
                             // Table R has ended, don't read any more (but keep writing)
                             end_of_right_table = true;
                             end_of_table_pos = current_pos;
@@ -370,7 +370,7 @@ std::vector<uint64_t> RunPhase2(
             }
             ++current_pos;
         }
-        new_table_sizes[table_index - 1] = left_entry_counter + 1;
+        new_table_sizes[table_index - 1] = left_entry_counter;
 
         std::cout << "\tWrote left entries: " << left_entry_counter << std::endl;
         table_timer.PrintElapsed("Total backpropagation time::");
@@ -385,10 +385,7 @@ std::vector<uint64_t> RunPhase2(
             delete R_sort_manager;
         }
 
-        // Writes the 0 entry (EOT) for right table
-        memset(right_writer_buf, 0x00, right_entry_size_bytes);
-        tmp_1_disks[table_index].Write(right_writer, right_writer_buf, right_entry_size_bytes);
-        right_writer += right_entry_size_bytes;
+        // Truncates the right table
         tmp_1_disks[table_index].Truncate(right_writer);
 
         if (table_index == 2) {
@@ -399,10 +396,7 @@ std::vector<uint64_t> RunPhase2(
                 (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes);
             left_writer += (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
 
-            // Writes the 0 entry (EOT) for left table
-            memset(left_writer_buf, 0x00, left_entry_size_bytes);
-            tmp_1_disks[table_index - 1].Write(left_writer, left_writer_buf, left_entry_size_bytes);
-            left_writer += left_entry_size_bytes;
+            // Truncates the left table
             tmp_1_disks[table_index - 1].Truncate(left_writer);
         } else {
             L_sort_manager->FlushCache();

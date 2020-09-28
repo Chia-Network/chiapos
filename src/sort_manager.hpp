@@ -79,14 +79,21 @@ public:
         this->final_position_start = 0;
         this->final_position_end = 0;
         this->next_bucket_to_sort = 0;
+        this->entry_buf = new uint8_t[entry_size];
     }
 
     inline void AddToCache(const Bits &entry)
     {
+        entry.ToBytes(this->entry_buf);
+        return AddToCache(this->entry_buf);
+    }
+    inline void AddToCache(const uint8_t *entry)
+    {
         if (this->done) {
             throw InvalidValueException("Already finished.");
         }
-        uint64_t bucket_index = ExtractNum(entry, this->begin_bits, this->log_num_buckets);
+        uint64_t bucket_index =
+            Util::ExtractNum(entry, this->entry_size, this->begin_bits, this->log_num_buckets);
         uint64_t mem_write_offset = mem_bucket_sizes[bucket_index] * entry_size;
         if (mem_write_offset + entry_size > this->size_per_bucket) {
             this->FlushTable(bucket_index);
@@ -94,8 +101,7 @@ public:
         }
 
         uint8_t *mem_write_pointer = mem_bucket_pointers[bucket_index] + mem_write_offset;
-        assert(Util::ByteAlign(entry.GetSize()) / 8 == this->entry_size);
-        entry.ToBytes(mem_write_pointer);
+        memcpy(mem_write_pointer, entry, this->entry_size);
         mem_bucket_sizes[bucket_index] += 1;
     }
 
@@ -180,6 +186,7 @@ public:
             fs::remove(fs::path(fd.GetFileName()));
         }
         delete[] this->prev_bucket_buf;
+        delete[] this->entry_buf;
     }
 
 private:
@@ -212,11 +219,7 @@ private:
     uint64_t final_position_start;
     uint64_t final_position_end;
     uint64_t next_bucket_to_sort;
-
-    inline static uint64_t ExtractNum(const Bits &bytes, uint32_t begin_bits, uint32_t take_bits)
-    {
-        return (uint64_t)(bytes.Slice(begin_bits, begin_bits + take_bits).GetValue128());
-    }
+    uint8_t *entry_buf;
 
     inline void FlushTable(uint16_t bucket_i)
     {

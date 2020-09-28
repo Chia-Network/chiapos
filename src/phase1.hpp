@@ -524,10 +524,7 @@ void* thread(void* arg)
         }
         if (table_index < 6) {
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(Bits(
-                    right_writer_buf + i * right_entry_size_bytes,
-                    right_entry_size_bytes,
-                    right_entry_size_bytes * 8));
+                globals.R_sort_manager->AddToCache(right_writer_buf + i * right_entry_size_bytes);
             }
         } else {
             // Writes out the right table for table 7
@@ -686,10 +683,10 @@ std::vector<uint64_t> RunPhase1(
         THREADDATA* td = new THREADDATA[num_threads];
 #ifdef _WIN32
         HANDLE* t = new HANDLE[num_threads];
-        HANDLE* mutex =  new HANDLE[globals.num_threads];
+        HANDLE* mutex = new HANDLE[globals.num_threads];
 #else
         pthread_t* t = new pthread_t[num_threads];
-        sem_t** mutex = new sem_t* [num_threads];
+        sem_t** mutex = new sem_t*[num_threads];
         char semname[20];
 #endif
 
@@ -747,35 +744,22 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
-
         // end of parallel execution
 
         // Total matches found in the left table
         std::cout << "\tTotal matches: " << globals.matches << std::endl;
 
-        table_sizes[table_index] = globals.left_writer_count + 1;
-        table_sizes[table_index + 1] = globals.right_writer_count + 1;
+        table_sizes[table_index] = globals.left_writer_count;
+        table_sizes[table_index + 1] = globals.right_writer_count;
 
-        // Finishes writing L table, and writes the 0 entry (EOT) for left table
-        // Also truncates the file after the final write position, deleting no longer useful
+        // Truncates the file after the final write position, deleting no longer useful
         // working space
-
-        uint8_t* zero_buf =
-            new uint8_t[std::max(compressed_entry_size_bytes, right_entry_size_bytes)];
-        memset(zero_buf, 0x00, std::max(compressed_entry_size_bytes, right_entry_size_bytes));
-
-        tmp_1_disks[table_index].Write(globals.left_writer, zero_buf, compressed_entry_size_bytes);
-        globals.left_writer += compressed_entry_size_bytes;
         tmp_1_disks[table_index].Truncate(globals.left_writer);
         delete globals.L_sort_manager;
         if (table_index < 6) {
             globals.R_sort_manager->FlushCache();
             globals.L_sort_manager = globals.R_sort_manager;
         } else {
-            // Writes the 0 entry (EOT) for right table
-            tmp_1_disks[table_index + 1].Write(
-                globals.right_writer, zero_buf, right_entry_size_bytes);
-            globals.right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(globals.right_writer);
         }
 
@@ -789,7 +773,6 @@ std::vector<uint64_t> RunPhase1(
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
 
-        delete[] zero_buf;
         delete[] t;
         delete[] td;
         delete[] mutex;

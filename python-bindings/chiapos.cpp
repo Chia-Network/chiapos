@@ -45,7 +45,10 @@ PYBIND11_MODULE(chiapos, m)
                uint8_t k,
                const py::bytes &memo,
                const py::bytes &id,
-               uint32_t buffmegabytes) {
+               uint32_t buffmegabytes,
+               uint32_t num_buckets,
+               uint32_t stripe_size,
+               uint8_t num_threads) {
                 std::string memo_str(memo);
                 const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
                 std::string id_str(id);
@@ -60,7 +63,10 @@ PYBIND11_MODULE(chiapos, m)
                     len(memo),
                     id_ptr,
                     len(id),
-                    buffmegabytes);
+                    buffmegabytes,
+                    num_buckets,
+                    stripe_size,
+                    num_threads);
             });
 
     py::class_<DiskProver>(m, "DiskProver")
