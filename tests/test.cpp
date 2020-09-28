@@ -21,7 +21,7 @@
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "disk.hpp"
-#include "fast_sort_on_disk.hpp"
+#include "sort_manager.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
@@ -538,7 +538,7 @@ void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t 
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
-    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 0, buffer, 0, stripe_size, num_threads);
+    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32, buffer, 0, stripe_size, num_threads);
     TestProofOfSpace(filename, iterations, k, plot_id, num_proofs);
     REQUIRE(remove(filename.c_str()) == 0);
 }
@@ -549,7 +549,7 @@ TEST_CASE("Plotting")
     SECTION("Disk plot k19") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 2); }
     SECTION("Disk plot k19 single-thread") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 1); }
     SECTION("Disk plot k20") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469, 16000, 2); }
-    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 2); }
+    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 4); }
     // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100, 107); }
 }
 
@@ -561,8 +561,8 @@ TEST_CASE("Invalid plot")
         {
             DiskPlotter plotter = DiskPlotter();
             uint8_t memo[5] = {1, 2, 3, 4, 5};
-            uint8_t k = 22;
-            plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
+            uint8_t k = 20;
+            plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32, 100);
             DiskProver prover(filename);
             uint8_t* proof_data = new uint8_t[8 * k];
             uint8_t challenge[32];
@@ -694,7 +694,7 @@ TEST_CASE("Sort on disk")
         uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
-        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -714,7 +714,6 @@ TEST_CASE("Sort on disk")
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }
-        manager.AssertAllWritten();
         delete[] memory;
     }
 
@@ -725,7 +724,7 @@ TEST_CASE("Sort on disk")
         uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
-        LazySortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i ++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -736,9 +735,7 @@ TEST_CASE("Sort on disk")
             input.emplace_back(to_write);
             manager.AddToCache(to_write);
         }
-        std::cout << "executing flush" << std::endl;
         manager.FlushCache();
-        std::cout << "executed" << std::endl;
         uint8_t buf[size];
         sort(input.begin(), input.end());
         uint8_t *buf3;
@@ -747,7 +744,6 @@ TEST_CASE("Sort on disk")
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }
-        manager.AssertAllWritten();
         delete[] memory;
     }
 
