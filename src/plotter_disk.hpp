@@ -82,9 +82,6 @@ struct Phase3Results {
     uint32_t header_size;
 };
 
-#define STRIPESIZE 8192
-#define NUMTHREADS 2
-
 typedef struct {
     int index;
 #ifdef _WIN32
@@ -120,6 +117,8 @@ struct GlobalData {
     uint64_t right_writer_buf_entries;
     uint64_t left_writer;
     uint64_t right_writer;
+    uint64_t stripe_size;
+    uint8_t num_threads;
 };
 
 GlobalData globals;
@@ -191,8 +190,8 @@ void* thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
-    uint64_t right_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t left_buf_entries = (uint64_t)(globals.stripe_size) + 2500;
+    uint64_t right_buf_entries = (uint64_t)(globals.stripe_size) + 2500;
     uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
 
@@ -208,16 +207,16 @@ void* thread(void* arg)
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
-    uint64_t totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
-    uint64_t threadstripes = (totalstripes + NUMTHREADS - 1) / NUMTHREADS;
+    uint64_t totalstripes = (prevtableentries + globals.stripe_size - 1) / globals.stripe_size;
+    uint64_t threadstripes = (totalstripes + globals.num_threads - 1) / globals.num_threads;
 
     std::vector<Bits> to_write_R_entries;
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
-        uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
-        uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
+        uint64_t pos = (stripe * globals.num_threads + ptd->index) * globals.stripe_size;
+        uint64_t endpos = pos + globals.stripe_size + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
-        uint64_t left_reader_prev_stripe = (pos - STRIPESIZE) * entry_size_bytes;
+        uint64_t left_reader_prev_stripe = (pos - globals.stripe_size) * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
         uint64_t stripe_start_correction = 0xffffffffffffffff;
@@ -609,8 +608,25 @@ public:
         uint32_t memo_len,
         const uint8_t* id,
         uint32_t id_len,
-        uint32_t buffmegabytes = 2 * 1024)
+        uint32_t buffmegabytes = 0,
+        uint32_t num_buckets = 0,
+        uint64_t stripe_size = 0,
+        uint8_t num_threads = 0)
     {
+        if (stripe_size != 0) {
+//            if (stripe_size < )
+            globals.stripe_size = stripe_size;
+        } else {
+            globals.stripe_size =  8192;
+        }
+        if (num_threads != 0) {
+            globals.num_threads = num_threads;
+        } else {
+            globals.num_threads = 2;
+        }
+        if (buffmegabytes == 0) {
+            buffmegabytes = 3500;
+        }
 #ifndef _WIN32
         struct rlimit the_limit = { 600, 600 };
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
@@ -635,16 +651,33 @@ public:
             double memory_i = 1.1 * ((uint64_t)1 << k) * GetMaxEntrySize(k, i, true);
             if (memory_i > max_table_size) max_table_size = memory_i;
         }
-        this->numBuckets = 2 * Util::RoundPow2(ceil(((double)max_table_size) / (memorySize * kMemSortProportion)));
+        if (num_buckets != 0){
+            this->numBuckets = Util::RoundPow2(num_buckets);
+        } else {
+            this->numBuckets = 2 * Util::RoundPow2(ceil(((double) max_table_size) / (memorySize * kMemSortProportion)));
+        }
 
         if (this->numBuckets < kMinBuckets) {
+            if (num_buckets != 0) {
+                std::cout << "Minimum buckets is " << kMinBuckets << std::endl;
+                exit(1);
+            }
             this->numBuckets = kMinBuckets;
         } else if (this->numBuckets > kMaxBuckets) {
+            if (num_buckets != 0) {
+                std::cout << "Maximum buckets is " << kMaxBuckets << std::endl;
+                exit(1);
+            }
             std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) + submbytes << " MiB" << std::endl;
             exit(1);
         }
         this->logNumBuckets = log2(this->numBuckets);
         assert(log2(this->numBuckets) == ceil(log2(this->numBuckets)));
+
+        if (max_table_size / this->numBuckets < stripe_size * 30) {
+            std::cout << "Stripe size too large." << std::endl;
+            exit(1);
+        }
 
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
@@ -654,7 +687,7 @@ public:
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << memorySize << std::endl;
         std::cout << "Using " << this->numBuckets << " buckets" << std::endl;
-
+        std::cout << "Using " << (int)globals.num_threads << " threads of stripe size " << globals.stripe_size << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -1009,7 +1042,7 @@ private:
                 t1_entry_size_bytes,
                 tmp_dirname,
                 filename + ".p1.t1",
-                0, STRIPESIZE);
+                0, globals.stripe_size);
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
@@ -1094,23 +1127,23 @@ private:
                     tmp_dirname,
                     filename + ".p1.t" + to_string(table_index + 1),
                     0,
-                    STRIPESIZE);
+                    globals.stripe_size);
 
             globals.L_sort_manager->TriggerNewBucket(0, 0);
 
             Timer computation_pass_timer;
 
-            THREADDATA td[NUMTHREADS];
+            THREADDATA td[globals.num_threads];
 #ifdef _WIN32
-            HANDLE t[NUMTHREADS];
-            HANDLE mutex[NUMTHREADS];
+            HANDLE t[globals.num_threads];
+            HANDLE mutex[globals.num_threads];
 #else
-            pthread_t t[NUMTHREADS];
-            sem_t* mutex[NUMTHREADS];
+            pthread_t t[globals.num_threads];
+            sem_t* mutex[globals.num_threads];
             char semname[20];
 #endif
 
-            for (int i = 0; i < NUMTHREADS; i++) {
+            for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
                 mutex[i] = CreateSemaphore(
                     NULL,   // default security attributes
@@ -1123,10 +1156,10 @@ private:
 #endif
             }
 
-            for (int i = 0; i < NUMTHREADS; i++) {
+            for (int i = 0; i < globals.num_threads; i++) {
                 td[i].index = i;
                 td[i].mine = mutex[i];
-                td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
+                td[i].theirs = mutex[(globals.num_threads + i - 1) % globals.num_threads];
 
                 td[i].prevtableentries = prevtableentries;
                 td[i].right_entry_size_bytes = right_entry_size_bytes;
@@ -1146,12 +1179,12 @@ private:
             }
 
 #ifdef _WIN32
-            ReleaseSemaphore(mutex[NUMTHREADS - 1], 1, NULL);
+            ReleaseSemaphore(mutex[globals.num_threads - 1], 1, NULL);
 #else
-            sem_post(mutex[NUMTHREADS - 1]);
+            sem_post(mutex[globals.num_threads - 1]);
 #endif
 
-            for (int i = 0; i < NUMTHREADS; i++) {
+            for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
                 WaitForSingleObject(t[i], INFINITE);
                 CloseHandle(t[i]);
@@ -1160,7 +1193,7 @@ private:
 #endif
             }
 
-            for (int i = 0; i < NUMTHREADS; i++) {
+            for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
                 CloseHandle(mutex[i]);
 #else
