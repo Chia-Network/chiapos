@@ -1164,7 +1164,7 @@ private:
             CloseHandle(mutex[i]);
 #else
             sem_close(mutex[i]);
-            sprintf(semname, "sem %d", i);
+            sprintf(semname, "f1 sem %d", i);
             sem_unlink(semname);
 #endif
         }
@@ -1183,6 +1183,7 @@ private:
 
         bucket_sizes = g_right_bucket_sizes;
         g_right_bucket_sizes = std::vector<uint64_t>(kNumSortBuckets, 0);
+cout << "table_sizes[1] " << table_sizes[1] << endl;
 
         f1_start_time.PrintElapsed("F1 complete, Time = ");
         // Store positions to previous tables, in k bits.
