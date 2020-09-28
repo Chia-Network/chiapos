@@ -86,7 +86,23 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 const Bits empty_bits;
 
 #define STRIPESIZE 8192
-#define NUMTHREADS 2
+#define NUMTHREADS 1
+
+typedef struct {
+    int index;
+#ifdef _WIN32
+    HANDLE mine;
+    HANDLE theirs;
+#else
+    sem_t* mine;
+    sem_t* theirs;
+#endif
+    uint64_t x;
+    uint8_t k;
+    uint32_t entry_size_bytes;
+    FileDisk* ptmp_1_disk;
+    const uint8_t* id;
+} THREADF1DATA;
 
 typedef struct {
     int index;
@@ -156,6 +172,95 @@ PlotEntry GetLeftEntry(
         }
     }
     return left_entry;
+}
+
+#ifdef _WIN32
+DWORD WINAPI F1thread(LPVOID lpParameter)
+{
+    THREADF1DATA* ptd = (THREADF1DATA*)lpParameter;
+#else
+void* F1thread(void* arg)
+{
+    THREADF1DATA* ptd = (THREADF1DATA*)arg;
+#endif
+
+    uint8_t k = ptd->k;
+    uint32_t entry_size_bytes = ptd->entry_size_bytes;
+    FileDisk* ptmp_1_disk = ptd->ptmp_1_disk;
+
+    uint64_t max_value = ((uint64_t)1 << (k)) - 1;
+    uint8_t buf[14];
+
+    uint64_t right_buf_entries = 2 << (kBatchSizes - 1);
+    cout << " right_buf_entries " << right_buf_entries << endl;
+
+    F1Calculator f1(k, ptd->id);
+
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * entry_size_bytes];
+
+    // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
+    // to increase CPU efficency.
+    for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
+         lp = lp + 2) {  // NUMTHREADS) {
+        // For each pair x, y in the batch
+
+        uint64_t plot_file = 0;
+        uint64_t right_writer_count = 0;
+        uint64_t x = lp * 2 << (kBatchSizes - 1);
+        std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
+        cout << "x " << x << " k " << (int)k << endl;
+
+        for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
+            /*                // TODO(mariano): fix inefficient memory alloc here
+                            (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
+
+                            // We write the x, y pair
+            memcpy(right_writer_buf+plot_file,(buf), entry_size_bytes);
+                            plot_file += entry_size_bytes;
+            right_writer_count++;
+
+                            right_bucket_sizes[SortOnDiskUtils::ExtractNum(
+                                buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
+            */
+            if (x + 1 > max_value) {
+                break;
+            }
+            ++x;
+        }
+
+        if (x + 1 > max_value) {
+            break;
+        }
+#ifdef _WIN32
+        WaitForSingleObject(ptd->theirs, INFINITE);
+#else
+        sem_wait(ptd->theirs);
+#endif
+
+        cout << "Thread " << ptd->index << " loop " << lp << " of "
+             << (((uint64_t)1) << (k - kBatchSizes)) << " right_writer_count " << right_writer_count
+             << endl;
+
+        // Write it out
+        (*ptmp_1_disk)
+            .Write(g_right_writer, right_writer_buf, right_writer_count * entry_size_bytes);
+        g_right_writer += right_writer_count * entry_size_bytes;
+
+        g_right_writer_count += right_writer_count;
+
+        for (int i = 0; i < kNumSortBuckets; i++) {
+            g_right_bucket_sizes[i] += right_bucket_sizes[i];
+            right_bucket_sizes[i] = 0;
+        }
+
+#ifdef _WIN32
+        ReleaseSemaphore(ptd->mine, 1, NULL);
+#else
+        sem_post(ptd->mine);
+#endif
+    }
+
+    return 0;
 }
 
 #ifdef _WIN32
@@ -381,11 +486,10 @@ void* thread(void* arg)
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
-if(left_writer_count>=left_buf_entries)
-exit(0);
+                            if (left_writer_count >= left_buf_entries)
+                                exit(0);
                             uint8_t* tmp_buf =
-                                left_writer_buf + left_writer_count *
-                                                      compressed_entry_size_bytes;
+                                left_writer_buf + left_writer_count * compressed_entry_size_bytes;
 
                             left_writer_count++;
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
@@ -483,13 +587,12 @@ exit(0);
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
-if(right_writer_count>=right_buf_entries)
-exit(0);
+                        if (right_writer_count >= right_buf_entries)
+                            exit(0);
 
                         if (bStripeStartPair) {
                             uint8_t* right_buf =
-                                right_writer_buf +
-                                right_writer_count * right_entry_size_bytes;
+                                right_writer_buf + right_writer_count * right_entry_size_bytes;
                             right_writer_count++;
 
                             // memset(right_buf, 0xff, right_entry_size_bytes);
@@ -986,39 +1089,91 @@ private:
 
         // The max value our input (x), can take. A proof of space is 64 of these x values.
         uint64_t max_value = ((uint64_t)1 << (k)) - 1;
-        uint8_t buf[14];
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
-        std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
+        std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
 
-        // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
-        // to increase CPU efficency.
-        for (uint64_t lp = 0; lp <= (((uint64_t)1) << (k - kBatchSizes)); lp++) {
-            // For each pair x, y in the batch
-            for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
-                // TODO(mariano): fix inefficient memory alloc here
-                (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
+        // Start of parallel execution
 
-                // We write the x, y pair
-                tmp_1_disks[1].Write(plot_file, (buf), entry_size_bytes);
-                plot_file += entry_size_bytes;
-                prevtableentries++;
+        g_right_writer = 0;
+        g_right_writer_count = 0;
 
-                bucket_sizes[SortOnDiskUtils::ExtractNum(
-                    buf, entry_size_bytes, 0, kLogNumSortBuckets)] += 1;
+        THREADF1DATA td[NUMTHREADS];
+#ifdef _WIN32
+        HANDLE t[NUMTHREADS];
+        HANDLE mutex[NUMTHREADS];
+#else
+        pthread_t t[NUMTHREADS];
+        sem_t* mutex[NUMTHREADS];
+        char semname[20];
+#endif
 
-                if (x + 1 > max_value) {
-                    break;
-                }
-                ++x;
-            }
-            if (x + 1 > max_value) {
-                break;
-            }
+        for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+            mutex[i] = CreateSemaphore(
+                NULL,   // default security attributes
+                0,      // initial count
+                1,      // maximum count
+                NULL);  // unnamed semaphore
+#else
+            sprintf(semname, "sem %d", i);
+            mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+#endif
         }
+
+        uint64_t threadMemSize = memorySize / NUMTHREADS;
+
+        for (int i = 0; i < NUMTHREADS; i++) {
+            td[i].index = i;
+            td[i].mine = mutex[i];
+            td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
+
+            td[i].x = x;
+            td[i].k = k;
+            td[i].ptmp_1_disk = &(tmp_1_disks[1]);
+            td[i].entry_size_bytes = entry_size_bytes;
+            td[i].id = id;
+
+#ifdef _WIN32
+            t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
+#else
+            pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
+#endif
+        }
+
+#ifdef _WIN32
+        ReleaseSemaphore(mutex[NUMTHREADS - 1], 1, NULL);
+#else
+        sem_post(mutex[NUMTHREADS - 1]);
+#endif
+
+        for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+            WaitForSingleObject(t[i], INFINITE);
+            CloseHandle(t[i]);
+#else
+            pthread_join(t[i], NULL);
+#endif
+        }
+
+        for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+            CloseHandle(mutex[i]);
+#else
+            sem_close(mutex[i]);
+            sprintf(semname, "sem %d", i);
+            sem_unlink(semname);
+#endif
+        }
+
+        // end of parallel execution
+
+        prevtableentries = g_right_writer_count;
+
         // A zero entry is the end of table symbol.
+        uint8_t buf[14];
         memset(buf, 0x00, entry_size_bytes);
         tmp_1_disks[1].Write(plot_file, buf, entry_size_bytes);
         table_sizes[1] = x + 1;
@@ -1057,7 +1212,7 @@ private:
                 tmp_1_disks[0],
                 entry_size_bytes,
                 0,
-                bucket_sizes,
+                g_right_bucket_sizes,
                 memory,
                 memorySize);
             if (spare_written > max_spare_written) {
