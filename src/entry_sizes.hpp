@@ -8,13 +8,14 @@
 #include <stdio.h>
 #define NOMINMAX
 
-#include "pos_constants.hpp"
 #include "calculate_bucket.hpp"
+#include "pos_constants.hpp"
 #include "util.hpp"
 
 class EntrySizes {
 public:
-    static uint32_t GetMaxEntrySize(uint8_t k, uint8_t table_index, bool phase_1_size) {
+    static uint32_t GetMaxEntrySize(uint8_t k, uint8_t table_index, bool phase_1_size)
+    {
         // This represents the largest entry size that each table will have, throughout the
         // entire plotting process. This is useful because it allows us to rewrite tables
         // on top of themselves without running out of space.
@@ -37,8 +38,8 @@ public:
                     // If we are in phase 1, use the max size, with metadata.
                     // Represents f, pos, offset, and metadata
                     return Util::ByteAlign(
-                            k + kExtraBits + (k) + kOffsetSize +
-                            k * kVectorLens[table_index + 1]) /
+                               k + kExtraBits + (k) + kOffsetSize +
+                               k * kVectorLens[table_index + 1]) /
                            8;
                 else
                     // If we are past phase 1, we can use a smaller size, the smaller between
@@ -46,8 +47,8 @@ public:
                     //    a:  sort_key, pos, offset        or
                     //    b:  line_point, sort_key
                     return Util::ByteAlign(
-                            max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
-                                static_cast<uint32_t>(2 * k + k + 1))) /
+                               max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
+                                   static_cast<uint32_t>(2 * k + k + 1))) /
                            8;
             case 7:
             default:
@@ -56,10 +57,11 @@ public:
         }
     }
 
-// Calculates the size of one C3 park. This will store bits for each f7 between
-// two C1 checkpoints, depending on how many times that f7 is present. For low
-// values of k, we need extra space to account for the additional variability.
-    static uint32_t CalculateC3Size(uint8_t k) {
+    // Calculates the size of one C3 park. This will store bits for each f7 between
+    // two C1 checkpoints, depending on how many times that f7 is present. For low
+    // values of k, we need extra space to account for the additional variability.
+    static uint32_t CalculateC3Size(uint8_t k)
+    {
         if (k < 20) {
             return Util::ByteAlign(8 * kCheckpoint1Interval) / 8;
         } else {
@@ -69,22 +71,25 @@ public:
 
     static uint32_t CalculateLinePointSize(uint8_t k) { return Util::ByteAlign(2 * k) / 8; }
 
-// This is the full size of the deltas section in a park. However, it will not be fully filled
-    static uint32_t CalculateMaxDeltasSize(uint8_t k, uint8_t table_index) {
+    // This is the full size of the deltas section in a park. However, it will not be fully filled
+    static uint32_t CalculateMaxDeltasSize(uint8_t k, uint8_t table_index)
+    {
         if (table_index == 1) {
             return Util::ByteAlign((kEntriesPerPark - 1) * kMaxAverageDeltaTable1) / 8;
         }
         return Util::ByteAlign((kEntriesPerPark - 1) * kMaxAverageDelta) / 8;
     }
 
-    static uint32_t CalculateStubsSize(uint32_t k) {
+    static uint32_t CalculateStubsSize(uint32_t k)
+    {
         return Util::ByteAlign((kEntriesPerPark - 1) * (k - kStubMinusBits)) / 8;
     }
 
-    static uint32_t CalculateParkSize(uint8_t k, uint8_t table_index) {
+    static uint32_t CalculateParkSize(uint8_t k, uint8_t table_index)
+    {
         return CalculateLinePointSize(k) + CalculateStubsSize(k) +
                CalculateMaxDeltasSize(k, table_index);
     }
 };
 
-#endif //CHIAPOS_ENTRY_SIZES_HPP
+#endif  // CHIAPOS_ENTRY_SIZES_HPP

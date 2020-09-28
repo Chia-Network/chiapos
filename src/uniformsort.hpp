@@ -33,12 +33,12 @@
 class UniformSort {
 public:
     inline static void SortToMemory(
-            Disk &input_disk,
-            uint64_t input_disk_begin,
-            uint8_t *memory,
-            uint32_t entry_len,
-            uint64_t num_entries,
-            uint32_t bits_begin)
+        Disk &input_disk,
+        uint64_t input_disk_begin,
+        uint8_t *memory,
+        uint32_t entry_len,
+        uint64_t num_entries,
+        uint32_t bits_begin)
     {
         uint32_t entry_len_memory = entry_len - bits_begin / 8;
         uint64_t memory_len = Util::RoundSize(num_entries) * entry_len_memory;
@@ -73,8 +73,8 @@ public:
             // First unique bits in the entry give the expected position of it in the sorted array.
             // We take 'bucket_length' bits starting with the first unique one.
             uint64_t pos =
-                    Util::ExtractNum(buffer + buf_ptr, entry_len, bits_begin, bucket_length) *
-                    entry_len_memory;
+                Util::ExtractNum(buffer + buf_ptr, entry_len, bits_begin, bucket_length) *
+                entry_len_memory;
             // As long as position is occupied by a previous entry...
             while (!IsPositionEmpty(memory + pos, entry_len_memory) && pos < memory_len) {
                 // ...store there the minimum between the two and continue to push the higher one.
@@ -101,7 +101,10 @@ public:
                 // Write first the common prefix of all entries.
                 memcpy(memory + entries_written * entry_len, common_prefix, bits_begin / 8);
                 // Then the stored entry itself.
-                memcpy(memory + entries_written * entry_len + bits_begin / 8, memory + pos, entry_len_memory);
+                memcpy(
+                    memory + entries_written * entry_len + bits_begin / 8,
+                    memory + pos,
+                    entry_len_memory);
                 entries_written++;
             }
         }

@@ -13,7 +13,8 @@
 
 class SemaphoreUtils {
 public:
-    static inline void Wait(sem_t* semaphore) {
+    static inline void Wait(sem_t* semaphore)
+    {
 #ifdef _WIN32
         WaitForSingleObject(semaphore, INFINITE);
 #else
@@ -21,15 +22,15 @@ public:
 #endif
     }
 
-    static inline void Post(sem_t* semaphore) {
+    static inline void Post(sem_t* semaphore)
+    {
 #ifdef _WIN32
         ReleaseSemaphore(semaphore, 1, NULL);
 #else
         sem_post(semaphore);
 #endif
     }
-
 };
 
 //        std::cout << ptd->index << " waited 0" << std::endl;
-#endif //CHIAPOS_THREADING_HPP
+#endif  // CHIAPOS_THREADING_HPP

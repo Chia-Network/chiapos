@@ -78,7 +78,6 @@ public:
             fclose(f_);
             f_ = NULL;
         }
-
     }
 
     inline void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override

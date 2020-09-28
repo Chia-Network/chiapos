@@ -19,11 +19,11 @@
 #include "../lib/include/catch.hpp"
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
-#include "encoding.hpp"
 #include "disk.hpp"
-#include "sort_manager.hpp"
+#include "encoding.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
+#include "sort_manager.hpp"
 #include "verifier.hpp"
 
 using namespace std;
@@ -257,9 +257,7 @@ public:
             s = s + std::string(new_size - s.size(), 0);
         }
     }
-    inline std::string GetFileName() override {
-        return "fakedisk";
-    }
+    inline std::string GetFileName() override { return "fakedisk"; }
 
 private:
     std::string s;
@@ -343,7 +341,6 @@ static bool Have4Cycles(uint32_t extraBits, int B, int C)
 
     return false;
 }
-
 
 TEST_CASE("Matching function")
 {
@@ -499,7 +496,12 @@ void HexToBytes(const string& hex, uint8_t* result)
     }
 }
 
-void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t num_proofs)
+void TestProofOfSpace(
+    std::string filename,
+    uint32_t iterations,
+    uint8_t k,
+    uint8_t* plot_id,
+    uint32_t num_proofs)
 {
     DiskProver prover(filename);
     uint8_t* proof_data = new uint8_t[8 * k];
@@ -534,23 +536,48 @@ void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint
     delete[] proof_data;
 }
 
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t buffer, uint32_t num_proofs, uint32_t stripe_size, uint8_t num_threads)
+void PlotAndTestProofOfSpace(
+    std::string filename,
+    uint32_t iterations,
+    uint8_t k,
+    uint8_t* plot_id,
+    uint32_t buffer,
+    uint32_t num_proofs,
+    uint32_t stripe_size,
+    uint8_t num_threads)
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
-    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32, buffer, 0, stripe_size, num_threads);
+    plotter.CreatePlotDisk(
+        ".", ".", ".", filename, k, memo, 5, plot_id, 32, buffer, 0, stripe_size, num_threads);
     TestProofOfSpace(filename, iterations, k, plot_id, num_proofs);
     REQUIRE(remove(filename.c_str()) == 0);
 }
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot k18") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 11, 95, 4000, 2); }
-    SECTION("Disk plot k19") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 2); }
-    SECTION("Disk plot k19 single-thread") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 1); }
-    SECTION("Disk plot k20") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469, 16000, 2); }
-    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 4); }
-    // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100, 107); }
+    SECTION("Disk plot k18")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 11, 95, 4000, 2);
+    }
+    SECTION("Disk plot k19")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 2);
+    }
+    SECTION("Disk plot k19 single-thread")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 1);
+    }
+    SECTION("Disk plot k20")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469, 16000, 2);
+    }
+    SECTION("Disk plot k21")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 4);
+    }
+    // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3,
+    // 100, 107); }
 }
 
 TEST_CASE("Invalid plot")
@@ -599,7 +626,7 @@ TEST_CASE("Sort on disk")
             uint8_t buf[15];
             Bits((uint128_t)27 << i, 15 * 8).ToBytes(buf);
 
-            REQUIRE(Util::ExtractNum(buf, 15, 15*8 - 4 - i, 3) == 5);
+            REQUIRE(Util::ExtractNum(buf, 15, 15 * 8 - 4 - i, 3) == 5);
         }
         uint8_t buf[16];
         Bits((uint128_t)27 << 5, 128).ToBytes(buf);
@@ -687,7 +714,8 @@ TEST_CASE("Sort on disk")
         remove("test_file.bin");
     }
 
-    SECTION("Lazy Sort Manager QS") {
+    SECTION("Lazy Sort Manager QS")
+    {
         uint32_t iters = 250000;
         uint32_t size = 32;
         vector<Bits> input;
@@ -696,19 +724,19 @@ TEST_CASE("Sort on disk")
         uint8_t* memory = new uint8_t[memory_len];
         SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
         int total_written_1 = 0;
-        for (uint32_t i = 0; i < iters; i ++) {
+        for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
             total_written_1 += size;
-            Bits to_write = Bits(hash.data(), size, size*8);
+            Bits to_write = Bits(hash.data(), size, size * 8);
             input.emplace_back(to_write);
             manager.AddToCache(to_write);
         }
         manager.FlushCache();
         uint8_t buf[size];
         sort(input.begin(), input.end());
-        uint8_t *buf3;
+        uint8_t* buf3;
         for (uint32_t i = 0; i < iters; i++) {
             buf3 = manager.ReadEntry(begin + i * size);
             input[i].ToBytes(buf);
@@ -717,7 +745,8 @@ TEST_CASE("Sort on disk")
         delete[] memory;
     }
 
-    SECTION("Lazy Sort Manager uniform sort") {
+    SECTION("Lazy Sort Manager uniform sort")
+    {
         uint32_t iters = 120000;
         uint32_t size = 32;
         vector<Bits> input;
@@ -726,19 +755,19 @@ TEST_CASE("Sort on disk")
         uint8_t* memory = new uint8_t[memory_len];
         SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
         int total_written_1 = 0;
-        for (uint32_t i = 0; i < iters; i ++) {
+        for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
             total_written_1 += size;
-            Bits to_write = Bits(hash.data(), size, size*8);
+            Bits to_write = Bits(hash.data(), size, size * 8);
             input.emplace_back(to_write);
             manager.AddToCache(to_write);
         }
         manager.FlushCache();
         uint8_t buf[size];
         sort(input.begin(), input.end());
-        uint8_t *buf3;
+        uint8_t* buf3;
         for (uint32_t i = 0; i < iters; i++) {
             buf3 = manager.ReadEntry(begin + i * size);
             input[i].ToBytes(buf);

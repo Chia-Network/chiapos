@@ -15,13 +15,12 @@
 #ifndef SRC_CPP_PHASE4_HPP_
 #define SRC_CPP_PHASE4_HPP_
 
+#include "disk.hpp"
+#include "encoding.hpp"
+#include "entry_sizes.hpp"
+#include "phase3.hpp"
 #include "pos_constants.hpp"
 #include "util.hpp"
-#include "disk.hpp"
-#include "entry_sizes.hpp"
-#include "encoding.hpp"
-#include "phase3.hpp"
-
 
 // Writes the checkpoint tables. The purpose of these tables, is to store a list of ~2^k values
 // of size k (the proof of space outputs from table 7), in a way where they can be looked up for
@@ -39,20 +38,14 @@
 // C1 (checkpoint values)
 // C2 (checkpoint values into)
 // C3 (deltas of f7s between C1 checkpoints)
-void RunPhase4(
-        uint8_t k,
-        uint8_t pos_size,
-        FileDisk &tmp2_disk /*filename*/,
-        Phase3Results &res)
+void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk /*filename*/, Phase3Results &res)
 {
     uint32_t P7_park_size = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
     uint64_t number_of_p7_parks =
-            ((res.final_entries_written == 0 ? 0 : res.final_entries_written - 1) /
-             kEntriesPerPark) +
-            1;
+        ((res.final_entries_written == 0 ? 0 : res.final_entries_written - 1) / kEntriesPerPark) +
+        1;
 
-    uint64_t begin_byte_C1 =
-            res.final_table_begin_pointers[7] + number_of_p7_parks * P7_park_size;
+    uint64_t begin_byte_C1 = res.final_table_begin_pointers[7] + number_of_p7_parks * P7_park_size;
 
     uint64_t total_C1_entries = CDIV(res.final_entries_written, kCheckpoint1Interval);
     uint64_t begin_byte_C2 = begin_byte_C1 + (total_C1_entries + 1) * (Util::ByteAlign(k) / 8);
@@ -78,7 +71,7 @@ void RunPhase4(
     vector<uint8_t> deltas_to_write;
     uint32_t right_entry_size_bytes = res.right_entry_size_bits / 8;
 
-    uint8_t* right_entry_buf;
+    uint8_t *right_entry_buf;
     auto C1_entry_buf = new uint8_t[Util::ByteAlign(k) / 8];
     auto C3_entry_buf = new uint8_t[size_C3];
     auto P7_entry_buf = new uint8_t[P7_park_size];
@@ -115,7 +108,7 @@ void RunPhase4(
             if (num_C1_entries > 0) {
                 final_file_writer_2 = begin_byte_C3 + (num_C1_entries - 1) * size_C3;
                 size_t num_bytes =
-                        Encoding::ANSEncodeDeltas(deltas_to_write, kC3R, C3_entry_buf + 2) + 2;
+                    Encoding::ANSEncodeDeltas(deltas_to_write, kC3R, C3_entry_buf + 2) + 2;
 
                 // We need to be careful because deltas are variable sized, and they need to fit
                 assert(size_C3 * 8 > num_bytes);
@@ -202,4 +195,4 @@ void RunPhase4(
     }
     std::cout << std::dec;
 }
-#endif //SRC_CPP_PHASE4_HPP
+#endif  // SRC_CPP_PHASE4_HPP

@@ -39,14 +39,13 @@
 namespace fs = ghc::filesystem;
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
-#include "pos_constants.hpp"
-#include "sort_manager.hpp"
-#include "util.hpp"
 #include "phase1.hpp"
 #include "phase2.hpp"
 #include "phase3.hpp"
 #include "phase4.hpp"
-
+#include "pos_constants.hpp"
+#include "sort_manager.hpp"
+#include "util.hpp"
 
 class DiskPlotter {
 public:
@@ -70,7 +69,7 @@ public:
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
-        struct rlimit the_limit = { 600, 600 };
+        struct rlimit the_limit = {600, 600};
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
             std::cout << "setrlimit failed" << std::endl;
         }
@@ -85,7 +84,7 @@ public:
         if (stripe_size_input != 0) {
             stripe_size = stripe_size_input;
         } else {
-            stripe_size =  8192;
+            stripe_size = 8192;
         }
         if (num_threads_input != 0) {
             num_threads = num_threads_input;
@@ -108,15 +107,17 @@ public:
         // Subtract some ram to account for dynamic allocation through the code
         uint64_t submbytes = (5 + (int)min(buf_megabytes * 0.05, (double)50));
         uint64_t memory_size = ((uint64_t)(buf_megabytes - submbytes)) * 1024 * 1024;
-        double  max_table_size = 0;
+        double max_table_size = 0;
         for (size_t i = 1; i <= 7; i++) {
             double memory_i = 1.1 * ((uint64_t)1 << k) * EntrySizes::GetMaxEntrySize(k, i, true);
-            if (memory_i > max_table_size) max_table_size = memory_i;
+            if (memory_i > max_table_size)
+                max_table_size = memory_i;
         }
-        if (num_buckets_input != 0){
+        if (num_buckets_input != 0) {
             num_buckets = Util::RoundPow2(num_buckets_input);
         } else {
-            num_buckets = 2 * Util::RoundPow2(ceil(((double) max_table_size) / (memory_size * kMemSortProportion)));
+            num_buckets = 2 * Util::RoundPow2(ceil(
+                                  ((double)max_table_size) / (memory_size * kMemSortProportion)));
         }
 
         if (num_buckets < kMinBuckets) {
@@ -130,7 +131,10 @@ public:
                 std::cout << "Maximum buckets is " << kMaxBuckets << std::endl;
                 exit(1);
             }
-            std::cout << "Do not have enough memory. Need " << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) + submbytes << " MiB" << std::endl;
+            std::cout << "Do not have enough memory. Need "
+                      << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) +
+                             submbytes
+                      << " MiB" << std::endl;
             exit(1);
         }
         uint32_t log_num_buckets = log2(num_buckets);
@@ -148,7 +152,8 @@ public:
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
         std::cout << "Using " << num_buckets << " buckets" << std::endl;
-        std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size << std::endl;
+        std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size
+                  << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -204,7 +209,6 @@ public:
                 return;
             }
 
-
             assert(id_len == kIdLen);
 
             // Memory to be used for sorting and buffers
@@ -216,8 +220,18 @@ public:
 
             Timer p1;
             Timer all_phases;
-            std::vector<uint64_t> table_sizes =
-                RunPhase1(memory, tmp_1_disks, k, id, tmp_dirname, filename, memory_size, num_buckets, log_num_buckets, stripe_size, num_threads);
+            std::vector<uint64_t> table_sizes = RunPhase1(
+                memory,
+                tmp_1_disks,
+                k,
+                id,
+                tmp_dirname,
+                filename,
+                memory_size,
+                num_buckets,
+                log_num_buckets,
+                stripe_size,
+                num_threads);
             p1.PrintElapsed("Time for phase 1 =");
 
             std::cout << std::endl
@@ -225,8 +239,17 @@ public:
                       << Timer::GetNow();
 
             Timer p2;
-            std::vector<uint64_t> backprop_table_sizes =
-                    RunPhase2(memory, tmp_1_disks, table_sizes, k, id, tmp_dirname, filename, memory_size, num_buckets, log_num_buckets);
+            std::vector<uint64_t> backprop_table_sizes = RunPhase2(
+                memory,
+                tmp_1_disks,
+                table_sizes,
+                k,
+                id,
+                tmp_dirname,
+                filename,
+                memory_size,
+                num_buckets,
+                log_num_buckets);
             p2.PrintElapsed("Time for phase 2 =");
 
             // Now we open a new file, where the final contents of the plot will be stored.
@@ -237,7 +260,18 @@ public:
                       << " ... " << Timer::GetNow();
             Timer p3;
             Phase3Results res = RunPhase3(
-                memory, k, tmp2_disk, tmp_1_disks, backprop_table_sizes, id, tmp_dirname, filename, header_size, memory_size, num_buckets, log_num_buckets);
+                memory,
+                k,
+                tmp2_disk,
+                tmp_1_disks,
+                backprop_table_sizes,
+                id,
+                tmp_dirname,
+                filename,
+                header_size,
+                memory_size,
+                num_buckets,
+                log_num_buckets);
             p3.PrintElapsed("Time for phase 3 =");
 
             std::cout << std::endl

@@ -312,12 +312,15 @@ public:
         return 0;
     }
 
-    static double RoundPow2(double a) {
+    static double RoundPow2(double a)
+    {
         // https://stackoverflow.com/questions/54611562/truncate-float-to-nearest-power-of-2-in-c-performance
         int exp;
         double frac = frexp(a, &exp);
-        if (frac > 0.0) frac = 0.5;
-        else if (frac < 0.0) frac = -0.5;
+        if (frac > 0.0)
+            frac = 0.5;
+        else if (frac < 0.0)
+            frac = -0.5;
         double b = ldexp(frac, exp);
         return b;
     }

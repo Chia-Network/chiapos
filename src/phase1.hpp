@@ -41,12 +41,11 @@
 #include "../lib/include/filesystem.hh"
 namespace fs = ghc::filesystem;
 #include "calculate_bucket.hpp"
+#include "entry_sizes.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
-#include "util.hpp"
 #include "threading.hpp"
-#include "entry_sizes.hpp"
-
+#include "util.hpp"
 
 typedef struct {
     int index;
@@ -77,8 +76,8 @@ struct GlobalData {
     uint64_t left_reader_buf_size;
     uint64_t right_writer_buf_size;
     uint64_t left_writer_buf_size;
-    uint8_t *left_reader_buf;
-    uint8_t *left_writer_buf;
+    uint8_t* left_reader_buf;
+    uint8_t* left_writer_buf;
     uint64_t left_writer_buf_entries;
     uint64_t right_writer_buf_entries;
     uint64_t left_writer;
@@ -89,13 +88,12 @@ struct GlobalData {
 
 GlobalData globals;
 
-
 PlotEntry GetLeftEntry(
-        uint8_t table_index,
-        uint8_t* left_buf,
-        uint8_t k,
-        uint8_t metadata_size,
-        uint8_t pos_size)
+    uint8_t table_index,
+    uint8_t* left_buf,
+    uint8_t k,
+    uint8_t metadata_size,
+    uint8_t pos_size)
 {
     PlotEntry left_entry;
     left_entry.y = 0;
@@ -109,23 +107,23 @@ PlotEntry GetLeftEntry(
         // For table 1, we only have y and metadata
         left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, k + kExtraBits);
         left_entry.left_metadata =
-                Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
+            Util::SliceInt64FromBytes(left_buf, k + kExtraBits, metadata_size);
     } else {
         // For tables 2-6, we we also have pos and offset. We need to read this because
         // this entry will be written again to the table without the y (and some entries
         // are dropped).
         left_entry.y = Util::SliceInt64FromBytes(left_buf, 0, ysize);
         left_entry.read_posoffset =
-                Util::SliceInt64FromBytes(left_buf, ysize, pos_size + kOffsetSize);
+            Util::SliceInt64FromBytes(left_buf, ysize, pos_size + kOffsetSize);
         if (metadata_size <= 128) {
             left_entry.left_metadata =
-                    Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, metadata_size);
+                Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, metadata_size);
         } else {
             // Large metadatas that don't fit into 128 bits. (k > 32).
             left_entry.left_metadata =
-                    Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, 128);
+                Util::SliceInt128FromBytes(left_buf, ysize + pos_size + kOffsetSize, 128);
             left_entry.right_metadata = Util::SliceInt128FromBytes(
-                    left_buf, ysize + pos_size + kOffsetSize + 128, metadata_size - 128);
+                left_buf, ysize + pos_size + kOffsetSize + 128, metadata_size - 128);
         }
     }
     return left_entry;
@@ -166,7 +164,7 @@ void* thread(void* arg)
     uint16_t position_map_size = 2000;
 
     uint16_t* L_position_map =
-            new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
+        new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
     uint16_t* R_position_map = new uint16_t[position_map_size];
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
@@ -211,9 +209,9 @@ void* thread(void* arg)
         uint64_t newrpos = 0;
         Bits new_left_entry(0, pos_size + kOffsetSize);
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
-        current_entries_to_write;
+            current_entries_to_write;
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
-        future_entries_to_write;
+            future_entries_to_write;
         std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
         std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
 
@@ -225,11 +223,11 @@ void* thread(void* arg)
             stripe_start_correction = 0;
         }
 
-
         bool need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
 
         if (need_new_bucket) {
-            bool will_trigger_bucket = !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe);
+            bool will_trigger_bucket =
+                !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe);
             SemaphoreUtils::Wait(ptd->theirs);
             if (will_trigger_bucket) {
                 globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
@@ -339,28 +337,27 @@ void* thread(void* arg)
                         // to L so far. Since we only write entries in not_dropped, about 14% of
                         // entries are dropped.
                         R_position_map[entry->pos % position_map_size] =
-                                stripe_left_writer_count - R_position_base;
+                            stripe_left_writer_count - R_position_base;
 
                         if (bStripeStartPair) {
                             if (stripe_start_correction == 0xffffffffffffffff) {
                                 stripe_start_correction = stripe_left_writer_count;
                             }
 
-                            if(left_writer_count>=left_buf_entries) {
+                            if (left_writer_count >= left_buf_entries) {
                                 cout << "left_writer_count overrun" << endl;
                                 exit(1);
                             }
                             uint8_t* tmp_buf =
-                                    left_writer_buf + left_writer_count *
-                                                      compressed_entry_size_bytes;
+                                left_writer_buf + left_writer_count * compressed_entry_size_bytes;
 
                             left_writer_count++;
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
 
                             // Rewrite left entry with just pos and offset, to reduce working space
                             Bits new_left_entry = Bits(
-                                    (table_index == 1) ? entry->left_metadata : entry->read_posoffset,
-                                    (table_index == 1) ? k : pos_size + kOffsetSize);
+                                (table_index == 1) ? entry->left_metadata : entry->read_posoffset,
+                                (table_index == 1) ? k : pos_size + kOffsetSize);
 
                             new_left_entry.ToBytes(tmp_buf);
                         }
@@ -384,23 +381,23 @@ void* thread(void* arg)
                         // Computes the output pair (fx, new_metadata)
                         if (metadata_size <= 128) {
                             const std::pair<Bits, Bits>& f_output = f.CalculateBucket(
-                                    Bits(L_entry.y, k + kExtraBits),
-                                    Bits(R_entry.y, k + kExtraBits),
-                                    Bits(L_entry.left_metadata, metadata_size),
-                                    Bits(R_entry.left_metadata, metadata_size));
+                                Bits(L_entry.y, k + kExtraBits),
+                                Bits(R_entry.y, k + kExtraBits),
+                                Bits(L_entry.left_metadata, metadata_size),
+                                Bits(R_entry.left_metadata, metadata_size));
                             future_entries_to_write.push_back(
-                                    std::make_tuple(L_entry, R_entry, f_output));
+                                std::make_tuple(L_entry, R_entry, f_output));
                         } else {
                             // Metadata does not fit into 128 bits
                             const std::pair<Bits, Bits>& f_output = f.CalculateBucket(
-                                    Bits(L_entry.y, k + kExtraBits),
-                                    Bits(R_entry.y, k + kExtraBits),
-                                    Bits(L_entry.left_metadata, 128) +
+                                Bits(L_entry.y, k + kExtraBits),
+                                Bits(R_entry.y, k + kExtraBits),
+                                Bits(L_entry.left_metadata, 128) +
                                     Bits(L_entry.right_metadata, metadata_size - 128),
-                                    Bits(R_entry.left_metadata, 128) +
+                                Bits(R_entry.left_metadata, 128) +
                                     Bits(R_entry.right_metadata, metadata_size - 128));
                             future_entries_to_write.push_back(
-                                    std::make_tuple(L_entry, R_entry, f_output));
+                                std::make_tuple(L_entry, R_entry, f_output));
                         }
                     }
 
@@ -412,9 +409,9 @@ void* thread(void* arg)
                         // For the final bucket, write the future entries now as well, since we
                         // will break from loop
                         current_entries_to_write.insert(
-                                current_entries_to_write.end(),
-                                future_entries_to_write.begin(),
-                                future_entries_to_write.end());
+                            current_entries_to_write.end(),
+                            future_entries_to_write.begin(),
+                            future_entries_to_write.end());
                     }
                     for (size_t i = 0; i < current_entries_to_write.size(); i++) {
                         const auto& entry_tuple = current_entries_to_write[i];
@@ -431,10 +428,10 @@ void* thread(void* arg)
                         // in both position maps.
                         if (!end_of_table || i < final_current_entry_size) {
                             newlpos =
-                                    L_position_map[L_entry.pos % position_map_size] + L_position_base;
+                                L_position_map[L_entry.pos % position_map_size] + L_position_base;
                         } else {
                             newlpos =
-                                    R_position_map[L_entry.pos % position_map_size] + R_position_base;
+                                R_position_map[L_entry.pos % position_map_size] + R_position_base;
                         }
                         newrpos = R_position_map[R_entry.pos % position_map_size] + R_position_base;
                         // Position in the previous table
@@ -450,15 +447,14 @@ void* thread(void* arg)
                         // New metadata which will be used to compute the next f
                         new_entry += std::get<1>(f_output);
 
-                        if(right_writer_count>=right_buf_entries){
+                        if (right_writer_count >= right_buf_entries) {
                             cout << "right_writer_count overrun" << endl;
                             exit(1);
                         }
 
                         if (bStripeStartPair) {
-                            uint8_t *right_buf =
-                                    right_writer_buf +
-                                    right_writer_count * right_entry_size_bytes;
+                            uint8_t* right_buf =
+                                right_writer_buf + right_writer_count * right_entry_size_bytes;
                             new_entry.ToBytes(right_buf);
                             right_writer_count++;
                         }
@@ -529,19 +525,23 @@ void* thread(void* arg)
         }
         if (table_index < 6) {
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(Bits(right_writer_buf + i * right_entry_size_bytes, right_entry_size_bytes,
-                                                        right_entry_size_bytes * 8));
+                globals.R_sort_manager->AddToCache(Bits(
+                    right_writer_buf + i * right_entry_size_bytes,
+                    right_entry_size_bytes,
+                    right_entry_size_bytes * 8));
             }
         } else {
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
-                    globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
+                globals.right_writer,
+                right_writer_buf,
+                right_writer_count * right_entry_size_bytes);
         }
         globals.right_writer += right_writer_count * right_entry_size_bytes;
         globals.right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
-                globals.left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
+            globals.left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
         globals.left_writer += left_writer_count * compressed_entry_size_bytes;
         globals.left_writer_count += left_writer_count;
 
@@ -564,17 +564,17 @@ void* thread(void* arg)
 // ChaCha8, and each encryption provides multiple output values. Then, the rest of the
 // f functions are computed, and a sort on disk happens for each table.
 std::vector<uint64_t> RunPhase1(
-        uint8_t* memory,
-        std::vector<FileDisk>& tmp_1_disks,
-        uint8_t k,
-        const uint8_t* id,
-        std::string tmp_dirname,
-        std::string filename,
-        uint64_t memory_size,
-        uint32_t num_buckets,
-        uint32_t log_num_buckets,
-        uint32_t stripe_size,
-        uint8_t num_threads)
+    uint8_t* memory,
+    std::vector<FileDisk>& tmp_1_disks,
+    uint8_t k,
+    const uint8_t* id,
+    std::string tmp_dirname,
+    std::string filename,
+    uint64_t memory_size,
+    uint32_t num_buckets,
+    uint32_t log_num_buckets,
+    uint32_t stripe_size,
+    uint8_t num_threads)
 {
     std::cout << "Computing table 1" << std::endl;
     globals.stripe_size = stripe_size;
@@ -586,14 +586,15 @@ std::vector<uint64_t> RunPhase1(
 
     uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
     globals.L_sort_manager = new SortManager(
-            memory,
-            memory_size,
-            num_buckets,
-            log_num_buckets,
-            t1_entry_size_bytes,
-            tmp_dirname,
-            filename + ".p1.t1",
-            0, globals.stripe_size);
+        memory,
+        memory_size,
+        num_buckets,
+        log_num_buckets,
+        t1_entry_size_bytes,
+        tmp_dirname,
+        filename + ".p1.t1",
+        0,
+        globals.stripe_size);
 
     // The max value our input (x), can take. A proof of space is 64 of these x values.
     uint64_t max_value = ((uint64_t)1 << (k)) - 1;
@@ -645,16 +646,18 @@ std::vector<uint64_t> RunPhase1(
         FxCalculator f(k, table_index + 1);  // dummy to load static table
 
         globals.matches = 0;
-        // The memory will be used like this, with most memory allocated towards the SortManager, since it needs
-        // to sort large amounts of data.
+        // The memory will be used like this, with most memory allocated towards the SortManager,
+        // since it needs to sort large amounts of data.
         // [----------------------------LSM/LR---------------------------|-----RSM/RW------|--LW--]
         globals.left_reader_buf_size = floor(kMemSortProportion * memory_size);
-        globals.right_writer_buf_size =  3 * (memory_size - globals.left_reader_buf_size) / 4;
-        globals.left_writer_buf_size = (memory_size - globals.left_reader_buf_size - globals.right_writer_buf_size);
+        globals.right_writer_buf_size = 3 * (memory_size - globals.left_reader_buf_size) / 4;
+        globals.left_writer_buf_size =
+            (memory_size - globals.left_reader_buf_size - globals.right_writer_buf_size);
 
         globals.left_reader_buf = &(memory[0]);
         uint8_t* right_writer_buf = &(memory[globals.left_reader_buf_size]);
-        globals.left_writer_buf =  &(memory[globals.left_reader_buf_size + globals.right_writer_buf_size]);
+        globals.left_writer_buf =
+            &(memory[globals.left_reader_buf_size + globals.right_writer_buf_size]);
 
         globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
         globals.left_writer_count = 0;
@@ -662,20 +665,20 @@ std::vector<uint64_t> RunPhase1(
         globals.right_writer = 0;
         globals.left_writer = 0;
 
-        // Assign the first 3/4 of memory to the left reader (which contains the data from the previous iteration),
-        // And will need to perform large sorts.
+        // Assign the first 3/4 of memory to the left reader (which contains the data from the
+        // previous iteration), And will need to perform large sorts.
         globals.L_sort_manager->ChangeMemory(globals.left_reader_buf, globals.left_reader_buf_size);
 
         globals.R_sort_manager = new SortManager(
-                right_writer_buf,
-                globals.right_writer_buf_size,
-                num_buckets,
-                log_num_buckets,
-                right_entry_size_bytes,
-                tmp_dirname,
-                filename + ".p1.t" + to_string(table_index + 1),
-                0,
-                globals.stripe_size);
+            right_writer_buf,
+            globals.right_writer_buf_size,
+            num_buckets,
+            log_num_buckets,
+            right_entry_size_bytes,
+            tmp_dirname,
+            filename + ".p1.t" + to_string(table_index + 1),
+            0,
+            globals.stripe_size);
 
         globals.L_sort_manager->TriggerNewBucket(0, 0);
 
@@ -684,7 +687,7 @@ std::vector<uint64_t> RunPhase1(
         THREADDATA td[globals.num_threads];
 #ifdef _WIN32
         HANDLE t[globals.num_threads];
-            HANDLE mutex[globals.num_threads];
+        HANDLE mutex[globals.num_threads];
 #else
         pthread_t t[globals.num_threads];
         sem_t* mutex[globals.num_threads];
@@ -694,10 +697,10 @@ std::vector<uint64_t> RunPhase1(
         for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             mutex[i] = CreateSemaphore(
-                    NULL,   // default security attributes
-                    0,      // initial count
-                    1,      // maximum count
-                    NULL);  // unnamed semaphore
+                NULL,   // default security attributes
+                0,      // initial count
+                1,      // maximum count
+                NULL);  // unnamed semaphore
 #else
             sprintf(semname, "sem %d", i);
             mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
@@ -730,7 +733,7 @@ std::vector<uint64_t> RunPhase1(
         for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             WaitForSingleObject(t[i], INFINITE);
-                CloseHandle(t[i]);
+            CloseHandle(t[i]);
 #else
             pthread_join(t[i], NULL);
 #endif
@@ -758,7 +761,7 @@ std::vector<uint64_t> RunPhase1(
         // working space
 
         uint8_t* zero_buf =
-                new uint8_t[std::max(compressed_entry_size_bytes, right_entry_size_bytes)];
+            new uint8_t[std::max(compressed_entry_size_bytes, right_entry_size_bytes)];
         memset(zero_buf, 0x00, std::max(compressed_entry_size_bytes, right_entry_size_bytes));
 
         tmp_1_disks[table_index].Write(globals.left_writer, zero_buf, compressed_entry_size_bytes);
@@ -770,14 +773,16 @@ std::vector<uint64_t> RunPhase1(
             globals.L_sort_manager = globals.R_sort_manager;
         } else {
             // Writes the 0 entry (EOT) for right table
-            tmp_1_disks[table_index + 1].Write(globals.right_writer, zero_buf, right_entry_size_bytes);
+            tmp_1_disks[table_index + 1].Write(
+                globals.right_writer, zero_buf, right_entry_size_bytes);
             globals.right_writer += right_entry_size_bytes;
             tmp_1_disks[table_index + 1].Truncate(globals.right_writer);
         }
 
         // Resets variables
         if (globals.matches != globals.right_writer_count) {
-            std::cout << "Matches do not match with number of write entries " << globals.matches << " " << globals.right_writer_count << std::endl;
+            std::cout << "Matches do not match with number of write entries " << globals.matches
+                      << " " << globals.right_writer_count << std::endl;
             exit(1);
         }
 
@@ -791,4 +796,4 @@ std::vector<uint64_t> RunPhase1(
     return table_sizes;
 }
 
-#endif //SRC_CPP_PHASE1_HPP
+#endif  // SRC_CPP_PHASE1_HPP

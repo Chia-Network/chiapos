@@ -15,10 +15,10 @@
 #ifndef SRC_CPP_PHASE3_HPP_
 #define SRC_CPP_PHASE3_HPP_
 
+#include "encoding.hpp"
+#include "entry_sizes.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
-#include "entry_sizes.hpp"
-#include "encoding.hpp"
 
 // Results of phase 3. These are passed into Phase 4, so the checkpoint tables
 // can be properly built.
@@ -30,7 +30,7 @@ struct Phase3Results {
     uint32_t right_entry_size_bits;
 
     uint32_t header_size;
-    SortManager* table7_sm;
+    SortManager *table7_sm;
 };
 
 // This writes a number of entries into a file, in the final, optimized format. The park
@@ -41,17 +41,17 @@ struct Phase3Results {
 // is: [2k bits of first_line_point]  [EPP-1 stubs] [Deltas size] [EPP-1 deltas]....
 // [first_line_point] ...
 void WriteParkToFile(
-        FileDisk &final_disk,
-        uint64_t table_start,
-        uint64_t park_index,
-        uint32_t park_size_bytes,
-        uint128_t first_line_point,
-        const std::vector<uint8_t> &park_deltas,
-        const std::vector<uint64_t> &park_stubs,
-        uint8_t k,
-        uint8_t table_index,
-        uint8_t* park_buffer,
-        uint64_t park_buffer_size)
+    FileDisk &final_disk,
+    uint64_t table_start,
+    uint64_t park_index,
+    uint32_t park_size_bytes,
+    uint128_t first_line_point,
+    const std::vector<uint8_t> &park_deltas,
+    const std::vector<uint64_t> &park_stubs,
+    uint8_t k,
+    uint8_t table_index,
+    uint8_t *park_buffer,
+    uint64_t park_buffer_size)
 {
     // Parks are fixed size, so we know where to start writing. The deltas will not go over
     // into the next park.
@@ -93,12 +93,11 @@ void WriteParkToFile(
 
     memset(index, 0x00, park_size_bytes - (index - park_buffer));
     if ((uint32_t)(index - park_buffer) > park_buffer_size)
-        std::cout << "index-park_buffer " << index - park_buffer
-                  << " park_buffer_size " << park_buffer_size << std::endl;
+        std::cout << "index-park_buffer " << index - park_buffer << " park_buffer_size "
+                  << park_buffer_size << std::endl;
 
     final_disk.Write(writer, (uint8_t *)park_buffer, park_size_bytes);
 }
-
 
 // Compresses the plot file tables into the final file. In order to do this, entries must be
 // reorganized from the (pos, offset) bucket sorting order, to a more free line_point sorting
@@ -113,18 +112,18 @@ void WriteParkToFile(
 // backpropagation step happened, so there will be no more dropped entries. See the design
 // document for more details on the algorithm.
 Phase3Results RunPhase3(
-        uint8_t *memory,
-        uint8_t k,
-        FileDisk &tmp2_disk /*filename*/,
-        std::vector<FileDisk> &tmp_1_disks /*plot_filename*/,
-        std::vector<uint64_t> table_sizes,
-        const uint8_t *id,
-        const std::string &tmp_dirname,
-        const std::string &filename,
-        uint32_t header_size,
-        uint64_t memory_size,
-        uint32_t num_buckets,
-        uint32_t log_num_buckets)
+    uint8_t *memory,
+    uint8_t k,
+    FileDisk &tmp2_disk /*filename*/,
+    std::vector<FileDisk> &tmp_1_disks /*plot_filename*/,
+    std::vector<uint64_t> table_sizes,
+    const uint8_t *id,
+    const std::string &tmp_dirname,
+    const std::string &filename,
+    uint32_t header_size,
+    uint64_t memory_size,
+    uint32_t num_buckets,
+    uint32_t log_num_buckets)
 {
     uint8_t pos_size = k;
 
@@ -138,15 +137,15 @@ Phase3Results RunPhase3(
     uint64_t final_entries_written = 0;
     uint32_t right_entry_size_bytes = 0;
 
-    SortManager* L_sort_manager;
-    SortManager* R_sort_manager;
+    SortManager *L_sort_manager;
+    SortManager *R_sort_manager;
 
     // These variables are used in the WriteParkToFile method. They are preallocatted here
     // to save time.
-    uint64_t park_buffer_size = EntrySizes::CalculateLinePointSize(k) + EntrySizes::CalculateStubsSize(k) + 2 +
-                                       EntrySizes::CalculateMaxDeltasSize(k, 1);
-    uint8_t* park_buffer = new uint8_t[park_buffer_size];
-
+    uint64_t park_buffer_size = EntrySizes::CalculateLinePointSize(k) +
+                                EntrySizes::CalculateStubsSize(k) + 2 +
+                                EntrySizes::CalculateMaxDeltasSize(k, 1);
+    uint8_t *park_buffer = new uint8_t[park_buffer_size];
 
     // Iterates through all tables, starting at 1, with L and R pointers.
     // For each table, R entries are rewritten with line points. Then, the right table is
@@ -157,8 +156,8 @@ Phase3Results RunPhase3(
     for (uint8_t table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         Timer computation_pass_1_timer;
-        std::cout << "Compressing tables " << int{table_index} << " and "
-                  << int{table_index + 1} << std::endl;
+        std::cout << "Compressing tables " << int{table_index} << " and " << int{table_index + 1}
+                  << std::endl;
 
         // The park size must be constant, for simplicity, but must be big enough to store EPP
         // entries. entry deltas are encoded with variable length, and thus there is no
@@ -175,11 +174,13 @@ Phase3Results RunPhase3(
 
         uint64_t left_reader = 0;
         uint64_t right_reader = 0;
-        // The memory will be used like this, with most memory allocated towards the SortManager, since it needs it
+        // The memory will be used like this, with most memory allocated towards the SortManager,
+        // since it needs it
         // [---------------------------SM/LR---------------------|----------RW--------|---RR---]
         uint64_t sort_manager_buf_size = floor(kMemSortProportion * memory_size);
         uint64_t right_writer_buf_size = 3 * (memory_size - sort_manager_buf_size) / 4;
-        uint64_t right_reader_buf_size = memory_size - sort_manager_buf_size - right_writer_buf_size;
+        uint64_t right_reader_buf_size =
+            memory_size - sort_manager_buf_size - right_writer_buf_size;
         uint8_t *left_reader_buf = &(memory[0]);
         uint8_t *right_writer_buf = &(memory[sort_manager_buf_size]);
         uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + right_writer_buf_size]);
@@ -189,20 +190,20 @@ Phase3Results RunPhase3(
         uint64_t right_reader_count = 0;
         uint64_t total_r_entries = 0;
 
-
         if (table_index > 1) {
             L_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
         }
 
         R_sort_manager = new SortManager(
-                right_writer_buf,
-                right_writer_buf_size,
-                num_buckets * 2,
-                log_num_buckets + 1,
-                right_entry_size_bytes,
-                tmp_dirname,
-                filename + ".p3.t" + to_string(table_index + 1),
-                0, 0);
+            right_writer_buf,
+            right_writer_buf_size,
+            num_buckets * 2,
+            log_num_buckets + 1,
+            right_entry_size_bytes,
+            tmp_dirname,
+            filename + ".p3.t" + to_string(table_index + 1),
+            0,
+            0);
 
         bool should_read_entry = true;
         std::vector<uint64_t> left_new_pos(kCachedPositionsSize);
@@ -243,25 +244,25 @@ Phase3Results RunPhase3(
                         // offset)
                         if (right_reader_count % right_reader_buf_entries == 0) {
                             uint64_t readAmt = std::min(
-                                    right_reader_buf_entries * right_entry_size_bytes,
-                                    (table_sizes[table_index + 1] - right_reader_count) *
+                                right_reader_buf_entries * right_entry_size_bytes,
+                                (table_sizes[table_index + 1] - right_reader_count) *
                                     right_entry_size_bytes);
 
                             tmp_1_disks[table_index + 1].Read(
-                                    right_reader, right_reader_buf, readAmt);
+                                right_reader, right_reader_buf, readAmt);
                             right_reader += readAmt;
                         }
                         right_entry_buf =
-                                right_reader_buf +
-                                (right_reader_count % right_reader_buf_entries) * right_entry_size_bytes;
+                            right_reader_buf + (right_reader_count % right_reader_buf_entries) *
+                                                   right_entry_size_bytes;
                         right_reader_count++;
 
                         entry_sort_key =
-                                Util::SliceInt64FromBytes(right_entry_buf, 0, right_sort_key_size);
+                            Util::SliceInt64FromBytes(right_entry_buf, 0, right_sort_key_size);
                         entry_pos = Util::SliceInt64FromBytes(
-                                right_entry_buf, right_sort_key_size, pos_size);
+                            right_entry_buf, right_sort_key_size, pos_size);
                         entry_offset = Util::SliceInt64FromBytes(
-                                right_entry_buf, right_sort_key_size + pos_size, kOffsetSize);
+                            right_entry_buf, right_sort_key_size + pos_size, kOffsetSize);
                     } else if (cached_entry_pos == current_pos) {
                         entry_sort_key = cached_entry_sort_key;
                         entry_pos = cached_entry_pos;
@@ -277,10 +278,9 @@ Phase3Results RunPhase3(
                     }
                     if (entry_pos == current_pos) {
                         uint64_t old_write_pos = entry_pos % kReadMinusWrite;
-                        old_sort_keys[old_write_pos][old_counters[old_write_pos]] =
-                                entry_sort_key;
+                        old_sort_keys[old_write_pos][old_counters[old_write_pos]] = entry_sort_key;
                         old_offsets[old_write_pos][old_counters[old_write_pos]] =
-                                (entry_pos + entry_offset);
+                            (entry_pos + entry_offset);
                         ++old_counters[old_write_pos];
                     } else {
                         should_read_entry = false;
@@ -296,14 +296,16 @@ Phase3Results RunPhase3(
                     if (table_index == 1) {
                         if (left_reader_count % left_reader_buf_entries == 0) {
                             uint64_t readAmt = std::min(
-                                    left_reader_buf_entries * left_entry_size_bytes,
-                                    (table_sizes[table_index] - left_reader_count) * left_entry_size_bytes);
+                                left_reader_buf_entries * left_entry_size_bytes,
+                                (table_sizes[table_index] - left_reader_count) *
+                                    left_entry_size_bytes);
 
                             tmp_1_disks[table_index].Read(left_reader, left_reader_buf, readAmt);
                             left_reader += readAmt;
                         }
-                        left_entry_disk_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
-                                                                left_entry_size_bytes;
+                        left_entry_disk_buf =
+                            left_reader_buf +
+                            (left_reader_count % left_reader_buf_entries) * left_entry_size_bytes;
                     } else {
                         left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader, 1);
                         left_reader += left_entry_size_bytes;
@@ -316,11 +318,11 @@ Phase3Results RunPhase3(
                 if (table_index == 1) {
                     // Only k bits, since this is x
                     left_new_pos[current_pos % kCachedPositionsSize] =
-                            Util::SliceInt64FromBytes(left_entry_disk_buf, 0, k);
+                        Util::SliceInt64FromBytes(left_entry_disk_buf, 0, k);
                 } else {
                     // k+1 bits in case it overflows
                     left_new_pos[current_pos % kCachedPositionsSize] =
-                            Util::SliceInt64FromBytes(left_entry_disk_buf, k + 1, k + 1);
+                        Util::SliceInt64FromBytes(left_entry_disk_buf, k + 1, k + 1);
                 }
             }
 
@@ -328,18 +330,17 @@ Phase3Results RunPhase3(
 
             // Rewrites each right entry as (line_point, sort_key)
             if (current_pos + 1 >= kReadMinusWrite) {
-                uint64_t left_new_pos_1 =
-                        left_new_pos[write_pointer_pos % kCachedPositionsSize];
+                uint64_t left_new_pos_1 = left_new_pos[write_pointer_pos % kCachedPositionsSize];
                 for (uint32_t counter = 0;
                      counter < old_counters[write_pointer_pos % kReadMinusWrite];
                      counter++) {
                     uint64_t left_new_pos_2 = left_new_pos
-                    [old_offsets[write_pointer_pos % kReadMinusWrite][counter] %
-                     kCachedPositionsSize];
+                        [old_offsets[write_pointer_pos % kReadMinusWrite][counter] %
+                         kCachedPositionsSize];
 
                     // A line point is an encoding of two k bit values into one 2k bit value.
                     uint128_t line_point =
-                            Encoding::SquareToLinePoint(left_new_pos_1, left_new_pos_2);
+                        Encoding::SquareToLinePoint(left_new_pos_1, left_new_pos_2);
 
                     if (left_new_pos_1 > ((uint64_t)1 << k) ||
                         left_new_pos_2 > ((uint64_t)1 << k)) {
@@ -354,8 +355,8 @@ Phase3Results RunPhase3(
                     }
                     Bits to_write = Bits(line_point, 2 * k);
                     to_write += Bits(
-                            old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
-                            right_sort_key_size);
+                        old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
+                        right_sort_key_size);
 
                     R_sort_manager->AddToCache(to_write);
                     total_r_entries++;
@@ -375,11 +376,12 @@ Phase3Results RunPhase3(
 
         Timer computation_pass_2_timer;
 
-        // The memory will be used like this, with most memory allocated towards the LeftSortManager, since it needs it
+        // The memory will be used like this, with most memory allocated towards the
+        // LeftSortManager, since it needs it
         // [---------------------------LSM/RR-----------------------------------|---------RSM/RW---------]
         right_reader = 0;
-        right_reader_buf_size =  floor(kMemSortProportion * memory_size);
-        right_writer_buf_size =  memory_size - right_reader_buf_size;
+        right_reader_buf_size = floor(kMemSortProportion * memory_size);
+        right_writer_buf_size = memory_size - right_reader_buf_size;
         right_reader_buf = &(memory[0]);
         right_writer_buf = &(memory[right_reader_buf_size]);
         right_reader_count = 0;
@@ -392,18 +394,19 @@ Phase3Results RunPhase3(
             delete L_sort_manager;
         }
 
-        // L sort manager will be used for the writer, and R sort manager will be used for the reader
+        // L sort manager will be used for the writer, and R sort manager will be used for the
+        // reader
         R_sort_manager->ChangeMemory(right_reader_buf, right_reader_buf_size);
         L_sort_manager = new SortManager(
-                right_writer_buf,
-                right_writer_buf_size,
-                num_buckets,
-                log_num_buckets,
-                right_entry_size_bytes,
-                tmp_dirname,
-                filename + ".p3s.t" + to_string(table_index + 1),
-                0,
-                0);
+            right_writer_buf,
+            right_writer_buf_size,
+            num_buckets,
+            log_num_buckets,
+            right_entry_size_bytes,
+            tmp_dirname,
+            filename + ".p3s.t" + to_string(table_index + 1),
+            0,
+            0);
 
         std::vector<uint8_t> park_deltas;
         std::vector<uint64_t> park_stubs;
@@ -411,7 +414,7 @@ Phase3Results RunPhase3(
         uint128_t last_line_point = 0;
         uint64_t park_index = 0;
 
-        uint8_t* right_reader_entry_buf;
+        uint8_t *right_reader_entry_buf;
 
         // Now we will write on of the final tables, since we have a table sorted by line point.
         // The final table will simply store the deltas between each line_point, in fixed space
@@ -426,7 +429,7 @@ Phase3Results RunPhase3(
             // Right entry is read as (line_point, sort_key)
             uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, 2 * k);
             uint64_t sort_key =
-                    Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
+                Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
 
             // Write the new position (index) and the sort key
             Bits to_write = Bits(sort_key, right_sort_key_size);
@@ -439,17 +442,17 @@ Phase3Results RunPhase3(
             if (index % kEntriesPerPark == 0) {
                 if (index != 0) {
                     WriteParkToFile(
-                            tmp2_disk,
-                            final_table_begin_pointers[table_index],
-                            park_index,
-                            park_size_bytes,
-                            checkpoint_line_point,
-                            park_deltas,
-                            park_stubs,
-                            k,
-                            table_index,
-                            park_buffer,
-                            park_buffer_size);
+                        tmp2_disk,
+                        final_table_begin_pointers[table_index],
+                        park_index,
+                        park_size_bytes,
+                        checkpoint_line_point,
+                        park_deltas,
+                        park_stubs,
+                        k,
+                        table_index,
+                        park_buffer,
+                        park_buffer_size);
                     park_index += 1;
                     final_entries_written += (park_stubs.size() + 1);
                 }
@@ -486,17 +489,17 @@ Phase3Results RunPhase3(
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
             WriteParkToFile(
-                    tmp2_disk,
-                    final_table_begin_pointers[table_index],
-                    park_index,
-                    park_size_bytes,
-                    checkpoint_line_point,
-                    park_deltas,
-                    park_stubs,
-                    k,
-                    table_index,
-                    park_buffer,
-                    park_buffer_size);
+                tmp2_disk,
+                final_table_begin_pointers[table_index],
+                park_index,
+                park_size_bytes,
+                checkpoint_line_point,
+                park_deltas,
+                park_stubs,
+                k,
+                table_index,
+                park_buffer,
+                park_buffer_size);
             final_entries_written += (park_stubs.size() + 1);
         }
 
@@ -504,7 +507,7 @@ Phase3Results RunPhase3(
         std::cout << "\tWrote " << final_entries_written << " entries" << std::endl;
 
         final_table_begin_pointers[table_index + 1] =
-                final_table_begin_pointers[table_index] + (park_index + 1) * park_size_bytes;
+            final_table_begin_pointers[table_index] + (park_index + 1) * park_size_bytes;
 
         final_table_writer = header_size - 8 * (10 - table_index);
         Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[table_index + 1]);
@@ -519,11 +522,11 @@ Phase3Results RunPhase3(
 
     // These results will be used to write table P7 and the checkpoint tables in phase 4.
     return Phase3Results{
-            final_table_begin_pointers,
-            final_entries_written,
-            right_entry_size_bytes * 8,
-            header_size,
-            L_sort_manager};
+        final_table_begin_pointers,
+        final_entries_written,
+        right_entry_size_bytes * 8,
+        header_size,
+        L_sort_manager};
 }
 
-#endif //SRC_CPP_PHASE3_HPP
+#endif  // SRC_CPP_PHASE3_HPP
