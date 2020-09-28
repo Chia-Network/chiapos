@@ -13,20 +13,26 @@
 
 class SemaphoreUtils {
 public:
-    static inline void Wait(sem_t* semaphore)
-    {
+
 #ifdef _WIN32
+    static inline void Wait(HANDLE semaphore)
         WaitForSingleObject(semaphore, INFINITE);
 #else
+
+    static inline void Wait(sem_t *semaphore) {
         sem_wait(semaphore);
-#endif
     }
 
-    static inline void Post(sem_t* semaphore)
-    {
+#endif
+
 #ifdef _WIN32
+    static inline void Post(HANDLE semaphore)
+    {
         ReleaseSemaphore(semaphore, 1, NULL);
 #else
+
+    static inline void Post(sem_t *semaphore)
+    {
         sem_post(semaphore);
 #endif
     }

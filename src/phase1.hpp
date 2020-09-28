@@ -683,17 +683,17 @@ std::vector<uint64_t> RunPhase1(
 
         Timer computation_pass_timer;
 
-        THREADDATA td[globals.num_threads];
+        THREADDATA* td = new THREADDATA[num_threads];
 #ifdef _WIN32
-        HANDLE t[globals.num_threads];
-        HANDLE mutex[globals.num_threads];
+        HANDLE* t = new HANDLE[num_threads];
+        HANDLE* mutex =  new HANDLE[globals.num_threads];
 #else
-        pthread_t t[globals.num_threads];
-        sem_t* mutex[globals.num_threads];
+        pthread_t* t = new pthread_t[num_threads];
+        sem_t** mutex = new sem_t* [num_threads];
         char semname[20];
 #endif
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
 #ifdef _WIN32
             mutex[i] = CreateSemaphore(
                 NULL,   // default security attributes
@@ -747,6 +747,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
+
         // end of parallel execution
 
         // Total matches found in the left table
@@ -789,6 +790,9 @@ std::vector<uint64_t> RunPhase1(
         table_timer.PrintElapsed("Forward propagation table time:");
 
         delete[] zero_buf;
+        delete[] t;
+        delete[] td;
+        delete[] mutex;
     }
     table_sizes[0] = 0;
     delete globals.R_sort_manager;

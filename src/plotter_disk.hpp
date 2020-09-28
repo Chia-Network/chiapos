@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
+#include <sys/resource.h>
 #endif
 
 #include <math.h>

@@ -370,7 +370,6 @@ Phase3Results RunPhase3(
             current_pos += 1;
         }
         computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
-        std::cout << "Wrote " << total_r_entries << " entries" << std::endl;
 
         // Remove no longer needed file
         tmp_1_disks[table_index].Truncate(0);
