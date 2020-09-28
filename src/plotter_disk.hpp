@@ -294,8 +294,6 @@ void* thread(void* arg)
             // within L table.
             left_entry.pos = pos;
             left_entry.used = false;
-//            std::cout << "Pos" << pos << " left y: " << left_entry.y << std::endl;
-
             uint64_t y_bucket = left_entry.y / kBC;
 
             if (!bMatch) {
@@ -496,16 +494,11 @@ void* thread(void* arg)
                         }
 
                         if (bStripeStartPair) {
+                            uint8_t *right_buf =
+                                    right_writer_buf +
+                                    right_writer_count * right_entry_size_bytes;
+                            new_entry.ToBytes(right_buf);
                             right_writer_count++;
-                            if (table_index < 6 && false) {
-                                to_write_R_entries.push_back(new_entry);
-                            } else {
-                                // to_write_R_entries
-                                uint8_t *right_buf =
-                                        right_writer_buf +
-                                        right_writer_count * right_entry_size_bytes;
-                                new_entry.ToBytes(right_buf);
-                            }
                         }
                     }
                 }
@@ -573,18 +566,18 @@ void* thread(void* arg)
             }
         }
         if (table_index < 6) {
-//            for (const Bits& entry : to_write_R_entries) {
-//                globals.R_sort_manager->AddToCache(entry);
-//            }
-            // Writes out the write table for tables 2-6
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(Bits(right_writer_buf + i * right_entry_size_bytes, right_entry_size_bytes, right_entry_size_bytes * 8));
-//            for (const Bits& entry : to_write_R_entries) {
+                globals.R_sort_manager->AddToCache(Bits(right_writer_buf + i * right_entry_size_bytes, right_entry_size_bytes,
+                     right_entry_size_bytes * 8));
             }
         } else {
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
                 globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
+            if (globals.right_writer == 0) {
+                std::cout << "Writing out: " << Bits(right_writer_buf, right_entry_size_bytes, right_entry_size_bytes*8) << std::endl;
+                std::cout << "Writing out: " << Bits(right_writer_buf + right_entry_size_bytes, right_entry_size_bytes, right_entry_size_bytes*8) << std::endl;
+            }
         }
         globals.right_writer += right_writer_count * right_entry_size_bytes;
         globals.right_writer_count += right_writer_count;
@@ -595,7 +588,6 @@ void* thread(void* arg)
         globals.left_writer_count += left_writer_count;
 
         globals.matches += matches;
-
         SemaphoreUtils::Post(ptd->mine);
     }
 
@@ -1092,6 +1084,8 @@ private:
             globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
             globals.left_writer_count = 0;
             globals.right_writer_count = 0;
+            globals.right_writer = 0;
+            globals.left_writer = 0;
 
             // Assign the first 3/4 of memory to the left reader (which contains the data from the previous iteration),
             // And will need to perform large sorts.
@@ -1219,9 +1213,6 @@ private:
                 std::cout << globals.matches << " " << globals.right_writer_count << std::endl;
                 exit(1);
             }
-            if (table_index == 1) {
-                exit(0);
-            }
 
             prevtableentries = globals.right_writer_count;
             computation_pass_timer.PrintElapsed("\tComputation pass time:");
@@ -1230,6 +1221,9 @@ private:
             delete[] zero_buf;
         }
         table_sizes[0] = 0;
+        for (uint32_t i=0; i<8; i++) {
+            std::cout << i << ": " << table_sizes[i] << std::endl;
+        }
         delete globals.R_sort_manager;
 
         return table_sizes;
