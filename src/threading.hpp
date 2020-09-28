@@ -28,6 +28,7 @@ public:
         sem_post(semaphore);
 #endif
     }
+
 };
 
 //        std::cout << ptd->index << " waited 0" << std::endl;

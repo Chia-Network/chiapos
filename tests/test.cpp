@@ -534,21 +534,22 @@ void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint
     delete[] proof_data;
 }
 
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t buffer, uint32_t num_proofs)
+void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id, uint32_t buffer, uint32_t num_proofs, uint32_t stripe_size, uint8_t num_threads)
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
-    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
+    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 0, buffer, 0, stripe_size, num_threads);
     TestProofOfSpace(filename, iterations, k, plot_id, num_proofs);
     REQUIRE(remove(filename.c_str()) == 0);
 }
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot k18") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 1, 95); }
-    SECTION("Disk plot k19") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71); }
-    SECTION("Disk plot k20") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469); }
-    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4946); }
+    SECTION("Disk plot k18") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 11, 95, 4000, 2); }
+    SECTION("Disk plot k19") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 2); }
+    SECTION("Disk plot k19 single-thread") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 1); }
+    SECTION("Disk plot k20") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469, 16000, 2); }
+    SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 2); }
     // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100, 107); }
 }
 
