@@ -15,27 +15,25 @@ class SemaphoreUtils {
 public:
 
 #ifdef _WIN32
-    static inline void Wait(HANDLE semaphore)
+    static inline void Wait(HANDLE semaphore) {
         WaitForSingleObject(semaphore, INFINITE);
+    }
 #else
-
     static inline void Wait(sem_t *semaphore) {
         sem_wait(semaphore);
     }
-
 #endif
 
 #ifdef _WIN32
-    static inline void Post(HANDLE semaphore)
-    {
+    static inline void Post(HANDLE semaphore) {
         ReleaseSemaphore(semaphore, 1, NULL);
+    }
 #else
-
     static inline void Post(sem_t *semaphore)
     {
         sem_post(semaphore);
-#endif
     }
+#endif
 };
 
 //        std::cout << ptd->index << " waited 0" << std::endl;
