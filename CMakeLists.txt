@@ -56,31 +56,31 @@ add_executable(ProofOfSpace
     ${BLAKE3_SRC}
 )
 
-#add_executable(RunTests
-#    tests/test-main.cpp
-#    tests/test.cpp
-#    src/chacha8.c
-#    ${BLAKE3_SRC}
-#)
+add_executable(RunTests
+    tests/test-main.cpp
+    tests/test.cpp
+    src/chacha8.c
+    ${BLAKE3_SRC}
+)
 
-#if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-#  target_link_libraries(chiapos PRIVATE fse)
-target_link_libraries(ProofOfSpace fse)
-#  target_link_libraries(RunTests fse)
-#elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-#  target_link_libraries(chiapos PRIVATE fse)
-#  target_link_libraries(ProofOfSpace fse)
-#  target_link_libraries(RunTests fse)
-#elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-#  target_link_libraries(chiapos PRIVATE fse)
-#  target_link_libraries(ProofOfSpace fse)
-#  target_link_libraries(RunTests fse)
-#elseif (WIN32)
-#  target_link_libraries(chiapos PRIVATE fse)
-#  target_link_libraries(ProofOfSpace fse)
-#  target_link_libraries(RunTests fse)
-#else()
-#  target_link_libraries(chiapos PRIVATE rt pthread fse stdc++fs)
-#  target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
-#  target_link_libraries(RunTests rt pthread fse stdc++fs)
-#endif()
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  target_link_libraries(chiapos PRIVATE fse)
+  target_link_libraries(ProofOfSpace fse)
+  target_link_libraries(RunTests fse)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
+  target_link_libraries(chiapos PRIVATE fse)
+  target_link_libraries(ProofOfSpace fse)
+  target_link_libraries(RunTests fse)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  target_link_libraries(chiapos PRIVATE fse)
+  target_link_libraries(ProofOfSpace fse)
+  target_link_libraries(RunTests fse)
+elseif (WIN32)
+  target_link_libraries(chiapos PRIVATE fse)
+  target_link_libraries(ProofOfSpace fse)
+  target_link_libraries(RunTests fse)
+else()
+  target_link_libraries(chiapos PRIVATE rt pthread fse stdc++fs)
+  target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
+  target_link_libraries(RunTests rt pthread fse stdc++fs)
+endif()

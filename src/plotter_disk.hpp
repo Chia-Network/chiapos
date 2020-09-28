@@ -91,12 +91,10 @@ public:
         } else {
             num_threads = 2;
         }
-        if (buf_megabytes_input == 0) {
-            buf_megabytes = 3500;
-        }
-        if (num_threads == 0) {
-            std::cout << "Threads must be at least 1" << std::endl;
-            exit(1);
+        if (buf_megabytes_input != 0) {
+            buf_megabytes = buf_megabytes_input;
+        } else {
+            buf_megabytes = 3072;
         }
 
         if (buf_megabytes < 10) {
@@ -109,7 +107,7 @@ public:
         uint64_t memory_size = ((uint64_t)(buf_megabytes - submbytes)) * 1024 * 1024;
         double max_table_size = 0;
         for (size_t i = 1; i <= 7; i++) {
-            double memory_i = 1.1 * ((uint64_t)1 << k) * EntrySizes::GetMaxEntrySize(k, i, true);
+            double memory_i = 1.2 * ((uint64_t)1 << k) * EntrySizes::GetMaxEntrySize(k, i, true);
             if (memory_i > max_table_size)
                 max_table_size = memory_i;
         }

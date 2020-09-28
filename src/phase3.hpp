@@ -91,10 +91,12 @@ void WriteParkToFile(
 
     index += 2 + deltas_size;
 
-    memset(index, 0x00, park_size_bytes - (index - park_buffer));
-    if ((uint32_t)(index - park_buffer) > park_buffer_size)
+    if ((uint32_t)(index - park_buffer) > park_buffer_size) {
         std::cout << "index-park_buffer " << index - park_buffer << " park_buffer_size "
                   << park_buffer_size << std::endl;
+        exit(1);
+    }
+    memset(index, 0x00, park_size_bytes - (index - park_buffer));
 
     final_disk.Write(writer, (uint8_t *)park_buffer, park_size_bytes);
 }
