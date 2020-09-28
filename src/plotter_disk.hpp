@@ -216,7 +216,6 @@ void* thread(void* arg)
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
         uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
-//        std::cout << "Starting stripe " << (stripe * NUMTHREADS + ptd->index) << " pos " << pos << " to " << endpos << std::endl;
         uint64_t left_reader = pos * entry_size_bytes;
         uint64_t left_reader_prev_stripe = (pos - STRIPESIZE) * entry_size_bytes;
         uint64_t left_writer_count = 0;
@@ -574,10 +573,6 @@ void* thread(void* arg)
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
                 globals.right_writer, right_writer_buf, right_writer_count * right_entry_size_bytes);
-            if (globals.right_writer == 0) {
-                std::cout << "Writing out: " << Bits(right_writer_buf, right_entry_size_bytes, right_entry_size_bytes*8) << std::endl;
-                std::cout << "Writing out: " << Bits(right_writer_buf + right_entry_size_bytes, right_entry_size_bytes, right_entry_size_bytes*8) << std::endl;
-            }
         }
         globals.right_writer += right_writer_count * right_entry_size_bytes;
         globals.right_writer_count += right_writer_count;
@@ -1080,7 +1075,6 @@ private:
             uint8_t* right_writer_buf = &(memory[globals.left_reader_buf_size]);
             globals.left_writer_buf =  &(memory[globals.left_reader_buf_size + globals.right_writer_buf_size]);
 
-            uint64_t left_writer_buf_entries = globals.left_writer_buf_size / compressed_entry_size_bytes;
             globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
             globals.left_writer_count = 0;
             globals.right_writer_count = 0;

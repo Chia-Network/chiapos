@@ -545,9 +545,9 @@ void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t 
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot k15") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 15, plot_id_1, 1, 77); }
-    SECTION("Disk plot k16") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1, 100, 83); }
-    SECTION("Disk plot k17") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3, 100, 441); }
+    SECTION("Disk plot k18") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 1, 95); }
+    SECTION("Disk plot k19") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71); }
+    SECTION("Disk plot k20") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469); }
     SECTION("Disk plot k21") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4946); }
     // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3, 100, 107); }
 }

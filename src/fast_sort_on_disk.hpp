@@ -55,7 +55,6 @@ public:
         this->begin_bits = begin_bits;
         this->done = false;
         this->prev_bucket_buf_size = 2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size;
-        std::cout << "Prev bucket size" << this->prev_bucket_buf_size / 7 << std::endl;
         this->prev_bucket_buf = new uint8_t[this->prev_bucket_buf_size];
         this->prev_bucket_position_start = 0;
         // Cross platform way to concatenate paths, gulrak library.
@@ -106,10 +105,7 @@ public:
         }
 
         while (position >= this->final_position_end) {
-            std::cout << "Close?" << this->CloseToNewBucket(position) << std::endl;
-            std::cout << "positoi " << position / this->entry_size << std::endl;
-            exit(1);
-//            SortBucket(quicksort);
+            SortBucket(quicksort);
         }
         if (!(this->final_position_end > position)) {
             throw std::string("Position too large");
@@ -140,7 +136,6 @@ public:
         memset(this->prev_bucket_buf, 0x00, this->prev_bucket_buf_size);
         memcpy(this->prev_bucket_buf, this->memory_start + position - this->final_position_start, cache_size);
         SortBucket(quicksort);
-//        std::cout << "Triggerring new bucket " << this->final_position_start / this->entry_size << " " << this->final_position_end / this->entry_size << std::endl;
         this->prev_bucket_position_start = position;
     }
 
@@ -170,8 +165,7 @@ public:
             exit(1);
         }
         bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1 ) || this->bucket_write_pointers[bucket_i + 1] == 0;
-//        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
-        bool force_quicksort = true;
+        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort && Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
