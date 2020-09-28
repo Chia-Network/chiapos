@@ -25,6 +25,7 @@
 #include "../lib/FiniteStateEntropy/lib/fse.h"
 #include "../lib/FiniteStateEntropy/lib/hist.h"
 #include "bits.hpp"
+#include "exceptions.hpp"
 #include "util.hpp"
 
 std::map<double, FSE_CTable *> CT_MEMO = {};
@@ -176,7 +177,7 @@ public:
 
         for (uint32_t i = 0; i < deltas.size(); i++) {
             if (deltas[i] == 0xff) {
-                throw std::string("Bad delta detected");
+                throw InvalidStateException("Bad delta detected");
             }
         }
         return deltas;

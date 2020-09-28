@@ -39,6 +39,7 @@
 namespace fs = ghc::filesystem;
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
+#include "exceptions.hpp"
 #include "phase1.hpp"
 #include "phase2.hpp"
 #include "phase3.hpp"
@@ -75,8 +76,7 @@ public:
         }
 #endif
         if (k < kMinPlotSize || k > kMaxPlotSize) {
-            std::cout << "Plot size k=" << std::to_string(k) << " is invalid" << std::endl;
-            return;
+            throw InvalidValueException("Plot size k= " + std::to_string(k) + " is invalid");
         }
 
         uint32_t stripe_size, buf_megabytes, num_buckets;
@@ -98,16 +98,20 @@ public:
         }
 
         if (buf_megabytes < 10) {
-            std::cout << "Please provide at least 10MiB of ram." << std::endl;
-            exit(1);
+            throw InsufficientMemoryException("Please provide at least 10MiB of ram");
         }
 
         // Subtract some ram to account for dynamic allocation through the code
-        uint64_t submbytes = (5 + (int)min(buf_megabytes * 0.05, (double)50));
-        uint64_t memory_size = ((uint64_t)(buf_megabytes - submbytes)) * 1024 * 1024;
+        uint64_t thread_memory =
+            num_threads * (2 * (stripe_size + 5000)) * EntrySizes::GetMaxEntrySize(k, 4, true) / (1024*1024);
+        uint64_t sub_mbytes = (5 + (int)min(buf_megabytes * 0.05, (double)50) + thread_memory);
+        if (sub_mbytes > buf_megabytes) {
+            throw InsufficientMemoryException("Please provide more memory. At least " + std::to_string(sub_mbytes));
+        }
+        uint64_t memory_size = ((uint64_t)(buf_megabytes - sub_mbytes)) * 1024 * 1024;
         double max_table_size = 0;
         for (size_t i = 1; i <= 7; i++) {
-            double memory_i = 1.2 * ((uint64_t)1 << k) * EntrySizes::GetMaxEntrySize(k, i, true);
+            double memory_i = 1.20 * ((uint64_t)1 << k) * EntrySizes::GetMaxEntrySize(k, i, true);
             if (memory_i > max_table_size)
                 max_table_size = memory_i;
         }
@@ -120,27 +124,23 @@ public:
 
         if (num_buckets < kMinBuckets) {
             if (num_buckets_input != 0) {
-                std::cout << "Minimum buckets is " << kMinBuckets << std::endl;
-                exit(1);
+                throw InvalidValueException("Minimum buckets is " + std::to_string(kMinBuckets));
             }
             num_buckets = kMinBuckets;
         } else if (num_buckets > kMaxBuckets) {
             if (num_buckets_input != 0) {
-                std::cout << "Maximum buckets is " << kMaxBuckets << std::endl;
-                exit(1);
+                throw InvalidValueException("Maximum buckets is " + std::to_string(kMaxBuckets));
             }
-            std::cout << "Do not have enough memory. Need "
-                      << (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) +
-                             submbytes
-                      << " MiB" << std::endl;
-            exit(1);
+            double required_mem =
+                (max_table_size / kMaxBuckets) / kMemSortProportion / (1024 * 1024) + sub_mbytes;
+            throw InsufficientMemoryException(
+                "Do not have enough memory. Need " + std::to_string(required_mem) + " MiB");
         }
         uint32_t log_num_buckets = log2(num_buckets);
         assert(log2(num_buckets) == ceil(log2(num_buckets)));
 
         if (max_table_size / num_buckets < stripe_size * 30) {
-            std::cout << "Stripe size too large." << std::endl;
-            exit(1);
+            throw InvalidValueException("Stripe size too large");
         }
 
         std::cout << std::endl
@@ -169,18 +169,15 @@ public:
 
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
-            std::cout << "Temp directory " << tmp_dirname << " does not exist" << std::endl;
-            return;
+            throw InvalidValueException("Temp directory " + tmp_dirname + " does not exist");
         }
 
         if (!fs::exists(tmp2_dirname)) {
-            std::cout << "Temp2 directory " << tmp2_dirname << " does not exist" << std::endl;
-            return;
+            throw InvalidValueException("Temp2 directory " + tmp2_dirname + " does not exist");
         }
 
         if (!fs::exists(final_dirname)) {
-            std::cout << "Final directory " << final_dirname << " does not exist" << std::endl;
-            return;
+            throw InvalidValueException("Final directory " + final_dirname + " does not exist");
         }
         for (fs::path& p : tmp_1_filenames) {
             fs::remove(p);
@@ -203,8 +200,7 @@ public:
 
             FileDisk tmp2_disk(tmp_2_filename);
             if (!tmp2_disk.isOpen()) {
-                std::cout << "Could not open " << tmp_2_filename << std::endl;
-                return;
+                throw InvalidValueException("Could not open " + std::string(tmp_2_filename.c_str()));
             }
 
             assert(id_len == kIdLen);

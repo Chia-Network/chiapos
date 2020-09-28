@@ -42,7 +42,11 @@ const uint32_t kMaxPlotSize = 50;
 // The amount of spare space used for sort on disk (multiplied time memory buffer size)
 const uint32_t kSpareMultiplier = 5;
 
+// The proportion of memory to allocate to the Sort Manager for reading in buckets and sorting them
+// The lower this number, the more memory must be provided by the caller. However, lowering the
+// number also allows a higher proportion for writing, which reduces seeks for HDD.
 const double kMemSortProportion = 0.75;
+const double kMemSortProportionLinePoint = 0.85;
 
 // How many f7s per C1 entry, and how many C1 entries per C2 entry
 const uint32_t kCheckpoint1Interval = 10000;

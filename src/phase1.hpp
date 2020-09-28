@@ -42,6 +42,7 @@
 namespace fs = ghc::filesystem;
 #include "calculate_bucket.hpp"
 #include "entry_sizes.hpp"
+#include "exceptions.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
 #include "threading.hpp"
@@ -152,8 +153,8 @@ void* thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = (uint64_t)(globals.stripe_size) + 2500;
-    uint64_t right_buf_entries = (uint64_t)(globals.stripe_size) + 2500;
+    uint64_t left_buf_entries = (uint64_t)(globals.stripe_size) + 5000;
+    uint64_t right_buf_entries = (uint64_t)(globals.stripe_size) + 5000;
     uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
 
@@ -345,8 +346,7 @@ void* thread(void* arg)
                             }
 
                             if (left_writer_count >= left_buf_entries) {
-                                cout << "left_writer_count overrun" << endl;
-                                exit(1);
+                                throw InvalidStateException("Left writer count overrun");
                             }
                             uint8_t* tmp_buf =
                                 left_writer_buf + left_writer_count * compressed_entry_size_bytes;
@@ -439,8 +439,8 @@ void* thread(void* arg)
 
                         // Offset for matching entry
                         if (newrpos - newlpos > (1U << kOffsetSize) * 97 / 100) {
-                            std::cout << "Offset: " << newrpos - newlpos << std::endl;
-                            abort();
+                            throw InvalidStateException(
+                                "Offset too large: " + std::to_string(newrpos - newlpos));
                         }
 
                         new_entry.AppendValue(newrpos - newlpos, kOffsetSize);
@@ -448,8 +448,7 @@ void* thread(void* arg)
                         new_entry += std::get<1>(f_output);
 
                         if (right_writer_count >= right_buf_entries) {
-                            cout << "right_writer_count overrun" << endl;
-                            exit(1);
+                            throw InvalidStateException("Left writer count overrun");
                         }
 
                         if (bStripeStartPair) {
@@ -781,9 +780,9 @@ std::vector<uint64_t> RunPhase1(
 
         // Resets variables
         if (globals.matches != globals.right_writer_count) {
-            std::cout << "Matches do not match with number of write entries " << globals.matches
-                      << " " << globals.right_writer_count << std::endl;
-            exit(1);
+            throw InvalidStateException(
+                "Matches do not match with number of write entries " +
+                std::to_string(globals.matches) + " " + std::to_string(globals.right_writer_count));
         }
 
         prevtableentries = globals.right_writer_count;

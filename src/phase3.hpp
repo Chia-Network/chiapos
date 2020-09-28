@@ -17,6 +17,7 @@
 
 #include "encoding.hpp"
 #include "entry_sizes.hpp"
+#include "exceptions.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
 
@@ -94,7 +95,9 @@ void WriteParkToFile(
     if ((uint32_t)(index - park_buffer) > park_buffer_size) {
         std::cout << "index-park_buffer " << index - park_buffer << " park_buffer_size "
                   << park_buffer_size << std::endl;
-        exit(1);
+        throw InvalidStateException(
+            "Overflowed park buffer, writing " + std::to_string(index - park_buffer) +
+            " bytes. Space: " + std::to_string(park_buffer_size));
     }
     memset(index, 0x00, park_size_bytes - (index - park_buffer));
 
@@ -199,8 +202,8 @@ Phase3Results RunPhase3(
         R_sort_manager = new SortManager(
             right_writer_buf,
             right_writer_buf_size,
-            num_buckets * 2,
-            log_num_buckets + 1,
+            num_buckets,
+            log_num_buckets,
             right_entry_size_bytes,
             tmp_dirname,
             filename + ".p3.t" + to_string(table_index + 1),
@@ -367,6 +370,7 @@ Phase3Results RunPhase3(
             current_pos += 1;
         }
         computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
+        std::cout << "Wrote " << total_r_entries << " entries" << std::endl;
 
         // Remove no longer needed file
         tmp_1_disks[table_index].Truncate(0);
@@ -382,7 +386,7 @@ Phase3Results RunPhase3(
         // LeftSortManager, since it needs it
         // [---------------------------LSM/RR-----------------------------------|---------RSM/RW---------]
         right_reader = 0;
-        right_reader_buf_size = floor(kMemSortProportion * memory_size);
+        right_reader_buf_size = floor(kMemSortProportionLinePoint * memory_size);
         right_writer_buf_size = memory_size - right_reader_buf_size;
         right_reader_buf = &(memory[0]);
         right_writer_buf = &(memory[right_reader_buf_size]);

@@ -48,7 +48,7 @@ set(BLAKE3_SRC
     src/b3/blake3_sse41_x86-64_unix.S
 )
 
-#pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
+pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
 
 add_executable(ProofOfSpace
     src/cli.cpp

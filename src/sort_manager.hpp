@@ -34,6 +34,7 @@ namespace fs = ghc::filesystem;
 #include "./disk.hpp"
 #include "./quicksort.hpp"
 #include "./uniformsort.hpp"
+#include "exceptions.hpp"
 
 class SortManager {
 public:
@@ -83,7 +84,7 @@ public:
     inline void AddToCache(const Bits &entry)
     {
         if (this->done) {
-            throw std::string("Already finished.");
+            throw InvalidValueException("Already finished.");
         }
         uint64_t bucket_index = ExtractNum(entry, this->begin_bits, this->log_num_buckets);
         uint64_t mem_write_offset = mem_bucket_sizes[bucket_index] * entry_size;
@@ -102,7 +103,7 @@ public:
     {
         if (position < this->final_position_start) {
             if (!(position >= this->prev_bucket_position_start)) {
-                throw std::string("Invalid prev bucket start");
+                throw InvalidStateException("Invalid prev bucket start");
             }
             return (this->prev_bucket_buf + (position - this->prev_bucket_position_start));
         }
@@ -111,10 +112,10 @@ public:
             SortBucket(quicksort);
         }
         if (!(this->final_position_end > position)) {
-            throw std::string("Position too large");
+            throw InvalidValueException("Position too large");
         }
         if (!(this->final_position_start <= position)) {
-            throw std::string("Position too small");
+            throw InvalidValueException("Position too small");
         }
         return this->memory_start + (position - this->final_position_start);
     }
@@ -132,10 +133,10 @@ public:
     inline void TriggerNewBucket(uint64_t position, bool quicksort)
     {
         if (!(position <= this->final_position_end)) {
-            throw std::string("Triggering bucket too late");
+            throw InvalidValueException("Triggering bucket too late");
         }
         if (!(position >= this->final_position_start)) {
-            throw std::string("Triggering bucket too early");
+            throw InvalidValueException("Triggering bucket too early");
         }
 
         // position is the first position that we need in the new array
@@ -235,7 +236,7 @@ private:
     {
         this->done = true;
         if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
-            throw std::string("Trying to sort bucket which does not exist.");
+            throw InvalidValueException("Trying to sort bucket which does not exist.");
         }
         uint64_t bucket_i = this->next_bucket_to_sort;
         uint64_t bucket_entries = bucket_write_pointers[bucket_i] / this->entry_size;
@@ -249,13 +250,10 @@ private:
             Util::RoundSize(bucket_entries) * entry_len_memory / (1024.0 * 1024.0 * 1024.0);
 
         if (bucket_entries > entries_fit_in_memory) {
-            std::cout << "Not enough memory for sort in memory. Need to sort " +
-                             to_string(
-                                 this->bucket_write_pointers[bucket_i] /
-                                 (1024.0 * 1024.0 * 1024.0)) +
-                             "GiB"
-                      << std::endl;
-            exit(1);
+            throw InsufficientMemoryException(
+                "Not enough memory for sort in memory. Need to sort " +
+                to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) +
+                "GiB");
         }
         bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1) ||
                            this->bucket_write_pointers[bucket_i + 1] == 0;
@@ -265,7 +263,7 @@ private:
         if (!force_quicksort &&
             Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
             std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed
-                      << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram
+                      << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
             UniformSort::SortToMemory(
                 this->bucket_files[bucket_i],
@@ -279,7 +277,7 @@ private:
             // Perform quicksort if so (SortInMemory algorithm won't always perform well), or if we
             // don't have enough memory for uniform sort
             std::cout << "\tBucket " << bucket_i << " QS. Ram: " << std::fixed
-                      << std::setprecision(2) << have_ram << "GiB, u_sort min: " << u_ram
+                      << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
                       << std::endl;
             this->bucket_files[bucket_i].Read(
