@@ -751,8 +751,9 @@ std::vector<uint64_t> RunPhase1(
 #ifdef _WIN32
             CloseHandle(mutex[i]);
 #elif __APPLE__
+            dispatch_release(mutex[i]);
 #else
-            sem_close(mutex[i]);
+            sem_close(&mutex[i]);
 #endif
         }
 
