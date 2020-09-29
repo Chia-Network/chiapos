@@ -53,6 +53,9 @@ typedef struct {
 #ifdef _WIN32
     HANDLE mine;
     HANDLE theirs;
+#elif __APPLE__
+    dispatch_semaphore_t *mine;
+    dispatch_semaphore_t *theirs;
 #else
     sem_t* mine;
     sem_t* theirs;
@@ -690,10 +693,12 @@ std::vector<uint64_t> RunPhase1(
 #ifdef _WIN32
         HANDLE* t = new HANDLE[num_threads];
         HANDLE* mutex = new HANDLE[globals.num_threads];
+#elif __APPLE__
+        pthread_t* t = new pthread_t[num_threads];
+        dispatch_semaphore_t * mutex = new dispatch_semaphore_t [num_threads];
 #else
         pthread_t* t = new pthread_t[num_threads];
-        sem_t** mutex = new sem_t*[num_threads];
-        char semname[20];
+        sem_t* mutex = new sem_t[num_threads];
 #endif
 
         for (int i = 0; i < num_threads; i++) {
@@ -703,16 +708,17 @@ std::vector<uint64_t> RunPhase1(
                 0,      // initial count
                 2,      // maximum count
                 NULL);  // unnamed semaphore
+#elif __APPLE__
+            mutex[i] = dispatch_semaphore_create(0);
 #else
-            sprintf(semname, "sem %d", i);
-            mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+            sem_init(&mutex[i], 0, 0);
 #endif
         }
 
         for (int i = 0; i < globals.num_threads; i++) {
             td[i].index = i;
-            td[i].mine = mutex[i];
-            td[i].theirs = mutex[(globals.num_threads + i - 1) % globals.num_threads];
+            td[i].mine = &mutex[i];
+            td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
 
             td[i].prevtableentries = prevtableentries;
             td[i].right_entry_size_bytes = right_entry_size_bytes;
@@ -730,7 +736,7 @@ std::vector<uint64_t> RunPhase1(
             pthread_create(&(t[i]), NULL, phase1_thread, &(td[i]));
 #endif
         }
-        SemaphoreUtils::Post(mutex[globals.num_threads - 1]);
+        SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
         for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
@@ -744,9 +750,9 @@ std::vector<uint64_t> RunPhase1(
         for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             CloseHandle(mutex[i]);
+#elif __APPLE__
 #else
             sem_close(mutex[i]);
-            sem_unlink(semname);
 #endif
         }
 
