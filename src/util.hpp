@@ -41,12 +41,13 @@
 typedef __uint128_t uint128_t;
 
 // Allows printing of uint128_t
-std::ostream& operator<<(std::ostream& strm, uint128_t const& v)
+std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 {
     strm << "uint128(" << (uint64_t)(v >> 64) << "," << (uint64_t)(v & (((uint128_t)1 << 64) - 1))
          << ")";
     return strm;
 }
+
 #endif
 
 /* Platform-specific byte swap macros. */
@@ -57,6 +58,7 @@ std::ostream& operator<<(std::ostream& strm, uint128_t const& v)
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
 #elif defined(__APPLE__)
+
 #include <libkern/OSByteOrder.h>
 
 #define bswap_16(x) OSSwapInt16(x)
@@ -70,14 +72,14 @@ class Timer {
 public:
     Timer() : wall_clock_time_start_(std::chrono::steady_clock::now()), cpu_time_start_(clock()) {}
 
-    static char* GetNow()
+    static char *GetNow()
     {
         auto now = std::chrono::system_clock::now();
         auto tt = std::chrono::system_clock::to_time_t(now);
         return ctime(&tt);  // ctime includes newline
     }
 
-    void PrintElapsed(const std::string& name) const
+    void PrintElapsed(const std::string &name) const
     {
         auto end = std::chrono::steady_clock::now();
         auto wall_clock_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -108,7 +110,7 @@ public:
 
     static uint32_t ByteAlign(uint32_t num_bits) { return (num_bits + (8 - ((num_bits) % 8)) % 8); }
 
-    static std::string HexStr(const uint8_t* data, size_t len)
+    static std::string HexStr(const uint8_t *data, size_t len)
     {
         std::stringstream s;
         s << std::hex;
@@ -118,42 +120,42 @@ public:
         return s.str();
     }
 
-    static void WriteZeroesHeap(std::ofstream& file, uint32_t num_bytes)
+    static void WriteZeroesHeap(std::ofstream &file, uint32_t num_bytes)
     {
-        uint8_t* buf = new uint8_t[num_bytes];
+        uint8_t *buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char*>(buf), num_bytes);
+        file.write(reinterpret_cast<char *>(buf), num_bytes);
         delete[] buf;
     }
 
-    static void WriteZeroesStack(std::ofstream& file, uint32_t num_bytes)
+    static void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes)
     {
 #ifdef _WIN32
-        uint8_t* buf = new uint8_t[num_bytes];
+        uint8_t *buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char*>(buf), num_bytes);
+        file.write(reinterpret_cast<char *>(buf), num_bytes);
         delete[] buf;
 #else
         uint8_t buf[num_bytes];
         memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char*>(buf), num_bytes);
+        file.write(reinterpret_cast<char *>(buf), num_bytes);
 #endif
     }
 
-    static void IntToTwoBytes(uint8_t* result, const uint16_t input)
+    static void IntToTwoBytes(uint8_t *result, const uint16_t input)
     {
         uint16_t r = bswap_16(input);
         memcpy(result, &r, sizeof(r));
     }
 
     // Used to encode deltas object size
-    static void IntToTwoBytesLE(uint8_t* result, const uint16_t input)
+    static void IntToTwoBytesLE(uint8_t *result, const uint16_t input)
     {
         result[0] = input & 0xff;
         result[1] = input >> 8;
     }
 
-    static uint16_t TwoBytesToInt(const uint8_t* bytes)
+    static uint16_t TwoBytesToInt(const uint8_t *bytes)
     {
         uint16_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -163,7 +165,7 @@ public:
     /*
      * Converts a 32 bit int to bytes.
      */
-    static void IntToFourBytes(uint8_t* result, const uint32_t input)
+    static void IntToFourBytes(uint8_t *result, const uint32_t input)
     {
         uint32_t r = bswap_32(input);
         memcpy(result, &r, sizeof(r));
@@ -172,7 +174,7 @@ public:
     /*
      * Converts a byte array to a 32 bit int.
      */
-    static uint32_t FourBytesToInt(const uint8_t* bytes)
+    static uint32_t FourBytesToInt(const uint8_t *bytes)
     {
         uint32_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -182,7 +184,7 @@ public:
     /*
      * Converts a 64 bit int to bytes.
      */
-    static void IntToEightBytes(uint8_t* result, const uint64_t input)
+    static void IntToEightBytes(uint8_t *result, const uint64_t input)
     {
         uint64_t r = bswap_64(input);
         memcpy(result, &r, sizeof(r));
@@ -191,7 +193,7 @@ public:
     /*
      * Converts a byte array to a 64 bit int.
      */
-    static uint64_t EightBytesToInt(const uint8_t* bytes)
+    static uint64_t EightBytesToInt(const uint8_t *bytes)
     {
         uint64_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -213,7 +215,7 @@ public:
 
     /* Note: requires start_bit % 8 + num_bits <= 64 */
     inline static uint64_t SliceInt64FromBytes(
-        const uint8_t* bytes,
+        const uint8_t *bytes,
         uint32_t start_bit,
         const uint32_t num_bits)
     {
@@ -231,7 +233,7 @@ public:
     }
 
     static uint64_t SliceInt64FromBytesFull(
-        const uint8_t* bytes,
+        const uint8_t *bytes,
         uint32_t start_bit,
         uint32_t num_bits)
     {
@@ -243,7 +245,7 @@ public:
     }
 
     inline static uint128_t SliceInt128FromBytes(
-        const uint8_t* bytes,
+        const uint8_t *bytes,
         const uint32_t start_bit,
         const uint32_t num_bits)
     {
@@ -256,7 +258,7 @@ public:
         return ((uint128_t)high << 64) | low;
     }
 
-    static void GetRandomBytes(uint8_t* buf, uint32_t num_bytes)
+    static void GetRandomBytes(uint8_t *buf, uint32_t num_bytes)
     {
         std::random_device rd;
         std::mt19937 mt(rd());
@@ -264,6 +266,63 @@ public:
         for (uint32_t i = 0; i < num_bytes; i++) {
             buf[i] = dist(mt);
         }
+    }
+
+    inline static uint64_t ExtractNum(
+        const uint8_t *bytes,
+        uint32_t len_bytes,
+        uint32_t begin_bits,
+        uint32_t take_bits)
+    {
+        if ((begin_bits + take_bits) / 8 > len_bytes - 1) {
+            take_bits = len_bytes * 8 - begin_bits;
+        }
+        return Util::SliceInt64FromBytes(bytes, begin_bits, take_bits);
+    }
+
+    // The number of memory entries required to do the custom SortInMemory algorithm, given the
+    // total number of entries to be sorted.
+    inline static uint64_t RoundSize(uint64_t size)
+    {
+        size *= 2;
+        uint64_t result = 1;
+        while (result < size) result *= 2;
+        return result + 50;
+    }
+
+    /*
+     * Like memcmp, but only compares starting at a certain bit.
+     */
+    inline static int MemCmpBits(
+        uint8_t *left_arr,
+        uint8_t *right_arr,
+        uint32_t len,
+        uint32_t bits_begin)
+    {
+        uint32_t start_byte = bits_begin / 8;
+        uint8_t mask = ((1 << (8 - (bits_begin % 8))) - 1);
+        if ((left_arr[start_byte] & mask) != (right_arr[start_byte] & mask)) {
+            return (left_arr[start_byte] & mask) - (right_arr[start_byte] & mask);
+        }
+
+        for (uint32_t i = start_byte + 1; i < len; i++) {
+            if (left_arr[i] != right_arr[i])
+                return left_arr[i] - right_arr[i];
+        }
+        return 0;
+    }
+
+    static double RoundPow2(double a)
+    {
+        // https://stackoverflow.com/questions/54611562/truncate-float-to-nearest-power-of-2-in-c-performance
+        int exp;
+        double frac = frexp(a, &exp);
+        if (frac > 0.0)
+            frac = 0.5;
+        else if (frac < 0.0)
+            frac = -0.5;
+        double b = ldexp(frac, exp);
+        return b;
     }
 
     static uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges)

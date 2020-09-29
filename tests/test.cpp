@@ -19,10 +19,11 @@
 #include "../lib/include/catch.hpp"
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
+#include "disk.hpp"
 #include "encoding.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
-#include "sort_on_disk.hpp"
+#include "sort_manager.hpp"
 #include "verifier.hpp"
 
 using namespace std;
@@ -256,6 +257,7 @@ public:
             s = s + std::string(new_size - s.size(), 0);
         }
     }
+    inline std::string GetFileName() override { return "fakedisk"; }
 
 private:
     std::string s;
@@ -494,7 +496,12 @@ void HexToBytes(const string& hex, uint8_t* result)
     }
 }
 
-void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+void TestProofOfSpace(
+    std::string filename,
+    uint32_t iterations,
+    uint8_t k,
+    uint8_t* plot_id,
+    uint32_t num_proofs)
 {
     DiskProver prover(filename);
     uint8_t* proof_data = new uint8_t[8 * k];
@@ -523,25 +530,54 @@ void TestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint
     }
     std::cout << "Success: " << success << "/" << iterations << " "
               << (100 * ((double)success / (double)iterations)) << "%" << std::endl;
-    REQUIRE(success > 0);
-    REQUIRE(success < iterations);
+    REQUIRE(success == num_proofs);
+    REQUIRE(success > 0.5 * iterations);
+    REQUIRE(success < 1.5 * iterations);
     delete[] proof_data;
 }
 
-void PlotAndTestProofOfSpace(std::string filename, uint32_t iterations, uint8_t k, uint8_t* plot_id)
+void PlotAndTestProofOfSpace(
+    std::string filename,
+    uint32_t iterations,
+    uint8_t k,
+    uint8_t* plot_id,
+    uint32_t buffer,
+    uint32_t num_proofs,
+    uint32_t stripe_size,
+    uint8_t num_threads)
 {
     DiskPlotter plotter = DiskPlotter();
     uint8_t memo[5] = {1, 2, 3, 4, 5};
-    plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id, 32);
-    TestProofOfSpace(filename, iterations, k, plot_id);
+    plotter.CreatePlotDisk(
+        ".", ".", ".", filename, k, memo, 5, plot_id, 32, buffer, 0, stripe_size, num_threads);
+    TestProofOfSpace(filename, iterations, k, plot_id, num_proofs);
     REQUIRE(remove(filename.c_str()) == 0);
 }
 
 TEST_CASE("Plotting")
 {
-    SECTION("Disk plot 1") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 16, plot_id_1); }
-    SECTION("Disk plot 2") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 17, plot_id_3); }
-    SECTION("Disk plot 3") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3); }
+    SECTION("Disk plot k18")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 18, plot_id_1, 11, 95, 4000, 2);
+    }
+    SECTION("Disk plot k19")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 2);
+    }
+    SECTION("Disk plot k19 single-thread")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 19, plot_id_1, 100, 71, 8192, 1);
+    }
+    SECTION("Disk plot k20")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 500, 20, plot_id_3, 100, 469, 16000, 2);
+    }
+    SECTION("Disk plot k21")
+    {
+        PlotAndTestProofOfSpace("cpp-test-plot.dat", 5000, 21, plot_id_3, 100, 4945, 8192, 4);
+    }
+    // SECTION("Disk plot k24") { PlotAndTestProofOfSpace("cpp-test-plot.dat", 100, 24, plot_id_3,
+    // 100, 107); }
 }
 
 TEST_CASE("Invalid plot")
@@ -552,8 +588,8 @@ TEST_CASE("Invalid plot")
         {
             DiskPlotter plotter = DiskPlotter();
             uint8_t memo[5] = {1, 2, 3, 4, 5};
-            uint8_t k = 22;
-            plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32);
+            uint8_t k = 20;
+            plotter.CreatePlotDisk(".", ".", ".", filename, k, memo, 5, plot_id_1, 32, 100);
             DiskProver prover(filename);
             uint8_t* proof_data = new uint8_t[8 * k];
             uint8_t challenge[32];
@@ -590,11 +626,11 @@ TEST_CASE("Sort on disk")
             uint8_t buf[15];
             Bits((uint128_t)27 << i, 15 * 8).ToBytes(buf);
 
-            REQUIRE(SortOnDiskUtils::ExtractNum(buf, 15, 15 * 8 - 4 - i, 3) == 5);
+            REQUIRE(Util::ExtractNum(buf, 15, 15 * 8 - 4 - i, 3) == 5);
         }
         uint8_t buf[16];
         Bits((uint128_t)27 << 5, 128).ToBytes(buf);
-        REQUIRE(SortOnDiskUtils::ExtractNum(buf, 16, 100, 200) == 864);
+        REQUIRE(Util::ExtractNum(buf, 16, 100, 200) == 864);
     }
 
     SECTION("MemCmpBits")
@@ -609,21 +645,21 @@ TEST_CASE("Sort on disk")
         right[1] = 10;
         right[2] = 100;
 
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) == 0);
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 10) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 10) == 0);
 
         right[1] = 11;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) < 0);
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 16) == 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) < 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 16) == 0);
 
         right[1] = 9;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) > 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) > 0);
 
         right[1] = 10;
 
         // Last bit differs
         right[2] = 101;
-        REQUIRE(SortOnDiskUtils::MemCmpBits(left, right, 3, 0) < 0);
+        REQUIRE(Util::MemCmpBits(left, right, 3, 0) < 0);
     }
 
     SECTION("Quicksort")
@@ -644,7 +680,7 @@ TEST_CASE("Sort on disk")
             memcpy(hashes_bytes + i * 16, to_insert.data(), to_insert.length());
         }
         sort(hashes.begin(), hashes.end());
-        Sorting::QuickSort(hashes_bytes, 16, iters, 0);
+        QuickSort::Sort(hashes_bytes, 16, iters, 0);
 
         for (uint32_t i = 0; i < iters; i++) {
             std::string str(reinterpret_cast<char*>(hashes_bytes) + i * 16, 16);
@@ -678,106 +714,65 @@ TEST_CASE("Sort on disk")
         remove("test_file.bin");
     }
 
-    SECTION("Bucket store")
+    SECTION("Lazy Sort Manager QS")
     {
-        uint32_t iters = 10000;
-        uint32_t size = 16;
-        vector<Bits> input;
-
-        for (uint32_t i = 0; i < iters; i++) {
-            uint8_t rand_arr[size];
-            for (uint32_t i = 0; i < size; i++) {
-                rand_arr[i] = rand() % 256;
-            }
-            input.push_back(Bits(rand_arr, size, size * 8));
-        }
-
-        set<Bits> iset(input.begin(), input.end());
-        uint32_t input_index = 0;
-        vector<Bits> output;
-
-        uint8_t* mem = new uint8_t[iters];
-        BucketStore bs = BucketStore(mem, iters, 16, 0, 4, 5);
-        bs.Audit();
-
-        uint8_t buf[size];
-        while (true) {
-            while (!bs.IsFull() && input_index != input.size()) {
-                input[input_index].ToBytes(buf);
-                bs.Store(buf, size);
-                bs.Audit();
-                input_index += 1;
-            }
-            uint32_t m = bs.MaxBucket();
-            uint64_t final_size;
-            uint64_t* bucket_handle = bs.BucketHandle(m, 1000000, final_size);
-            uint32_t entry_size = size / 8;
-            uint8_t last_size = (size * 8) % 64;
-            if (last_size == 0)
-                last_size = 64;
-            for (uint32_t i = 0; i < final_size; i += entry_size) {
-                Sorting::EntryToBytes(bucket_handle, i, i + entry_size, last_size, buf);
-                Bits x(buf, size, size * 8);
-                REQUIRE(iset.find(x) != iset.end());
-                REQUIRE(SortOnDiskUtils::ExtractNum((uint8_t*)buf, size, 0, 4) == m);
-                output.push_back(x);
-            }
-            if (bs.IsEmpty()) {
-                delete[] bucket_handle;
-                break;
-            }
-            delete[] bucket_handle;
-        }
-        sort(input.begin(), input.end());
-        sort(output.begin(), output.end());
-
-        set<Bits> output_set(output.begin(), output.end());
-        REQUIRE(output_set.size() == output.size());
-        for (uint32_t i = 0; i < output.size(); i++) {
-            REQUIRE(input[i] == output[i]);
-        }
-
-        delete[] mem;
-    }
-
-    SECTION("Sort on disk")
-    {
-        uint32_t iters = 100000;
+        uint32_t iters = 250000;
         uint32_t size = 32;
         vector<Bits> input;
-        uint32_t begin = 1000;
-        FakeDisk disk = FakeDisk(5000000);
-        FakeDisk spare = FakeDisk(5000000);
-
+        uint32_t begin = 0;
+        const uint32_t memory_len = 1000000;
+        uint8_t* memory = new uint8_t[memory_len];
+        SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-
-            disk.Write(begin + i * size, hash.data(), size);
-            input.emplace_back(Bits(hash.data(), size, size * 8));
+            total_written_1 += size;
+            Bits to_write = Bits(hash.data(), size, size * 8);
+            input.emplace_back(to_write);
+            manager.AddToCache(to_write);
         }
-
-        vector<uint64_t> bucket_sizes(16, 0);
+        manager.FlushCache();
         uint8_t buf[size];
-        for (Bits& x : input) {
-            x.ToBytes(buf);
-            bucket_sizes[SortOnDiskUtils::ExtractNum(buf, size, 0, 4)] += 1;
-        }
-
-        const uint32_t memory_len = 100000;
-        uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortOnDisk(disk, begin, spare, size, 0, bucket_sizes, memory, memory_len);
-
         sort(input.begin(), input.end());
-
-        uint8_t buf2[size];
+        uint8_t* buf3;
         for (uint32_t i = 0; i < iters; i++) {
-            disk.Read(begin + i * size, buf2, size);
+            buf3 = manager.ReadEntry(begin + i * size);
             input[i].ToBytes(buf);
-            REQUIRE(memcmp(buf, buf2, size) == 0);
+            REQUIRE(memcmp(buf, buf3, size) == 0);
         }
+        delete[] memory;
+    }
 
+    SECTION("Lazy Sort Manager uniform sort")
+    {
+        uint32_t iters = 120000;
+        uint32_t size = 32;
+        vector<Bits> input;
+        uint32_t begin = 0;
+        const uint32_t memory_len = 1000000;
+        uint8_t* memory = new uint8_t[memory_len];
+        SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        int total_written_1 = 0;
+        for (uint32_t i = 0; i < iters; i++) {
+            vector<unsigned char> hash_input = intToBytes(i, 4);
+            vector<unsigned char> hash(picosha2::k_digest_size);
+            picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+            total_written_1 += size;
+            Bits to_write = Bits(hash.data(), size, size * 8);
+            input.emplace_back(to_write);
+            manager.AddToCache(to_write);
+        }
+        manager.FlushCache();
+        uint8_t buf[size];
+        sort(input.begin(), input.end());
+        uint8_t* buf3;
+        for (uint32_t i = 0; i < iters; i++) {
+            buf3 = manager.ReadEntry(begin + i * size);
+            input[i].ToBytes(buf);
+            REQUIRE(memcmp(buf, buf3, size) == 0);
+        }
         delete[] memory;
     }
 
@@ -798,17 +793,15 @@ TEST_CASE("Sort on disk")
             input.emplace_back(Bits(hash.data(), size, size * 8));
         }
 
-        const uint32_t memory_len = SortOnDiskUtils::RoundSize(iters) * 30;
+        const uint32_t memory_len = Util::RoundSize(iters) * 30;
         uint8_t* memory = new uint8_t[memory_len];
-        Sorting::SortInMemory(disk, begin, memory, size, iters, 16);
+        UniformSort::SortToMemory(disk, begin, memory, size, iters, 16);
 
         sort(input.begin(), input.end());
         uint8_t buf[size];
-        uint8_t buf2[size];
         for (uint32_t i = 0; i < iters; i++) {
-            disk.Read(begin + i * size, buf2, size);
             input[i].ToBytes(buf);
-            REQUIRE(memcmp(buf, buf2, size) == 0);
+            REQUIRE(memcmp(buf, memory + i * size, size) == 0);
         }
 
         delete[] memory;

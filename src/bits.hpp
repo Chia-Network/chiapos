@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "./util.hpp"
+#include "exceptions.hpp"
 
 using namespace std;
 
@@ -360,7 +361,7 @@ public:
                 }
         }
         if (all_zero) {
-            throw std::string("Overflow, negative number");
+            throw InvalidStateException("Overflow, negative number");
         }
         return *this;
     }
@@ -514,7 +515,8 @@ public:
         if (values_.size() > 2) {
             std::cout << "Number of 64 bit values is: " << values_.size() << std::endl;
             std::cout << "Size of bits is: " << GetSize() << std::endl;
-            throw std::string("Number doesn't fit into a 128-bit type.");
+            throw InvalidStateException(
+                "Number doesn't fit into a 128-bit type. " + std::to_string(GetSize()));
         }
 
         if (GetSize() <= 64)
@@ -637,7 +639,7 @@ template <class T>
 bool operator<(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs)
 {
     if (lhs.GetSize() != rhs.GetSize())
-        throw std::string("Different sizes!");
+        throw InvalidStateException("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
         if (lhs.values_[i] < rhs.values_[i])
             return true;
@@ -651,7 +653,7 @@ template <class T>
 bool operator>(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs)
 {
     if (lhs.GetSize() != rhs.GetSize())
-        throw std::string("Different sizes!");
+        throw InvalidStateException("Different sizes!");
     for (uint32_t i = 0; i < lhs.values_.size(); i++) {
         if (lhs.values_[i] > rhs.values_[i])
             return true;

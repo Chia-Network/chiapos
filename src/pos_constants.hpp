@@ -20,14 +20,33 @@
 // Unique plot id which will be used as a ChaCha8 key, and determines the PoSpace.
 const uint32_t kIdLen = 32;
 
+// Distance between matching entries is stored in the offset
+const uint32_t kOffsetSize = 10;
+
+// Max matches a single entry can have, used for hardcoded memory allocation
+const uint32_t kMaxMatchesSingleEntry = 30;
+const uint32_t kMinBuckets = 16;
+const uint32_t kMaxBuckets = 128;
+
+// During backprop and compress, the write pointer is ahead of the read pointer
+// Note that the large the offset, the higher these values must be
+const uint32_t kReadMinusWrite = 1U << kOffsetSize;
+const uint32_t kCachedPositionsSize = kReadMinusWrite * 4;
+
 // Must be set high enough to prevent attacks of fast plotting
-const uint32_t kMinPlotSize = 15;
+const uint32_t kMinPlotSize = 18;
 
 // Set to 50 since k + kExtraBits + k*4 must not exceed 256 (BLAKE3 output size)
 const uint32_t kMaxPlotSize = 50;
 
 // The amount of spare space used for sort on disk (multiplied time memory buffer size)
 const uint32_t kSpareMultiplier = 5;
+
+// The proportion of memory to allocate to the Sort Manager for reading in buckets and sorting them
+// The lower this number, the more memory must be provided by the caller. However, lowering the
+// number also allows a higher proportion for writing, which reduces seeks for HDD.
+const double kMemSortProportion = 0.75;
+const double kMemSortProportionLinePoint = 0.85;
 
 // How many f7s per C1 entry, and how many C1 entries per C2 entry
 const uint32_t kCheckpoint1Interval = 10000;

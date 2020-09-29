@@ -31,7 +31,7 @@
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
-#include "plotter_disk.hpp"
+#include "entry_sizes.hpp"
 #include "util.hpp"
 
 struct plot_header {
@@ -249,22 +249,22 @@ private:
     uint128_t ReadLinePoint(ifstream& disk_file, uint8_t table_index, uint64_t position)
     {
         uint64_t park_index = position / kEntriesPerPark;
-        uint32_t park_size_bits = DiskPlotter::CalculateParkSize(k, table_index) * 8;
+        uint32_t park_size_bits = EntrySizes::CalculateParkSize(k, table_index) * 8;
         disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
 
         // This is the checkpoint at the beginning of the park
-        uint16_t line_point_size_bits = DiskPlotter::CalculateLinePointSize(k) * 8;
+        uint16_t line_point_size_bits = EntrySizes::CalculateLinePointSize(k) * 8;
         uint8_t* line_point_bin = new uint8_t[line_point_size_bits / 8];
         disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size_bits / 8);
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs
-        uint32_t stubs_size_bits = DiskPlotter::CalculateStubsSize(k) * 8;
+        uint32_t stubs_size_bits = EntrySizes::CalculateStubsSize(k) * 8;
         uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
         disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
 
         // Reads EPP deltas
-        uint32_t max_deltas_size_bits = DiskPlotter::CalculateMaxDeltasSize(k, table_index) * 8;
+        uint32_t max_deltas_size_bits = EntrySizes::CalculateMaxDeltasSize(k, table_index) * 8;
         uint8_t* deltas_bin = new uint8_t[max_deltas_size_bits / 8];
 
         // Reads the size of the encoded deltas object
@@ -419,7 +419,7 @@ private:
             c1_index -= 1;
         }
 
-        uint32_t c3_entry_size = DiskPlotter::CalculateC3Size(k);
+        uint32_t c3_entry_size = EntrySizes::CalculateC3Size(k);
         uint8_t* bit_mask = new uint8_t[c3_entry_size];
 
         // Double entry means that our entries are in more than one checkpoint park.
@@ -590,8 +590,8 @@ private:
     }
 
     // Recursive function to go through the tables on disk, backpropagating and fetching
-    // all of the leaves (x values). For example, for depth=5, it fetches the positionth
-    // entry in table 5, reading the two backpointers from the line point, and then
+    // all of the leaves (x values). For example, for depth=5, it fetches the position-th
+    // entry in table 5, reading the two back pointers from the line point, and then
     // recursively calling GetInputs for table 4.
     std::vector<Bits> GetInputs(ifstream& disk_file, uint64_t position, uint8_t depth)
     {
