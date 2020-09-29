@@ -131,11 +131,11 @@ PlotEntry GetLeftEntry(
 }
 
 #ifdef _WIN32
-DWORD WINAPI thread(LPVOID lpParameter)
+DWORD WINAPI phase1_thread(LPVOID lpParameter)
 {
     THREADDATA* ptd = (THREADDATA*)lpParameter;
 #else
-void* thread(void* arg)
+void* phase1_thread(void* arg)
 {
     THREADDATA* ptd = (THREADDATA*)arg;
 #endif
@@ -719,9 +719,9 @@ std::vector<uint64_t> RunPhase1(
             td[i].ptmp_1_disks = &tmp_1_disks;
 
 #ifdef _WIN32
-            t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
+            t[i] = CreateThread(0, 0, phase1_thread, &(td[i]), 0, NULL);
 #else
-            pthread_create(&(t[i]), NULL, thread, &(td[i]));
+            pthread_create(&(t[i]), NULL, phase1_thread, &(td[i]));
 #endif
         }
         SemaphoreUtils::Post(mutex[globals.num_threads - 1]);
