@@ -718,6 +718,7 @@ std::vector<uint64_t> RunPhase1(
                 2,      // maximum count
                 NULL);  // unnamed semaphore
 #else
+            sprintf(semname, "sem %d", i);
             mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
 #endif
         }
