@@ -208,10 +208,9 @@ void* F1thread(void* arg)
         uint64_t x = lp * (2 << (kBatchSizes - 1));
         std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
-        uint64_t loopcount=min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1));
+        uint64_t loopcount = min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1));
 
-        for (auto kv : f1.CalculateBuckets(
-                 Bits(x, k), loopcount)) {
+        for (auto kv : f1.CalculateBuckets(Bits(x, k), loopcount)) {
             // TODO(mariano): fix inefficient memory alloc here
             (std::get<0>(kv) + std::get<1>(kv)).ToBytes(buf);
 
@@ -1078,118 +1077,116 @@ private:
         const uint8_t* memo,
         uint8_t memo_len)
     {
-uint64_t prevtableentries=0;
+        uint64_t prevtableentries = 0;
 
         // These are used for sorting on disk. The sort on disk code needs to know how
         // many elements are in each bucket.
         std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
         std::vector<uint64_t> bucket_sizes(kNumSortBuckets, 0);
-{
-// F1 scope
-        std::cout << "Computing table 1" << std::endl;
-        Timer f1_start_time;
+        {
+            // F1 scope
+            std::cout << "Computing table 1" << std::endl;
+            Timer f1_start_time;
 
-// Dummy to load static table
-F1Calculator f1(k, id);
+            // Dummy to load static table
+            F1Calculator f1(k, id);
 
-        uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
+            uint32_t entry_size_bytes = GetMaxEntrySize(k, 1, true);
 
-        // Start of parallel execution
+            // Start of parallel execution
 
-        g_right_writer = 0;
-        g_right_writer_count = 0;
+            g_right_writer = 0;
+            g_right_writer_count = 0;
 
-        THREADF1DATA td[NUMTHREADS];
+            THREADF1DATA td[NUMTHREADS];
 #ifdef _WIN32
-        HANDLE t[NUMTHREADS];
-        HANDLE mutex[NUMTHREADS];
+            HANDLE t[NUMTHREADS];
+            HANDLE mutex[NUMTHREADS];
 #else
-        pthread_t t[NUMTHREADS];
-        sem_t* mutex[NUMTHREADS];
-        char semname[20];
+            pthread_t t[NUMTHREADS];
+            sem_t* mutex[NUMTHREADS];
+            char semname[20];
 #endif
 
-        for (int i = 0; i < NUMTHREADS; i++) {
+            for (int i = 0; i < NUMTHREADS; i++) {
 #ifdef _WIN32
-            mutex[i] = CreateSemaphore(
-                NULL,   // default security attributes
-                0,      // initial count
-                1,      // maximum count
-                NULL);  // unnamed semaphore
+                mutex[i] = CreateSemaphore(
+                    NULL,   // default security attributes
+                    0,      // initial count
+                    1,      // maximum count
+                    NULL);  // unnamed semaphore
 #else
-            sprintf(semname, "f1 sem %d", i);
-            mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+                sprintf(semname, "f1 sem %d", i);
+                mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
 #endif
+            }
+
+            uint64_t threadMemSize = memorySize / NUMTHREADS;
+
+            for (int i = 0; i < NUMTHREADS; i++) {
+                td[i].index = i;
+                td[i].mine = mutex[i];
+                td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
+
+                td[i].k = k;
+                td[i].ptmp_1_disk = &(tmp_1_disks[1]);
+                td[i].entry_size_bytes = entry_size_bytes;
+                td[i].id = id;
+
+#ifdef _WIN32
+                t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
+#else
+                pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
+#endif
+            }
+
+#ifdef _WIN32
+            ReleaseSemaphore(mutex[NUMTHREADS - 1], 1, NULL);
+#else
+            sem_post(mutex[NUMTHREADS - 1]);
+#endif
+
+            for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+                WaitForSingleObject(t[i], INFINITE);
+                CloseHandle(t[i]);
+#else
+                pthread_join(t[i], NULL);
+#endif
+            }
+
+            for (int i = 0; i < NUMTHREADS; i++) {
+#ifdef _WIN32
+                CloseHandle(mutex[i]);
+#else
+                sem_close(mutex[i]);
+                sprintf(semname, "f1 sem %d", i);
+                sem_unlink(semname);
+#endif
+            }
+
+            // end of parallel execution
+
+            prevtableentries = g_right_writer_count;
+
+            // A zero entry is the end of table symbol.
+            uint8_t buf[14];
+            memset(buf, 0x00, entry_size_bytes);
+            tmp_1_disks[1].Write(g_right_writer, buf, entry_size_bytes);
+
+            table_sizes[1] = g_right_writer_count;
+            g_right_writer += entry_size_bytes;
+
+            for (int i = 0; i < kNumSortBuckets; i++) {
+                bucket_sizes[i] = g_right_bucket_sizes[i];
+                cout << "bucket " << i << " size " << bucket_sizes[i] << endl;
+                g_right_bucket_sizes[i] = 0;
+            }
+            f1_start_time.PrintElapsed("F1 complete, Time = ");
+
+            g_right_writer = 0;
+            g_right_writer_count = 0;
         }
-
-        uint64_t threadMemSize = memorySize / NUMTHREADS;
-
-        for (int i = 0; i < NUMTHREADS; i++) {
-            td[i].index = i;
-            td[i].mine = mutex[i];
-            td[i].theirs = mutex[(NUMTHREADS + i - 1) % NUMTHREADS];
-
-            td[i].k = k;
-            td[i].ptmp_1_disk = &(tmp_1_disks[1]);
-            td[i].entry_size_bytes = entry_size_bytes;
-            td[i].id = id;
-
-#ifdef _WIN32
-            t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
-#else
-            pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
-#endif
-        }
-
-#ifdef _WIN32
-        ReleaseSemaphore(mutex[NUMTHREADS - 1], 1, NULL);
-#else
-        sem_post(mutex[NUMTHREADS - 1]);
-#endif
-
-        for (int i = 0; i < NUMTHREADS; i++) {
-#ifdef _WIN32
-            WaitForSingleObject(t[i], INFINITE);
-            CloseHandle(t[i]);
-#else
-            pthread_join(t[i], NULL);
-#endif
-        }
-
-        for (int i = 0; i < NUMTHREADS; i++) {
-#ifdef _WIN32
-            CloseHandle(mutex[i]);
-#else
-            sem_close(mutex[i]);
-            sprintf(semname, "f1 sem %d", i);
-            sem_unlink(semname);
-#endif
-        }
-
-        // end of parallel execution
-
-        prevtableentries = g_right_writer_count;
-
-        // A zero entry is the end of table symbol.
-        uint8_t buf[14];
-        memset(buf, 0x00, entry_size_bytes);
-        tmp_1_disks[1].Write(g_right_writer, buf, entry_size_bytes);
-
-        table_sizes[1] = g_right_writer_count;
-        g_right_writer += entry_size_bytes;
-
-for(int i=0;i<kNumSortBuckets;i++)
-{
-bucket_sizes[i]=g_right_bucket_sizes[i];
-cout << "bucket " << i << " size " << bucket_sizes[i] << endl;
-g_right_bucket_sizes[i]=0;
-}
-        f1_start_time.PrintElapsed("F1 complete, Time = ");
-
-g_right_writer=0;
-g_right_writer_count=0;
-
-}
         // Store positions to previous tables, in k bits.
         uint8_t pos_size = k;
         uint32_t right_entry_size_bytes = 0;
