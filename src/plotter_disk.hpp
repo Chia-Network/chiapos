@@ -85,7 +85,7 @@ public:
         if (stripe_size_input != 0) {
             stripe_size = stripe_size_input;
         } else {
-            stripe_size = 8192;
+            stripe_size = 65536;
         }
         if (num_threads_input != 0) {
             num_threads = num_threads_input;
