@@ -122,20 +122,25 @@ int main(int argc, char *argv[])
             HexToBytes(id, id_bytes);
 
             DiskPlotter plotter = DiskPlotter();
-            plotter.CreatePlotDisk(
-                tempdir,
-                tempdir2,
-                finaldir,
-                filename,
-                k,
-                memo_bytes,
-                memo.size() / 2,
-                id_bytes,
-                32,
-                buffmegabytes,
-                num_buckets,
-                num_stripes,
-                num_threads);
+            try {
+                plotter.CreatePlotDisk(
+                        tempdir,
+                        tempdir2,
+                        finaldir,
+                        filename,
+                        k,
+                        memo_bytes,
+                        memo.size() / 2,
+                        id_bytes,
+                        32,
+                        buffmegabytes,
+                        num_buckets,
+                        num_stripes,
+                        num_threads);
+            } catch (const std::exception &e) {
+                std::cerr << "Caught exception while plotting: " << e.what() << std::endl;
+                throw e;
+            }
             delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {
