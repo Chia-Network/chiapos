@@ -177,9 +177,9 @@ void* phase1_thread(void* arg)
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * globals.num_threads + ptd->index) * globals.stripe_size;
+        uint64_t stripe_c = stripe * globals.num_threads + ptd->index;
         uint64_t endpos = pos + globals.stripe_size + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
-        uint64_t left_reader_prev_stripe = (pos - globals.stripe_size) * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
         uint64_t stripe_start_correction = 0xffffffffffffffff;
@@ -227,18 +227,27 @@ void* phase1_thread(void* arg)
             stripe_start_correction = 0;
         }
 
+        std::cout << ptd->index << " " << stripe_c << ": Waiting A" << std::endl;
         SemaphoreUtils::Wait(ptd->theirs);
+        std::cout << ptd->index  << " " << stripe_c << ": Waiting A done" << std::endl;
         need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
         if (need_new_bucket) {
+            std::cout << ptd->index << " " << stripe_c  << ": Need new bucket" << std::endl;
             if (!first_thread) {
+                std::cout << ptd->index << " " << stripe_c  << ": Waiting B" << std::endl;
                 SemaphoreUtils::Wait(ptd->theirs);
+                std::cout << ptd->index << " " << stripe_c  << ": Waiting B done" << std::endl;
             }
+            std::cout << ptd->index << " " << stripe_c  << ": Trigerring bucket" << std::endl;
             globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+            std::cout << ptd->index << " " << stripe_c  << ": Triggering bucket done" << std::endl;
         }
         if (!last_thread) {
             // Do not post if we are the last thread, because first thread has already
             // waited for us to finish when it starts
+            std::cout << ptd->index << " " << stripe_c  << ": Posting C" << std::endl;
             SemaphoreUtils::Post(ptd->mine);
+            std::cout << ptd->index << " " << stripe_c  << ": Posting C done" << std::endl;
         }
 
         while (pos < prevtableentries + 1) {
@@ -506,7 +515,9 @@ void* phase1_thread(void* arg)
         // If we needed new bucket, we already waited
         // Do not wait if we are the first thread, since we are guaranteed that everything is written
         if (!need_new_bucket && !first_thread) {
+            std::cout << ptd->index << " " << stripe_c  << ": Waiting D" << std::endl;
             SemaphoreUtils::Wait(ptd->theirs);
+            std::cout << ptd->index << " " << stripe_c  << ": Waiting D done" << std::endl;
         }
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
@@ -549,7 +560,9 @@ void* phase1_thread(void* arg)
         globals.left_writer_count += left_writer_count;
 
         globals.matches += matches;
+        std::cout << ptd->index << " " << stripe_c  << ": Posting E" << std::endl;
         SemaphoreUtils::Post(ptd->mine);
+        std::cout << ptd->index << " " << stripe_c  << ": Posting E done" << std::endl;
     }
 
     delete[] L_position_map;
