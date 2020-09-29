@@ -203,6 +203,9 @@ void* phase1_thread(void* arg)
 
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
+        bool need_new_bucket = false;
+        bool first_thread =  ptd->index % globals.num_threads == 0;
+        bool last_thread =  ptd->index % globals.num_threads == globals.num_threads - 1;
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
@@ -224,15 +227,18 @@ void* phase1_thread(void* arg)
             stripe_start_correction = 0;
         }
 
-        bool need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
-
+        SemaphoreUtils::Wait(ptd->theirs);
+        need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
         if (need_new_bucket) {
-            bool will_trigger_bucket =
-                !globals.L_sort_manager->CloseToNewBucket(left_reader_prev_stripe);
-            SemaphoreUtils::Wait(ptd->theirs);
-            if (will_trigger_bucket) {
-                globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+            if (!first_thread) {
+                SemaphoreUtils::Wait(ptd->theirs);
             }
+            globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+        }
+        if (!last_thread) {
+            // Do not post if we are the last thread, because first thread has already
+            // waited for us to finish when it starts
+            SemaphoreUtils::Post(ptd->mine);
         }
 
         while (pos < prevtableentries + 1) {
@@ -497,8 +503,9 @@ void* phase1_thread(void* arg)
             ++pos;
         }
 
-        if (!need_new_bucket) {
-            // If we needed new bucket, we already waited
+        // If we needed new bucket, we already waited
+        // Do not wait if we are the first thread, since we are guaranteed that everything is written
+        if (!need_new_bucket && !first_thread) {
             SemaphoreUtils::Wait(ptd->theirs);
         }
 
