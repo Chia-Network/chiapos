@@ -200,6 +200,14 @@ public:
         return bswap_64(i);
     }
 
+    static void IntTo16Bytes(uint8_t *result, const uint128_t input)
+    {
+        uint64_t r = bswap_64(input >> 64);
+        memcpy(result, &r, sizeof(r));
+        r = bswap_64((uint64_t)input);
+        memcpy(result + 8, &r, sizeof(r));
+    }
+
     /*
      * Retrieves the size of an integer, in Bits.
      */

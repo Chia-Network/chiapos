@@ -377,11 +377,13 @@ TEST_CASE("F functions")
         Bits L3 = Bits(625, test_k);
         pair<Bits, Bits> result3 = f1.CalculateBucket(L3);
 
-        vector<pair<Bits, Bits>> results = f1.CalculateBuckets(L, 101);
-        REQUIRE(result1 == results[0]);
-        REQUIRE(result2 == results[1]);
-        REQUIRE(result3 == results[100]);
+        uint64_t results[256];
+        f1.CalculateBuckets(L.GetValue(), 101, results);
+        REQUIRE(result1.first.GetValue() == results[0]);
+        REQUIRE(result2.first.GetValue() == results[1]);
+        REQUIRE(result3.first.GetValue() == results[100]);
 
+        uint32_t max_batch = 1 << kBatchSizes;
         test_k = 32;
         F1Calculator f1_2(test_k, test_key);
         L = Bits(192837491, test_k);
@@ -390,14 +392,14 @@ TEST_CASE("F functions")
         result2 = f1_2.CalculateBucket(L2);
         L3 = Bits(192837491 + 2, test_k);
         result3 = f1_2.CalculateBucket(L3);
-        Bits L4 = Bits(192837491 + 490, test_k);
+        Bits L4 = Bits(192837491 + max_batch - 1, test_k);
         pair<Bits, Bits> result4 = f1_2.CalculateBucket(L4);
 
-        results = f1_2.CalculateBuckets(L, 491);
-        REQUIRE(result1 == results[0]);
-        REQUIRE(result2 == results[1]);
-        REQUIRE(result3 == results[2]);
-        REQUIRE(result4 == results[490]);
+        f1_2.CalculateBuckets(L.GetValue(), max_batch, results);
+        REQUIRE(result1.first.GetValue() == results[0]);
+        REQUIRE(result2.first.GetValue() == results[1]);
+        REQUIRE(result3.first.GetValue() == results[2]);
+        REQUIRE(result4.first.GetValue() == results[max_batch - 1]);
     }
 
     SECTION("F2")
@@ -413,12 +415,15 @@ TEST_CASE("F functions")
 
         F1Calculator f1(k, test_key_2);
         for (uint32_t j = 0; j < (1ULL << (k - 4)) + 1; j++) {
-            for (auto pair : f1.CalculateBuckets(x, 1U << 4)) {
-                uint64_t bucket = std::get<0>(pair).GetValue() / kBC;
+            uint64_t y[1 << 4];
+
+            f1.CalculateBuckets(x.GetValue(), 1U << 4, y);
+            for (int i = 0; i < 1 << 4; i++) {
+                uint64_t bucket = y[i] / kBC;
                 if (buckets.find(bucket) == buckets.end()) {
                     buckets[bucket] = vector<std::pair<Bits, Bits>>();
                 }
-                buckets[bucket].push_back(pair);
+                buckets[bucket].push_back(std::make_pair(Bits(y[i], k + kExtraBits), Bits(x, k)));
                 if (x.GetValue() + 1 > (1ULL << k) - 1) {
                     break;
                 }
