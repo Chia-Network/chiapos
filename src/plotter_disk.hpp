@@ -1135,7 +1135,7 @@ F1Calculator f1(k, id);
             td[i].id = id;
 
 #ifdef _WIN32
-            t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
+            t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
 #else
             pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
 #endif
