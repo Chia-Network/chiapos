@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
         options.allow_unrecognised_options().add_options()(
                 "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
-                "h, threads", "Number of stripes", cxxopts::value<uint8_t>(num_threads))(
+                "h, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
                     "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
                 "s, stripes", "Number of stripes", cxxopts::value<uint32_t>(num_stripes))(
                 "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
