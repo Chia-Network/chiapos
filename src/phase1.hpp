@@ -51,8 +51,8 @@ namespace fs = ghc::filesystem;
 typedef struct {
     int index;
 #ifdef _WIN32
-    HANDLE mine;
-    HANDLE theirs;
+    HANDLE* mine;
+    HANDLE* theirs;
 #elif __APPLE__
     dispatch_semaphore_t *mine;
     dispatch_semaphore_t *theirs;

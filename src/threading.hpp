@@ -20,7 +20,7 @@
 class SemaphoreUtils {
 public:
 #ifdef _WIN32
-    static inline void Wait(HANDLE semaphore) { WaitForSingleObject(semaphore, INFINITE); }
+    static inline void Wait(HANDLE* semaphore) { WaitForSingleObject(*semaphore, INFINITE); }
 #elif __APPLE__
     static inline void Wait(dispatch_semaphore_t *semaphore) {
         dispatch_semaphore_wait(*semaphore, DISPATCH_TIME_FOREVER);
@@ -30,7 +30,7 @@ public:
 #endif
 
 #ifdef _WIN32
-    static inline void Post(HANDLE semaphore) { ReleaseSemaphore(semaphore, 1, NULL); }
+    static inline void Post(HANDLE* semaphore) { ReleaseSemaphore(*semaphore, 1, NULL); }
 #elif __APPLE__
 
     static inline void Post(dispatch_semaphore_t *semaphore) {
