@@ -156,10 +156,10 @@ void* phase1_thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = (uint64_t)(globals.stripe_size) + 5000;
-    uint64_t right_buf_entries = (uint64_t)(globals.stripe_size) + 5000;
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
-    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
+    uint64_t left_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
+    uint64_t right_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes]();
+    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes]();
 
     FxCalculator f(k, table_index + 1);
 
@@ -168,8 +168,8 @@ void* phase1_thread(void* arg)
     uint16_t position_map_size = 2000;
 
     uint16_t* L_position_map =
-        new uint16_t[position_map_size];  // Should comfortably fit 2 buckets worth of items
-    uint16_t* R_position_map = new uint16_t[position_map_size];
+        new uint16_t[position_map_size]();  // Should comfortably fit 2 buckets worth of items
+    uint16_t* R_position_map = new uint16_t[position_map_size]();
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
