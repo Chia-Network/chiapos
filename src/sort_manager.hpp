@@ -59,7 +59,6 @@ public:
         this->prev_bucket_buf_size =
             2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size;
         this->prev_bucket_buf = new uint8_t[this->prev_bucket_buf_size]();
-        std::cout << "SIze: " << prev_bucket_buf_size << std::endl;
         this->prev_bucket_position_start = 0;
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
@@ -224,7 +223,6 @@ private:
 
     inline void FlushTable(uint16_t bucket_i)
     {
-        std::cout << "Strart flush" << std::endl;
         uint64_t start_write = this->bucket_write_pointers[bucket_i];
         uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
 
@@ -235,12 +233,10 @@ private:
         // Reset memory caches
         this->mem_bucket_pointers[bucket_i] = this->memory_start + bucket_i * this->size_per_bucket;
         this->mem_bucket_sizes[bucket_i] = 0;
-        std::cout << "End flush" << std::endl;
     }
 
     inline void SortBucket(int quicksort)
     {
-        std::cout << "Start sort bucket" << std::endl;
         this->done = true;
         if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
@@ -300,7 +296,6 @@ private:
         this->final_position_start = this->final_position_end;
         this->final_position_end += this->bucket_write_pointers[bucket_i];
         this->next_bucket_to_sort += 1;
-        std::cout << "Enzd sort bucket" << std::endl;
     }
 };
 
