@@ -190,7 +190,7 @@ Phase3Results RunPhase3(
         uint8_t *right_writer_buf = &(memory[sort_manager_buf_size]);
         uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + right_writer_buf_size]);
         uint64_t left_reader_buf_entries = sort_manager_buf_size / left_entry_size_bytes;
-        uint64_t right_reader_buf_entries = right_reader_buf_size / right_entry_size_bytes;
+        uint64_t right_reader_buf_entries = right_reader_buf_size / right_entry_size_bytes - 10;
         uint64_t left_reader_count = 0;
         uint64_t right_reader_count = 0;
         uint64_t total_r_entries = 0;
