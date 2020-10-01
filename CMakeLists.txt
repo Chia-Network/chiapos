@@ -36,8 +36,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z")
-set (CMAKE_C_FLAGS "-g -O3 -Wall")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set (CMAKE_CXX_FLAGS "-g -O2 -Wall -std=c++1z")
+  set (CMAKE_C_FLAGS "-g -O2 -Wall")
+else()
+  set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z")
+  set (CMAKE_C_FLAGS "-g -O3 -Wall")
+endif()
+
 
 set(BLAKE3_SRC
     src/b3/blake3.c
