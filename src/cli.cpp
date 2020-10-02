@@ -51,7 +51,7 @@ string Strip0x(const string &hex)
 void HelpAndQuit(cxxopts::Options options)
 {
     cout << options.help({""}) << endl;
-    cout << "./ProofOfSpace generate" << endl;
+    cout << "./ProofOfSpace create" << endl;
     cout << "./ProofOfSpace prove <challenge>" << endl;
     cout << "./ProofOfSpace verify <proof> <challenge>" << endl;
     cout << "./ProofOfSpace check" << endl;
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     try {
         cxxopts::Options options(
             "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
-        options.positional_help("(generate/prove/verify/check) param1 param2 ")
+        options.positional_help("(create/prove/verify/check) param1 param2 ")
             .show_positional_help();
 
         // Default values
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
         if (operation == "help") {
             HelpAndQuit(options);
-        } else if (operation == "generate") {
+        } else if (operation == "create") {
             cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
                  << " id=" << id << endl
                  << endl;
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
             std::cout << "Total success: " << success << "/" << iterations << ", "
                       << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
         } else {
-            cout << "Invalid operation. Use generate/prove/verify/check" << endl;
+            cout << "Invalid operation. Use create/prove/verify/check" << endl;
         }
         exit(0);
     } catch (const cxxopts::OptionException &e) {
