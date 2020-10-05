@@ -36,9 +36,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall -std=c++1z")
+set (CMAKE_CXX_FLAGS "-g -O3 -Wall")
 set (CMAKE_C_FLAGS "-g -O3 -Wall")
-
 
 set(BLAKE3_SRC
     src/b3/blake3.c
@@ -63,6 +62,10 @@ add_executable(RunTests
     src/chacha8.c
     ${BLAKE3_SRC}
 )
+
+target_compile_features(fse PUBLIC cxx_std_17)
+target_compile_features(chiapos PUBLIC cxx_std_17)
+target_compile_features(RunTests PUBLIC cxx_std_17)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries(chiapos PRIVATE fse)
