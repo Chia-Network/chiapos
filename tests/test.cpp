@@ -46,6 +46,105 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
 
 static uint128_t to_uint128(uint64_t hi, uint64_t lo) { return (uint128_t)hi << 64 | lo; }
 
+TEST_CASE("SliceInt64FromBytes 1 bit")
+{
+    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+
+    // since we interpret the first 64 bits (8 bytes) as big endian, the
+    // first byte is 0x01
+    CHECK(Util::SliceInt64FromBytes(bytes, 0, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 1, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 2, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 3, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 4, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 5, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 6, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 7, 1) == 1);
+
+    // the second byte is 0x2
+    CHECK(Util::SliceInt64FromBytes(bytes, 8, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 9, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 10, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 11, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 12, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 13, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 14, 1) == 1);
+    CHECK(Util::SliceInt64FromBytes(bytes, 15, 1) == 0);
+
+    // the third byte is 0x3
+    CHECK(Util::SliceInt64FromBytes(bytes, 16, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 17, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 18, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 19, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 20, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 21, 1) == 0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 22, 1) == 1);
+    CHECK(Util::SliceInt64FromBytes(bytes, 23, 1) == 1);
+}
+
+TEST_CASE("SliceInt64FromBytes 8 bits")
+{
+    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+
+    // since we interpret the first 64 bits (8 bytes) as big endian, the
+    // first byte is 0x01
+    CHECK(Util::SliceInt64FromBytes(bytes, 0, 8) == 0b00000001);
+    CHECK(Util::SliceInt64FromBytes(bytes, 1, 8) == 0b00000010);
+    CHECK(Util::SliceInt64FromBytes(bytes, 2, 8) == 0b00000100);
+    CHECK(Util::SliceInt64FromBytes(bytes, 3, 8) == 0b00001000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 4, 8) == 0b00010000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 5, 8) == 0b00100000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 6, 8) == 0b01000000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 7, 8) == 0b10000001);
+
+    CHECK(Util::SliceInt64FromBytes(bytes,  8, 8) == 0b00000010);
+    CHECK(Util::SliceInt64FromBytes(bytes,  9, 8) == 0b00000100);
+    CHECK(Util::SliceInt64FromBytes(bytes, 10, 8) == 0b00001000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 11, 8) == 0b00010000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 12, 8) == 0b00100000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 13, 8) == 0b01000000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 14, 8) == 0b10000000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 15, 8) == 0b00000001);
+
+    CHECK(Util::SliceInt64FromBytes(bytes, 16, 8) == 0b00000011);
+    CHECK(Util::SliceInt64FromBytes(bytes, 17, 8) == 0b00000110);
+    CHECK(Util::SliceInt64FromBytes(bytes, 18, 8) == 0b00001100);
+    CHECK(Util::SliceInt64FromBytes(bytes, 19, 8) == 0b00011000);
+}
+
+TEST_CASE("SliceInt64FromBytes 24 bits")
+{
+    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+
+    // since we interpret the first 64 bits (8 bytes) as big endian, the
+    // first byte is 0x01
+    CHECK(Util::SliceInt64FromBytes(bytes, 0, 24) == 0b00000001'00000010'00000011);
+    CHECK(Util::SliceInt64FromBytes(bytes, 1, 24) == 0b0000001'00000010'00000011'0);
+    CHECK(Util::SliceInt64FromBytes(bytes, 2, 24) == 0b000001'00000010'00000011'00);
+    CHECK(Util::SliceInt64FromBytes(bytes, 3, 24) == 0b00001'00000010'00000011'000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 4, 24) == 0b0001'00000010'00000011'0000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 5, 24) == 0b001'00000010'00000011'00000);
+    CHECK(Util::SliceInt64FromBytes(bytes, 6, 24) == 0b01'00000010'00000011'000001);
+    CHECK(Util::SliceInt64FromBytes(bytes, 7, 24) == 0b1'00000010'00000011'0000010);
+}
+
+TEST_CASE("SliceInt64FromBytesFull")
+{
+    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+
+    // since we interpret the first 64 bits (8 bytes) as big endian, the
+    // first byte is 0x01
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 0, 64) == 0x0102030405060708ull);
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 1, 64) == 0x0102030405060708ull << 1);
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 2, 64) == 0x0102030405060708ull << 2);
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 3, 64) == 0x0102030405060708ull << 3);
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 4, 64) == 0x1020304050607080ull);
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 5, 64) == ((0x1020304050607080ull << 1) | 0b1));
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 6, 64) == ((0x1020304050607080ull << 2) | 0b10));
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 7, 64) == ((0x1020304050607080ull << 3) | 0b100));
+    CHECK(Util::SliceInt64FromBytesFull(bytes, 8, 64) == 0x0203040506070809ull);
+}
+
 TEST_CASE("Util")
 {
     SECTION("Increment and decrement")
