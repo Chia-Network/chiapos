@@ -68,8 +68,8 @@ jobs:
         cd build
         cmake ../
         cmake --build . -- -j 6
-        ./RunTests
-        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ./RunTests
+        ctest -j 6
+        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6
 
     - name: Build wheels and test
       run: |
