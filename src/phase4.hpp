@@ -47,9 +47,9 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
 
     uint64_t begin_byte_C1 = res.final_table_begin_pointers[7] + number_of_p7_parks * P7_park_size;
 
-    uint64_t total_C1_entries = CDIV(res.final_entries_written, kCheckpoint1Interval);
+    uint64_t total_C1_entries = cdiv(res.final_entries_written, kCheckpoint1Interval);
     uint64_t begin_byte_C2 = begin_byte_C1 + (total_C1_entries + 1) * (Util::ByteAlign(k) / 8);
-    uint64_t total_C2_entries = CDIV(total_C1_entries, kCheckpoint2Interval);
+    uint64_t total_C2_entries = cdiv(total_C1_entries, kCheckpoint2Interval);
     uint64_t begin_byte_C3 = begin_byte_C2 + (total_C2_entries + 1) * (Util::ByteAlign(k) / 8);
 
     uint32_t size_C3 = EntrySizes::CalculateC3Size(k);
