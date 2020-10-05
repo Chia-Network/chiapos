@@ -364,7 +364,7 @@ void* phase1_thread(void* arg)
 
                             // Rewrite left entry with just pos and offset, to reduce working space
                             Bits new_left_entry = Bits(
-                                (table_index == 1) ? entry->left_metadata : entry->read_posoffset,
+                                (table_index == 1) ? entry->left_metadata : uint128_t(entry->read_posoffset),
                                 (table_index == 1) ? k : pos_size + kOffsetSize);
 
                             new_left_entry.ToBytes(tmp_buf);

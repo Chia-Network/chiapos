@@ -1,3 +1,6 @@
 [submodule "lib/pybind11"]
 	path = lib/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "_deps/uint128_t"]
+	path = _deps/uint128_t
+	url = git@github.com:calccrypto/uint128_t.git

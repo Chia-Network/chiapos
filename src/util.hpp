@@ -37,7 +37,7 @@ constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 #ifdef _WIN32
 #include "uint128_t.h"
 #else
-// __uint__128_t is only available in 64 bit architectures and on certain
+// __uint128_t is only available in 64 bit architectures and on certain
 // compilers.
 typedef __uint128_t uint128_t;
 
