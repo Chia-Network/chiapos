@@ -85,3 +85,6 @@ else()
   target_link_libraries(ProofOfSpace rt pthread fse stdc++fs)
   target_link_libraries(RunTests rt pthread fse stdc++fs)
 endif()
+
+enable_testing()
+add_test(NAME RunTests COMMAND RunTests)
