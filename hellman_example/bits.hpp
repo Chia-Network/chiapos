@@ -21,7 +21,6 @@
 #include <string>
 #include <utility>
 #include "./util.hpp"
-#include "./stack_allocator.h"
 
 
 #define kBufSize 5
