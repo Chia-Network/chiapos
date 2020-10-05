@@ -487,7 +487,7 @@ public:
         }
 
         Util::IntToEightBytes(tmp, values_[i] << (64 - last_size_));
-        memcpy(buffer + i * 8, tmp, CDIV(last_size_, 8));
+        memcpy(buffer + i * 8, tmp, cdiv(last_size_, 8));
     }
 
     std::string ToString() const

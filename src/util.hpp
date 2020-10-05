@@ -31,7 +31,8 @@
 #include <utility>
 #include <vector>
 
-#define CDIV(a, b) (((a) + (b)-1) / (b))
+template <typename Int>
+constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
 #ifdef _WIN32
 #include "uint128_t.h"

@@ -276,7 +276,7 @@ public:
         input.ToBytes(input_bytes);
 
         blake3_hasher_init(&hasher);
-        blake3_hasher_update(&hasher, input_bytes, CDIV(input.GetSize(), 8));
+        blake3_hasher_update(&hasher, input_bytes, cdiv(input.GetSize(), 8));
         blake3_hasher_finalize(&hasher, hash_bytes, sizeof(hash_bytes));
 
         f = Util::EightBytesToInt(hash_bytes) >> (64 - (k_ + kExtraBits));
@@ -287,7 +287,7 @@ public:
             uint8_t len = kVectorLens[table_index_ + 1];
             uint8_t start_byte = (k_ + kExtraBits) / 8;
             uint8_t end_bit = k_ + kExtraBits + k_ * len;
-            uint8_t end_byte = CDIV(end_bit, 8);
+            uint8_t end_byte = cdiv(end_bit, 8);
 
             // TODO: proper support for partial bytes in Bits ctor
             c = Bits(hash_bytes + start_byte, end_byte - start_byte, (end_byte - start_byte) * 8);

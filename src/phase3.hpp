@@ -69,7 +69,7 @@ void WriteParkToFile(
         park_stubs_bits.AppendValue(stub, (k - kStubMinusBits));
     }
     uint32_t stubs_size = EntrySizes::CalculateStubsSize(k);
-    uint32_t stubs_valid_size = CDIV(park_stubs_bits.GetSize(), 8);
+    uint32_t stubs_valid_size = cdiv(park_stubs_bits.GetSize(), 8);
     park_stubs_bits.ToBytes(index);
     memset(index + stubs_valid_size, 0, stubs_size - stubs_valid_size);
     index += stubs_size;
