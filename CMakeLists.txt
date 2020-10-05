@@ -36,8 +36,22 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
-set (CMAKE_CXX_FLAGS "-g -O3 -Wall")
-set (CMAKE_C_FLAGS "-g -O3 -Wall")
+IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+ELSE()
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Og")
+ENDIF()
+
+IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -Og -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+ENDIF()
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g")
 
 set(BLAKE3_SRC
     src/b3/blake3.c
