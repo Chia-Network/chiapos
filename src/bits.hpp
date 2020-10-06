@@ -24,8 +24,6 @@
 #include "./util.hpp"
 #include "exceptions.hpp"
 
-using namespace std;
-
 // 64 * 2^16. 2^17 values, each value can store 64 bits.
 #define kMaxSizeBits 8388608
 

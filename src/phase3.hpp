@@ -25,7 +25,7 @@
 // can be properly built.
 struct Phase3Results {
     // Pointers to each table start byet in the final file
-    vector<uint64_t> final_table_begin_pointers;
+    std::vector<uint64_t> final_table_begin_pointers;
     // Number of entries written for f7
     uint64_t final_entries_written;
     uint32_t right_entry_size_bits;
@@ -206,7 +206,7 @@ Phase3Results RunPhase3(
             log_num_buckets,
             right_entry_size_bytes,
             tmp_dirname,
-            filename + ".p3.t" + to_string(table_index + 1),
+            filename + ".p3.t" + std::to_string(table_index + 1),
             0,
             0);
 
@@ -409,7 +409,7 @@ Phase3Results RunPhase3(
             log_num_buckets,
             right_entry_size_bytes,
             tmp_dirname,
-            filename + ".p3s.t" + to_string(table_index + 1),
+            filename + ".p3s.t" + std::to_string(table_index + 1),
             0,
             0);
 

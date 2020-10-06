@@ -68,7 +68,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
     uint64_t prev_y = 0;
     std::vector<Bits> C2;
     uint64_t num_C1_entries = 0;
-    vector<uint8_t> deltas_to_write;
+    std::vector<uint8_t> deltas_to_write;
     uint32_t right_entry_size_bytes = res.right_entry_size_bits / 8;
 
     uint8_t *right_entry_buf;

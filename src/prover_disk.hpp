@@ -53,7 +53,7 @@ public:
         struct plot_header header;
         this->filename = filename;
 
-        ifstream disk_file(filename, std::ios::in | std::ios::binary);
+        std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
         if (!disk_file.is_open()) {
             throw std::invalid_argument("Invalid file " + filename);
@@ -147,7 +147,7 @@ public:
         std::lock_guard<std::mutex> l(_mtx);
 
         {
-            ifstream disk_file(filename, std::ios::in | std::ios::binary);
+            std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
             if (!disk_file.is_open()) {
                 throw std::invalid_argument("Invalid file " + filename);
@@ -185,11 +185,11 @@ public:
                 auto x1x2 = Encoding::LinePointToSquare(new_line_point);
 
                 // The final two x values (which are stored in the same location) are hashed
-                vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+                std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
                 memcpy(hash_input.data(), challenge, 32);
                 (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
                     .ToBytes(hash_input.data() + 32);
-                vector<unsigned char> hash(picosha2::k_digest_size);
+                std::vector<unsigned char> hash(picosha2::k_digest_size);
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
                 qualities.push_back(LargeBits(hash.data(), 32, 256));
             }
@@ -206,7 +206,7 @@ public:
 
         std::lock_guard<std::mutex> l(_mtx);
         {
-            ifstream disk_file(filename, std::ios::in | std::ios::binary);
+            std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
             if (!disk_file.is_open()) {
                 throw std::invalid_argument("Invalid file " + filename);
@@ -246,7 +246,7 @@ private:
     // The entry at index "position" is read. First, the park index is calculated, then
     // the park is read, and finally, entry deltas are added up to the position that we
     // are looking for.
-    uint128_t ReadLinePoint(ifstream& disk_file, uint8_t table_index, uint64_t position)
+    uint128_t ReadLinePoint(std::ifstream& disk_file, uint8_t table_index, uint64_t position)
     {
         uint64_t park_index = position / kEntriesPerPark;
         uint32_t park_size_bits = EntrySizes::CalculateParkSize(k, table_index) * 8;
@@ -271,7 +271,7 @@ private:
         uint16_t encoded_deltas_size = 0;
         disk_file.read(reinterpret_cast<char*>(&encoded_deltas_size), sizeof(uint16_t));
 
-        vector<uint8_t> deltas;
+        std::vector<uint8_t> deltas;
 
         if (0x8000 & encoded_deltas_size) {
             // Uncompressed
@@ -348,7 +348,7 @@ private:
     }
 
     // Returns P7 table entries (which are positions into table P6), for a given challenge
-    std::vector<uint64_t> GetP7Entries(ifstream& disk_file, const uint8_t* challenge)
+    std::vector<uint64_t> GetP7Entries(std::ifstream& disk_file, const uint8_t* challenge)
     {
         if (C2.size() == 0) {
             return std::vector<uint64_t>();
@@ -545,7 +545,7 @@ private:
             LargeBits new_xs;
             // New results will be a list of pairs of (y, metadata), it will decrease in size by 2x
             // at each iteration of the outer loop.
-            std::vector<pair<Bits, Bits> > new_results;
+            std::vector<std::pair<Bits, Bits> > new_results;
             FxCalculator f(k, table_index);
             // Iterates through pairs of things, starts with 64 things, then 32, etc, up to 2.
             for (size_t i = 0; i < results.size(); i += 2) {
@@ -593,7 +593,7 @@ private:
     // all of the leaves (x values). For example, for depth=5, it fetches the position-th
     // entry in table 5, reading the two back pointers from the line point, and then
     // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(ifstream& disk_file, uint64_t position, uint8_t depth)
+    std::vector<Bits> GetInputs(std::ifstream& disk_file, uint64_t position, uint8_t depth)
     {
         uint128_t line_point = ReadLinePoint(disk_file, depth, position);
         std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);

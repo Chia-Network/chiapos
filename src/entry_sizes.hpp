@@ -60,7 +60,7 @@ public:
                     //    a:  sort_key, pos, offset        or
                     //    b:  line_point, sort_key
                     return Util::ByteAlign(
-                               max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
+                               std::max(static_cast<uint32_t>(k + 1 + (k) + kOffsetSize),
                                    static_cast<uint32_t>(2 * k + k + 1))) /
                            8;
             case 7:
