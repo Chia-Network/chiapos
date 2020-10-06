@@ -261,12 +261,17 @@ public:
 
     BitsGeneric<T> Rotl(uint32_t shift) const
     {
+        if (shift == 0) {
+            return *this;
+        }
         uint64_t tmp, mask = (last_size_ < 64 ? 1ULL << last_size_ : 0ULL) - 1;
         int i, size = values_.size();
         uint32_t shift2 = 64 - shift;
         BitsGeneric<T> res;
 
-        assert(shift < 64);
+        if (shift >= 64) {
+            throw InvalidStateException("Rotl() by 64 or more bits");
+        }
 
         res.values_.resize(size);
         res.last_size_ = last_size_;
@@ -309,6 +314,7 @@ public:
             if (values_.size() > 1) {
                 // Otherwise, search for the first bucket that isn't full of 1 bits.
                 for (int16_t i = values_.size() - 2; i >= 0; i--)
+                {
                     if (values_[i] != limit) {
                         all_one = false;
                         // Increment it.
@@ -318,10 +324,13 @@ public:
                         for (uint32_t j = i + 1; j < values_.size(); j++) values_[j] = 0;
                         break;
                     }
+                }
             }
             // This isn't allowed, as the Bits size must remain constant during all the plotting
             // process.
-            assert(all_one == false);
+            if (all_one) {
+                throw InvalidStateException("Overflow, positive number");
+            }
         }
         return *this;
     }
@@ -525,7 +534,16 @@ public:
         return (((uint128_t)values_[0]) << (GetSize() - 64)) + values_[1];
     }
 
-    uint64_t GetValue() const { return values_[0]; }
+    uint64_t GetValue() const
+    {
+        if (values_.size() != 1) {
+            std::cout << "Number of 64 bit values is: " << values_.size() << std::endl;
+            std::cout << "Size of bits is: " << GetSize() << std::endl;
+            throw InvalidStateException(
+                "Number doesn't fit into a 64-bit type. " + std::to_string(GetSize()));
+        }
+        return values_[0];
+    }
 
     uint32_t GetSize() const
     {
