@@ -21,6 +21,11 @@
 #include "prover_disk.hpp"
 #include "verifier.hpp"
 
+using std::string;
+using std::vector;
+using std::endl;
+using std::cout;
+
 void HexToBytes(const string &hex, uint8_t *result)
 {
     for (uint32_t i = 0; i < hex.length(); i += 2) {
@@ -214,7 +219,7 @@ int main(int argc, char *argv[])
         } else if (operation == "check") {
             uint32_t iterations = 1000;
             if (argc == 3) {
-                iterations = stoi(argv[2]);
+                iterations = std::stoi(argv[2]);
             }
 
             DiskProver prover(filename);

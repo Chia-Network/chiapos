@@ -47,10 +47,10 @@ public:
             proof = new_proof;
         }
         // Hashes two of the x values, based on the quality index
-        vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+        std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
         memcpy(hash_input.data(), challenge, 32);
         proof.Slice(k * quality_index, k * (quality_index + 2)).ToBytes(hash_input.data() + 32);
-        vector<unsigned char> hash(picosha2::k_digest_size);
+        std::vector<unsigned char> hash(picosha2::k_digest_size);
         picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
         return LargeBits(hash.data(), 32, 256);
     }
@@ -94,8 +94,8 @@ public:
                 PlotEntry r_plot_entry;
                 l_plot_entry.y = ys[i].GetValue();
                 r_plot_entry.y = ys[i + 1].GetValue();
-                vector<PlotEntry> bucket_L = {l_plot_entry};
-                vector<PlotEntry> bucket_R = {r_plot_entry};
+                std::vector<PlotEntry> bucket_L = {l_plot_entry};
+                std::vector<PlotEntry> bucket_R = {r_plot_entry};
 
                 // If there is no match, fails.
                 uint64_t cdiff = r_plot_entry.y / kBC - l_plot_entry.y / kBC;

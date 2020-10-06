@@ -67,7 +67,7 @@ public:
             this->mem_bucket_pointers.push_back(memory + bucket_i * size_per_bucket);
             this->mem_bucket_sizes.push_back(0);
             this->bucket_write_pointers.push_back(0);
-            ostringstream bucket_number_padded;
+            std::ostringstream bucket_number_padded;
             bucket_number_padded << std::internal << std::setfill('0') << std::setw(3) << bucket_i;
 
             fs::path bucket_filename =
@@ -205,11 +205,11 @@ private:
     // Log of the number of buckets; num bits to use to determine bucket
     uint32_t log_num_buckets;
     // One pointer to the start of each bucket memory
-    vector<uint8_t *> mem_bucket_pointers;
+    std::vector<uint8_t *> mem_bucket_pointers;
     // The number of entries written to each bucket
-    vector<uint64_t> mem_bucket_sizes;
+    std::vector<uint64_t> mem_bucket_sizes;
     // The amount of data written to each disk bucket
-    vector<uint64_t> bucket_write_pointers;
+    std::vector<uint64_t> bucket_write_pointers;
     uint64_t prev_bucket_buf_size;
     uint8_t *prev_bucket_buf;
     uint64_t prev_bucket_position_start;
@@ -255,7 +255,7 @@ private:
         if (bucket_entries > entries_fit_in_memory) {
             throw InsufficientMemoryException(
                 "Not enough memory for sort in memory. Need to sort " +
-                to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) +
+                std::to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) +
                 "GiB");
         }
         bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1) ||

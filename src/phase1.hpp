@@ -681,7 +681,7 @@ std::vector<uint64_t> RunPhase1(
             log_num_buckets,
             right_entry_size_bytes,
             tmp_dirname,
-            filename + ".p1.t" + to_string(table_index + 1),
+            filename + ".p1.t" + std::to_string(table_index + 1),
             0,
             globals.stripe_size);
 

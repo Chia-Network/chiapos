@@ -95,7 +95,7 @@ std::vector<uint64_t> RunPhase2(
             log_num_buckets,
             left_entry_size_bytes,
             tmp_dirname,
-            filename + ".p2.t" + to_string(table_index - 1),
+            filename + ".p2.t" + std::to_string(table_index - 1),
             0,
             0);
 

@@ -101,7 +101,7 @@ public:
                    dpdf[j] * (log2(ans[j] + 1) - log2(ans[j]));
         };
 
-        std::priority_queue<int, vector<int>, decltype(cmp)> pq(cmp);
+        std::priority_queue<int, std::vector<int>, decltype(cmp)> pq(cmp);
         for (int i = 0; i < N; ++i) pq.push(i);
 
         for (int todo = 0; todo < TOTAL_QUANTA - N; ++todo) {
