@@ -77,7 +77,7 @@ public:
     inline F1Calculator(uint8_t k, const uint8_t* orig_key)
     {
         uint8_t enc_key[32];
-        size_t buf_blocks = CDIV((k + kExtraBits) << kBatchSizes, kF1BlockSizeBits) + 2;
+        size_t buf_blocks = cdiv((k + kExtraBits) << kBatchSizes, kF1BlockSizeBits) + 2;
         this->k_ = k;
         this->buf_ = (uint8_t *)malloc(buf_blocks * kF1BlockSizeBits / 8);
 
