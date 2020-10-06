@@ -263,9 +263,9 @@ TEST_CASE("Bits")
         m.ToBytes(buf);
         REQUIRE(buf[0] == (5 << 5));
 
-        uint64_t a_hi = 0x97ef8e98bce1bb4ULL, a_lo = 0x6924069578d89abeULL;
-        uint64_t b_hi = 0xe1dcbd9c33572c8ULL, b_lo = 0x8a2b75bbdbb73f73ULL;
-        uint8_t ab_len = 124;
+        uint64_t const a_hi = 0x97ef8e98bce1bb4ULL, a_lo = 0x6924069578d89abeULL;
+        uint64_t const b_hi = 0xe1dcbd9c33572c8ULL, b_lo = 0x8a2b75bbdbb73f73ULL;
+        uint8_t const ab_len = 124;
         Bits a(to_uint128(a_hi, a_lo), ab_len);
         Bits b(to_uint128(b_hi, b_lo), ab_len);
 
@@ -299,32 +299,156 @@ TEST_CASE("Bits")
     }
     SECTION("Park Bits")
     {
-        uint32_t num_bytes = 16000;
-        uint8_t* buf = new uint8_t[num_bytes];
-        uint8_t* buf_2 = new uint8_t[num_bytes];
+        uint32_t const num_bytes = 16000;
+        uint8_t buf[num_bytes];
+        uint8_t buf_2[num_bytes];
         Util::GetRandomBytes(buf, num_bytes);
         ParkBits my_bits = ParkBits(buf, num_bytes, num_bytes * 8);
         my_bits.ToBytes(buf_2);
         for (uint32_t i = 0; i < num_bytes; i++) {
             REQUIRE(buf[i] == buf_2[i]);
         }
-        delete[] buf;
-        delete[] buf_2;
     }
 
     SECTION("Large Bits")
     {
-        uint32_t num_bytes = 200000;
-        uint8_t* buf = new uint8_t[num_bytes];
-        uint8_t* buf_2 = new uint8_t[num_bytes];
+        uint32_t const num_bytes = 200000;
+        uint8_t buf[num_bytes];
+        uint8_t buf_2[num_bytes];
         Util::GetRandomBytes(buf, num_bytes);
         LargeBits my_bits = LargeBits(buf, num_bytes, num_bytes * 8);
         my_bits.ToBytes(buf_2);
         for (uint32_t i = 0; i < num_bytes; i++) {
             REQUIRE(buf[i] == buf_2[i]);
         }
-        delete[] buf;
-        delete[] buf_2;
+    }
+
+    SECTION("decrement 0")
+    {
+        Bits b(0, 256);
+        CHECK_THROWS(b--);
+        CHECK_THROWS(--b);
+    }
+
+    SECTION("increment max")
+    {
+        uint8_t const bytes[] = {
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        CHECK_THROWS(b++);
+        CHECK_THROWS(++b);
+    }
+
+    SECTION("increment with carry")
+    {
+        uint8_t const bytes[32] = {
+            0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        ++b;
+
+        uint8_t const expected[32] = {
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        };
+        uint8_t result[32];
+        b.ToBytes(result);
+        CHECK(std::equal(result, result + 32, expected));
+    }
+
+    SECTION("decrement 1")
+    {
+        uint8_t const bytes[32] = {
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        --b;
+
+        uint8_t const expected[32] = {
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        };
+        uint8_t result[32];
+        b.ToBytes(result);
+        CHECK(std::equal(result, result + 32, expected));
+    }
+
+    SECTION("decrement with carry")
+    {
+        uint8_t const bytes[32] = {
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        --b;
+
+        uint8_t const expected[32] = {
+            0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        };
+        uint8_t result[32];
+        b.ToBytes(result);
+        CHECK(std::equal(result, result + 32, expected));
+    }
+
+    SECTION("GetValue128 overflow")
+    {
+        uint8_t const bytes[32] = {
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        CHECK_THROWS(b.GetValue128());
+    }
+
+    SECTION("GetValue128")
+    {
+        uint8_t const bytes[16] = {
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+        };
+        Bits b(bytes, sizeof(bytes), sizeof(bytes) * 8);
+        CHECK(b.GetValue128() == to_uint128(0x0102030405060708ull, 0x090a0b0c0d0e0f10ull));
+    }
+
+    SECTION("Rotl large")
+    {
+        std::array<uint8_t const, 16> bytes = {{
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+        }};
+        Bits b(bytes.data(), bytes.size(), bytes.size() * 8);
+        CHECK(b.Rotl(0) == b);
+
+        std::string temp = b.ToString();
+
+        for (int i = 1; i < 64; ++i) {
+            std::rotate(temp.begin(), temp.begin() + 1, temp.end());
+            CHECK(b.Rotl(i).ToString() == temp);
+        }
+
+        CHECK_THROWS(b.Rotl(64));
+        CHECK_THROWS(b.Rotl(128));
     }
 }
 
@@ -763,7 +887,7 @@ TEST_CASE("Sort on disk")
 
     SECTION("Quicksort")
     {
-        uint32_t iters = 100;
+        uint32_t const iters = 100;
         vector<string> hashes;
         uint8_t* hashes_bytes = new uint8_t[iters * 16];
         memset(hashes_bytes, 0, iters * 16);

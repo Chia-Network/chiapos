@@ -47,7 +47,7 @@ ENDIF()
 IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
-set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -Og -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 ENDIF()
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
