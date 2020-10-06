@@ -188,7 +188,7 @@ void* F1thread(void* arg)
     uint32_t entry_size_bytes = ptd->entry_size_bytes;
     FileDisk* ptmp_1_disk = ptd->ptmp_1_disk;
 
-    uint64_t max_value = ((uint64_t)1 << (k)) - 1;
+    uint64_t const max_value = ((uint64_t)1 << (k)) - 1;
     uint8_t buf[14];
 
     uint64_t right_buf_entries = 2 << (kBatchSizes - 1);
@@ -206,6 +206,11 @@ void* F1thread(void* arg)
         uint64_t plot_file = 0;
         uint64_t right_writer_count = 0;
         uint64_t x = lp * (2 << (kBatchSizes - 1));
+
+        if (x > max_value) {
+            break;
+        }
+
         std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
         uint64_t loopcount = min(max_value + 1 - x, (uint64_t)2 << (kBatchSizes - 1));
@@ -252,10 +257,6 @@ void* F1thread(void* arg)
 #else
         sem_post(ptd->mine);
 #endif
-
-        if (x + 1 > max_value) {
-            break;
-        }
     }
 
     delete[] right_writer_buf;
