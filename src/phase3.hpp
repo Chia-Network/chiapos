@@ -158,10 +158,10 @@ Phase3Results RunPhase3(
     // new_pos), where new_pos is the position in the table, where it's sorted by line_point,
     // and the line_points are written to disk to a final table. Finally, table_i is sorted by
     // sort_key. This allows us to compare to the next table.
-    for (uint8_t table_index = 1; table_index < 7; table_index++) {
+    for (int table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         Timer computation_pass_1_timer;
-        std::cout << "Compressing tables " << int{table_index} << " and " << int{table_index + 1}
+        std::cout << "Compressing tables " << table_index << " and " << (table_index + 1)
                   << std::endl;
 
         // The park size must be constant, for simplicity, but must be big enough to store EPP
