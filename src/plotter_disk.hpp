@@ -85,7 +85,8 @@ static void print_buf(const unsigned char* buf, size_t buf_len)
 
 const Bits empty_bits;
 
-#define STRIPESIZE 8192
+uint64_t const STRIPESIZE = 8192;
+
 #define NUMTHREADS 2
 
 struct THREADF1DATA {
@@ -273,9 +274,9 @@ void thread_fun(THREADDATA* ptd)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
-    uint64_t right_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
-    uint64_t left_reader_buf_entries = (uint64_t)(STRIPESIZE) + 2500;
+    uint64_t left_buf_entries = STRIPESIZE + 2500;
+    uint64_t right_buf_entries = STRIPESIZE + 2500;
+    uint64_t left_reader_buf_entries = STRIPESIZE + 2500;
     uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
     uint8_t* left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
@@ -351,7 +352,7 @@ void thread_fun(THREADDATA* ptd)
 #endif
         if (pos < prevtableentries + 1) {
             uint64_t readamt = std::min(
-                ((uint64_t)(STRIPESIZE) + 2500) * entry_size_bytes,
+                (STRIPESIZE + 2500) * entry_size_bytes,
                 ((prevtableentries + 1) * entry_size_bytes) - left_reader);
 
             (*ptmp_1_disks)[table_index].Read(left_reader, left_reader_buf, readamt);
