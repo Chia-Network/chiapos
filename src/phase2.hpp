@@ -45,11 +45,11 @@ std::vector<uint64_t> RunPhase2(
     SortManager *L_sort_manager;
 
     // Iterates through each table (with a left and right pointer), starting at 6 & 7.
-    for (uint8_t table_index = 7; table_index > 1; --table_index) {
+    for (int table_index = 7; table_index > 1; --table_index) {
         // std::vector<std::pair<uint64_t, uint64_t> > match_positions;
         Timer table_timer;
 
-        std::cout << "Backpropagating on table " << int{table_index} << std::endl;
+        std::cout << "Backpropagating on table " << table_index << std::endl;
 
         uint16_t left_metadata_size = kVectorLens[table_index] * k;
 
