@@ -88,7 +88,7 @@ const Bits empty_bits;
 #define STRIPESIZE 8192
 #define NUMTHREADS 2
 
-typedef struct {
+struct THREADF1DATA {
     int index;
 #ifdef _WIN32
     HANDLE mine;
@@ -102,9 +102,9 @@ typedef struct {
     uint32_t entry_size_bytes;
     FileDisk* ptmp_1_disk;
     const uint8_t* id;
-} THREADF1DATA;
+};
 
-typedef struct {
+struct THREADDATA {
     int index;
 #ifdef _WIN32
     HANDLE mine;
@@ -124,7 +124,7 @@ typedef struct {
     uint64_t prevtableentries;
     uint32_t compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks;
-} THREADDATA;
+};
 
 uint64_t g_left_writer;
 uint64_t g_right_writer;
