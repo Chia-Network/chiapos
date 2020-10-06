@@ -33,6 +33,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <thread>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -48,7 +49,7 @@ namespace fs = ghc::filesystem;
 #include "threading.hpp"
 #include "util.hpp"
 
-typedef struct {
+struct THREADDATA {
     int index;
 #ifdef _WIN32
     HANDLE* mine;
@@ -69,7 +70,7 @@ typedef struct {
     uint64_t prevtableentries;
     uint32_t compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks;
-} THREADDATA;
+};
 
 struct GlobalData {
     uint64_t left_writer_count;
@@ -133,16 +134,8 @@ PlotEntry GetLeftEntry(
     return left_entry;
 }
 
-#ifdef _WIN32
-DWORD WINAPI phase1_thread(LPVOID lpParameter)
+void* phase1_thread(THREADDATA* ptd)
 {
-    THREADDATA* ptd = (THREADDATA*)lpParameter;
-#else
-void* phase1_thread(void* arg)
-{
-    THREADDATA* ptd = (THREADDATA*)arg;
-#endif
-
     uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
     uint8_t k = ptd->k;
     uint8_t table_index = ptd->table_index;
@@ -694,12 +687,12 @@ std::vector<uint64_t> RunPhase1(
         HANDLE* t = new HANDLE[num_threads];
         HANDLE* mutex = new HANDLE[globals.num_threads];
 #elif __APPLE__
-        pthread_t* t = new pthread_t[num_threads];
         dispatch_semaphore_t * mutex = new dispatch_semaphore_t [num_threads];
 #else
-        pthread_t* t = new pthread_t[num_threads];
         sem_t* mutex = new sem_t[num_threads];
 #endif
+
+        std::vector<std::thread> threads;
 
         for (int i = 0; i < num_threads; i++) {
 #ifdef _WIN32
@@ -730,21 +723,12 @@ std::vector<uint64_t> RunPhase1(
             td[i].compressed_entry_size_bytes = compressed_entry_size_bytes;
             td[i].ptmp_1_disks = &tmp_1_disks;
 
-#ifdef _WIN32
-            t[i] = CreateThread(0, 0, phase1_thread, &(td[i]), 0, NULL);
-#else
-            pthread_create(&(t[i]), NULL, phase1_thread, &(td[i]));
-#endif
+            threads.emplace_back(phase1_thread, &td[i]);
         }
         SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
-        for (int i = 0; i < globals.num_threads; i++) {
-#ifdef _WIN32
-            WaitForSingleObject(t[i], INFINITE);
-            CloseHandle(t[i]);
-#else
-            pthread_join(t[i], NULL);
-#endif
+        for (auto& t : threads) {
+            t.join();
         }
 
         for (int i = 0; i < globals.num_threads; i++) {
@@ -786,7 +770,6 @@ std::vector<uint64_t> RunPhase1(
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
 
-        delete[] t;
         delete[] td;
         delete[] mutex;
     }
