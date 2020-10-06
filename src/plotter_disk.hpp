@@ -76,13 +76,6 @@ struct Phase3Results {
     uint32_t header_size;
 };
 
-static void print_buf(const unsigned char* buf, size_t buf_len)
-{
-    size_t i = 0;
-    for (i = 0; i < buf_len; ++i)
-        fprintf(stdout, "%02X%s", buf[i], (i + 1) % 16 == 0 ? "\r\n" : " ");
-}
-
 const Bits empty_bits;
 
 uint64_t const STRIPESIZE = 8192;
@@ -177,23 +170,24 @@ PlotEntry GetLeftEntry(
 
 void F1thread(THREADF1DATA* ptd)
 {
-    uint8_t k = ptd->k;
-    uint32_t entry_size_bytes = ptd->entry_size_bytes;
+    uint8_t const k = ptd->k;
+    uint32_t const entry_size_bytes = ptd->entry_size_bytes;
     FileDisk* ptmp_1_disk = ptd->ptmp_1_disk;
 
     uint64_t const max_value = ((uint64_t)1 << (k)) - 1;
     uint8_t buf[14];
 
-    uint64_t right_buf_entries = 2 << (kBatchSizes - 1);
+    uint64_t const right_buf_entries = 2 << (kBatchSizes - 1);
 
     F1Calculator f1(k, ptd->id);
 
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * entry_size_bytes];
+    uint8_t* const right_writer_buf = new uint8_t[right_buf_entries * entry_size_bytes];
 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
     for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + NUMTHREADS) {
+         lp = lp + NUMTHREADS)
+    {
         // For each pair x, y in the batch
 
         uint64_t plot_file = 0;
@@ -261,25 +255,23 @@ void thread_fun(THREADDATA* ptd)
 
     uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
     uint8_t k = ptd->k;
-    uint8_t table_index = ptd->table_index;
-    uint8_t metadata_size = ptd->metadata_size;
-    uint32_t entry_size_bytes = ptd->entry_size_bytes;
-    uint8_t pos_size = ptd->pos_size;
-    uint64_t prevtableentries = ptd->prevtableentries;
-    uint8_t* memory = ptd->memory;
-    uint64_t memorySize = ptd->memorySize;
-    uint32_t compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
+    uint8_t const table_index = ptd->table_index;
+    uint8_t const metadata_size = ptd->metadata_size;
+    uint32_t const entry_size_bytes = ptd->entry_size_bytes;
+    uint8_t const pos_size = ptd->pos_size;
+    uint64_t const prevtableentries = ptd->prevtableentries;
+    uint32_t const compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks = ptd->ptmp_1_disks;
 
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
     uint64_t left_buf_entries = STRIPESIZE + 2500;
-    uint64_t right_buf_entries = STRIPESIZE + 2500;
-    uint64_t left_reader_buf_entries = STRIPESIZE + 2500;
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
-    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
-    uint8_t* left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
+    uint64_t const right_buf_entries = STRIPESIZE + 2500;
+    uint64_t const left_reader_buf_entries = STRIPESIZE + 2500;
+    uint8_t* const right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes];
+    uint8_t* const left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes];
+    uint8_t* const left_reader_buf = new uint8_t[left_reader_buf_entries * entry_size_bytes];
 
     FxCalculator f(k, table_index + 1);
 
@@ -293,13 +285,13 @@ void thread_fun(THREADDATA* ptd)
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
-    uint64_t totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
-    uint64_t threadstripes = (totalstripes + NUMTHREADS - 1) / NUMTHREADS;
+    uint64_t const totalstripes = (prevtableentries + STRIPESIZE - 1) / STRIPESIZE;
+    uint64_t const threadstripes = (totalstripes + NUMTHREADS - 1) / NUMTHREADS;
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * NUMTHREADS + ptd->index) * STRIPESIZE;
-        uint64_t endpos = pos + STRIPESIZE + 1;  // one y value overlap
-        uint64_t left_reader = pos * entry_size_bytes;
+        uint64_t const endpos = pos + STRIPESIZE + 1;  // one y value overlap
+        uint64_t const left_reader = pos * entry_size_bytes;
         uint64_t left_reader_count = 0;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
@@ -472,7 +464,7 @@ void thread_fun(THREADDATA* ptd)
 
                             if (left_writer_count >= left_buf_entries)
                                 exit(0);
-                            uint8_t* tmp_buf =
+                            uint8_t* const tmp_buf =
                                 left_writer_buf + left_writer_count * compressed_entry_size_bytes;
 
                             left_writer_count++;
@@ -1103,8 +1095,6 @@ private:
 #endif
             }
 
-            uint64_t threadMemSize = memorySize / NUMTHREADS;
-
             for (int i = 0; i < NUMTHREADS; i++) {
                 td[i].index = i;
                 td[i].mine = mutex[i];
@@ -1176,7 +1166,7 @@ private:
 
             // Determines how many bytes the entries in our left and right tables will take up.
             uint32_t entry_size_bytes = GetMaxEntrySize(k, table_index, true);
-            uint32_t compressed_entry_size_bytes = GetMaxEntrySize(k, table_index, false);
+            uint32_t const compressed_entry_size_bytes = GetMaxEntrySize(k, table_index, false);
             right_entry_size_bytes = GetMaxEntrySize(k, table_index + 1, true);
 
             std::cout << "Computing table " << int{table_index + 1} << std::endl;
@@ -1234,7 +1224,7 @@ private:
 #endif
             }
 
-            uint64_t threadMemSize = memorySize / NUMTHREADS;
+            uint64_t const threadMemSize = memorySize / NUMTHREADS;
 
             for (int i = 0; i < NUMTHREADS; i++) {
                 td[i].index = i;
