@@ -80,6 +80,15 @@ jobs:
         cmake --build . -- -j 6
         ./RunTests
 
+    - name: cmake, RunTests with thread sanitizer
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        mkdir build-tsan
+        cd build-tsan
+        cmake -DCMAKE_BUILD_TYPE=TSAN ../
+        cmake --build . -- -j 6
+        ./RunTests
+
     - name: Build wheels and test
       run: |
         python -m cibuildwheel --output-dir dist
