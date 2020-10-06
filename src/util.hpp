@@ -101,17 +101,17 @@ private:
     clock_t cpu_time_start_;
 };
 
-class Util {
-public:
+namespace Util {
+
     template <typename X>
-    static inline X Mod(X i, X n)
+    inline X Mod(X i, X n)
     {
         return (i % n + n) % n;
     }
 
-    static uint32_t ByteAlign(uint32_t num_bits) { return (num_bits + (8 - ((num_bits) % 8)) % 8); }
+    inline uint32_t ByteAlign(uint32_t num_bits) { return (num_bits + (8 - ((num_bits) % 8)) % 8); }
 
-    static std::string HexStr(const uint8_t *data, size_t len)
+    inline std::string HexStr(const uint8_t *data, size_t len)
     {
         std::stringstream s;
         s << std::hex;
@@ -121,7 +121,7 @@ public:
         return s.str();
     }
 
-    static void WriteZeroesHeap(std::ofstream &file, uint32_t num_bytes)
+    inline void WriteZeroesHeap(std::ofstream &file, uint32_t num_bytes)
     {
         uint8_t *buf = new uint8_t[num_bytes];
         memset(buf, 0, num_bytes);
@@ -129,7 +129,7 @@ public:
         delete[] buf;
     }
 
-    static void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes)
+    inline void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes)
     {
 #ifdef _WIN32
         uint8_t *buf = new uint8_t[num_bytes];
@@ -143,20 +143,20 @@ public:
 #endif
     }
 
-    static void IntToTwoBytes(uint8_t *result, const uint16_t input)
+    inline void IntToTwoBytes(uint8_t *result, const uint16_t input)
     {
         uint16_t r = bswap_16(input);
         memcpy(result, &r, sizeof(r));
     }
 
     // Used to encode deltas object size
-    static void IntToTwoBytesLE(uint8_t *result, const uint16_t input)
+    inline void IntToTwoBytesLE(uint8_t *result, const uint16_t input)
     {
         result[0] = input & 0xff;
         result[1] = input >> 8;
     }
 
-    static uint16_t TwoBytesToInt(const uint8_t *bytes)
+    inline uint16_t TwoBytesToInt(const uint8_t *bytes)
     {
         uint16_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -166,7 +166,7 @@ public:
     /*
      * Converts a 32 bit int to bytes.
      */
-    static void IntToFourBytes(uint8_t *result, const uint32_t input)
+    inline void IntToFourBytes(uint8_t *result, const uint32_t input)
     {
         uint32_t r = bswap_32(input);
         memcpy(result, &r, sizeof(r));
@@ -175,7 +175,7 @@ public:
     /*
      * Converts a byte array to a 32 bit int.
      */
-    static uint32_t FourBytesToInt(const uint8_t *bytes)
+    inline uint32_t FourBytesToInt(const uint8_t *bytes)
     {
         uint32_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -185,7 +185,7 @@ public:
     /*
      * Converts a 64 bit int to bytes.
      */
-    static void IntToEightBytes(uint8_t *result, const uint64_t input)
+    inline void IntToEightBytes(uint8_t *result, const uint64_t input)
     {
         uint64_t r = bswap_64(input);
         memcpy(result, &r, sizeof(r));
@@ -194,7 +194,7 @@ public:
     /*
      * Converts a byte array to a 64 bit int.
      */
-    static uint64_t EightBytesToInt(const uint8_t *bytes)
+    inline uint64_t EightBytesToInt(const uint8_t *bytes)
     {
         uint64_t i;
         memcpy(&i, bytes, sizeof(i));
@@ -204,7 +204,7 @@ public:
     /*
      * Retrieves the size of an integer, in Bits.
      */
-    static uint8_t GetSizeBits(uint128_t value)
+    inline uint8_t GetSizeBits(uint128_t value)
     {
         uint8_t count = 0;
         while (value) {
@@ -218,7 +218,7 @@ public:
     // start_bit + num_bits < 64). Returns the integer that starts at start_bit
     // that is num_bits long (as a native-endian integer).
     // Note: requires start_bit % 8 + num_bits <= 64
-    inline static uint64_t SliceInt64FromBytes(
+    inline uint64_t SliceInt64FromBytes(
         const uint8_t *bytes,
         uint32_t start_bit,
         const uint32_t num_bits)
@@ -236,7 +236,7 @@ public:
         return tmp;
     }
 
-    static uint64_t SliceInt64FromBytesFull(
+    inline uint64_t SliceInt64FromBytesFull(
         const uint8_t *bytes,
         uint32_t start_bit,
         uint32_t num_bits)
@@ -248,7 +248,7 @@ public:
         return r;
     }
 
-    inline static uint128_t SliceInt128FromBytes(
+    inline uint128_t SliceInt128FromBytes(
         const uint8_t *bytes,
         const uint32_t start_bit,
         const uint32_t num_bits)
@@ -262,7 +262,7 @@ public:
         return ((uint128_t)high << 64) | low;
     }
 
-    static void GetRandomBytes(uint8_t *buf, uint32_t num_bytes)
+    inline void GetRandomBytes(uint8_t *buf, uint32_t num_bytes)
     {
         std::random_device rd;
         std::mt19937 mt(rd());
@@ -272,7 +272,7 @@ public:
         }
     }
 
-    inline static uint64_t ExtractNum(
+    inline uint64_t ExtractNum(
         const uint8_t *bytes,
         uint32_t len_bytes,
         uint32_t begin_bits,
@@ -286,7 +286,7 @@ public:
 
     // The number of memory entries required to do the custom SortInMemory algorithm, given the
     // total number of entries to be sorted.
-    inline static uint64_t RoundSize(uint64_t size)
+    inline uint64_t RoundSize(uint64_t size)
     {
         size *= 2;
         uint64_t result = 1;
@@ -297,7 +297,7 @@ public:
     /*
      * Like memcmp, but only compares starting at a certain bit.
      */
-    inline static int MemCmpBits(
+    inline int MemCmpBits(
         uint8_t *left_arr,
         uint8_t *right_arr,
         uint32_t len,
@@ -316,7 +316,7 @@ public:
         return 0;
     }
 
-    static double RoundPow2(double a)
+    inline double RoundPow2(double a)
     {
         // https://stackoverflow.com/questions/54611562/truncate-float-to-nearest-power-of-2-in-c-performance
         int exp;
@@ -329,7 +329,7 @@ public:
         return b;
     }
 
-    static uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges)
+    inline uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges)
     {
         std::map<uint64_t, std::vector<uint64_t> > edge_indeces;
         for (uint64_t edge_index = 0; edge_index < edges.size(); edge_index++) {
@@ -370,6 +370,6 @@ public:
         }
         return num_islands;
     }
-};
+}
 
 #endif  // SRC_CPP_UTIL_HPP_
