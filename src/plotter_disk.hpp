@@ -16,7 +16,6 @@
 #define SRC_CPP_PLOTTER_DISK_HPP_
 
 #ifndef _WIN32
-#include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
 #endif
@@ -33,6 +32,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <thread>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -174,16 +174,8 @@ PlotEntry GetLeftEntry(
     return left_entry;
 }
 
-#ifdef _WIN32
-DWORD WINAPI F1thread(LPVOID lpParameter)
+void F1thread(THREADF1DATA* ptd)
 {
-    THREADF1DATA* ptd = (THREADF1DATA*)lpParameter;
-#else
-void* F1thread(void* arg)
-{
-    THREADF1DATA* ptd = (THREADF1DATA*)arg;
-#endif
-
     uint8_t k = ptd->k;
     uint32_t entry_size_bytes = ptd->entry_size_bytes;
     FileDisk* ptmp_1_disk = ptd->ptmp_1_disk;
@@ -200,7 +192,7 @@ void* F1thread(void* arg)
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
     for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + NUMTHREADS) {  // NUMTHREADS) {
+         lp = lp + NUMTHREADS) {
         // For each pair x, y in the batch
 
         uint64_t plot_file = 0;
@@ -260,20 +252,10 @@ void* F1thread(void* arg)
     }
 
     delete[] right_writer_buf;
-
-    return 0;
 }
 
-#ifdef _WIN32
-DWORD WINAPI thread(LPVOID lpParameter)
+void thread_fun(THREADDATA* ptd)
 {
-    THREADDATA* ptd = (THREADDATA*)lpParameter;
-#else
-void* thread(void* arg)
-{
-    THREADDATA* ptd = (THREADDATA*)arg;
-#endif
-
     std::vector<uint64_t> right_bucket_sizes(kNumSortBuckets, 0);
 
     uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
@@ -706,8 +688,6 @@ void* thread(void* arg)
     delete[] right_writer_buf;
     delete[] left_writer_buf;
     delete[] left_reader_buf;
-
-    return 0;
 }
 
 class DiskPlotter {
@@ -1101,13 +1081,13 @@ private:
 
             THREADF1DATA td[NUMTHREADS];
 #ifdef _WIN32
-            HANDLE t[NUMTHREADS];
             HANDLE mutex[NUMTHREADS];
 #else
-            pthread_t t[NUMTHREADS];
             sem_t* mutex[NUMTHREADS];
             char semname[20];
 #endif
+
+            std::vector<std::thread> threads;
 
             for (int i = 0; i < NUMTHREADS; i++) {
 #ifdef _WIN32
@@ -1134,11 +1114,7 @@ private:
                 td[i].entry_size_bytes = entry_size_bytes;
                 td[i].id = id;
 
-#ifdef _WIN32
-                t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
-#else
-                pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
-#endif
+                threads.emplace_back(F1thread, &td[i]);
             }
 
 #ifdef _WIN32
@@ -1147,13 +1123,8 @@ private:
             sem_post(mutex[NUMTHREADS - 1]);
 #endif
 
-            for (int i = 0; i < NUMTHREADS; i++) {
-#ifdef _WIN32
-                WaitForSingleObject(t[i], INFINITE);
-                CloseHandle(t[i]);
-#else
-                pthread_join(t[i], NULL);
-#endif
+            for (auto& t : threads) {
+                t.join();
             }
 
             for (int i = 0; i < NUMTHREADS; i++) {
@@ -1240,11 +1211,11 @@ private:
             Timer computation_pass_timer;
 
             THREADDATA td[NUMTHREADS];
+
+            std::vector<std::thread> threads;
 #ifdef _WIN32
-            HANDLE t[NUMTHREADS];
             HANDLE mutex[NUMTHREADS];
 #else
-            pthread_t t[NUMTHREADS];
             sem_t* mutex[NUMTHREADS];
             char semname[20];
 #endif
@@ -1281,11 +1252,7 @@ private:
                 td[i].compressed_entry_size_bytes = compressed_entry_size_bytes;
                 td[i].ptmp_1_disks = &tmp_1_disks;
 
-#ifdef _WIN32
-                t[i] = CreateThread(0, 0, thread, &(td[i]), 0, NULL);
-#else
-                pthread_create(&(t[i]), NULL, thread, &(td[i]));
-#endif
+                threads.emplace_back(thread_fun, &td[i]);
             }
 
 #ifdef _WIN32
@@ -1294,13 +1261,8 @@ private:
             sem_post(mutex[NUMTHREADS - 1]);
 #endif
 
-            for (int i = 0; i < NUMTHREADS; i++) {
-#ifdef _WIN32
-                WaitForSingleObject(t[i], INFINITE);
-                CloseHandle(t[i]);
-#else
-                pthread_join(t[i], NULL);
-#endif
+            for (auto& t : threads) {
+                t.join();
             }
 
             for (int i = 0; i < NUMTHREADS; i++) {
