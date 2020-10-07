@@ -16,7 +16,6 @@
 #define SRC_CPP_PLOTTER_DISK_HPP_
 
 #ifndef _WIN32
-#include <pthread.h>
 #include <semaphore.h>
 #include <sys/resource.h>
 #include <unistd.h>

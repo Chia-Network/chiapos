@@ -8,12 +8,10 @@
 #ifdef _WIN32
 #elif __APPLE__
 #include <unistd.h>
-#include <pthread.h>
 #include <dispatch/dispatch.h>
 #else
 #include <unistd.h>
 #include <semaphore.h>
-#include <pthread.h>
 #endif
 
 
