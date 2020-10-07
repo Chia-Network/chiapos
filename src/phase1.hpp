@@ -16,7 +16,6 @@
 #define SRC_CPP_PHASE1_HPP_
 
 #ifndef _WIN32
-#include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
 #endif
@@ -684,7 +683,6 @@ std::vector<uint64_t> RunPhase1(
 
         THREADDATA* td = new THREADDATA[num_threads];
 #ifdef _WIN32
-        HANDLE* t = new HANDLE[num_threads];
         HANDLE* mutex = new HANDLE[globals.num_threads];
 #elif __APPLE__
         dispatch_semaphore_t * mutex = new dispatch_semaphore_t [num_threads];
