@@ -47,7 +47,7 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
 
 string Strip0x(const string &hex)
 {
-    if (hex.substr(0, 2) == "0x" || hex.substr(0, 2) == "0X") {
+    if (hex.size() > 1 && (hex.substr(0, 2) == "0x" || hex.substr(0, 2) == "0X")) {
         return hex.substr(2);
     }
     return hex;
@@ -114,17 +114,21 @@ int main(int argc, char *argv[])
             cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
                  << " id=" << id << endl
                  << endl;
+            id = Strip0x(id);
             if (id.size() != 64) {
-                cout << "Invalid ID, should be 32 bytes" << endl;
+                cout << "Invalid ID, should be 32 bytes (hex)" << endl;
                 exit(1);
             }
             memo = Strip0x(memo);
-            id = Strip0x(id);
-            uint8_t *memo_bytes = new uint8_t[memo.size() / 2];
-            uint8_t id_bytes[32];
+            if (memo.size() % 2 != 0) {
+                cout << "Invalid memo, should be only whole bytes (hex)" << endl;
+                exit(1);
+            }
+            std::vector<uint8_t> memo_bytes(memo.size() / 2);
+            std::array<uint8_t, 32> id_bytes;
 
-            HexToBytes(memo, memo_bytes);
-            HexToBytes(id, id_bytes);
+            HexToBytes(memo, memo_bytes.data());
+            HexToBytes(id, id_bytes.data());
 
             DiskPlotter plotter = DiskPlotter();
             try {
@@ -134,10 +138,10 @@ int main(int argc, char *argv[])
                         finaldir,
                         filename,
                         k,
-                        memo_bytes,
-                        memo.size() / 2,
-                        id_bytes,
-                        32,
+                        memo_bytes.data(),
+                        memo_bytes.size(),
+                        id_bytes.data(),
+                        id_bytes.size(),
                         buffmegabytes,
                         num_buckets,
                         num_stripes,
@@ -146,7 +150,6 @@ int main(int argc, char *argv[])
                 std::cerr << "Caught exception while plotting: " << e.what() << std::endl;
                 throw e;
             }
-            delete[] memo_bytes;
         } else if (operation == "prove") {
             if (argc < 3) {
                 HelpAndQuit(options);
