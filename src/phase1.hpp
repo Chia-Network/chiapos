@@ -50,16 +50,8 @@ namespace fs = ghc::filesystem;
 
 struct THREADDATA {
     int index;
-#ifdef _WIN32
-    HANDLE* mine;
-    HANDLE* theirs;
-#elif __APPLE__
-    dispatch_semaphore_t *mine;
-    dispatch_semaphore_t *theirs;
-#else
-    sem_t* mine;
-    sem_t* theirs;
-#endif
+    Sem::type* mine;
+    Sem::type* theirs;
     uint64_t right_entry_size_bytes;
     uint8_t k;
     uint8_t table_index;
@@ -221,18 +213,18 @@ void* phase1_thread(THREADDATA* ptd)
             stripe_start_correction = 0;
         }
 
-        SemaphoreUtils::Wait(ptd->theirs);
+        Sem::Wait(ptd->theirs);
         need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
         if (need_new_bucket) {
             if (!first_thread) {
-                SemaphoreUtils::Wait(ptd->theirs);
+                Sem::Wait(ptd->theirs);
             }
             globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
         }
         if (!last_thread) {
             // Do not post if we are the last thread, because first thread has already
             // waited for us to finish when it starts
-            SemaphoreUtils::Post(ptd->mine);
+            Sem::Post(ptd->mine);
         }
 
         while (pos < prevtableentries + 1) {
@@ -500,7 +492,7 @@ void* phase1_thread(THREADDATA* ptd)
         // If we needed new bucket, we already waited
         // Do not wait if we are the first thread, since we are guaranteed that everything is written
         if (!need_new_bucket && !first_thread) {
-            SemaphoreUtils::Wait(ptd->theirs);
+            Sem::Wait(ptd->theirs);
         }
 
         uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
@@ -543,7 +535,7 @@ void* phase1_thread(THREADDATA* ptd)
         globals.left_writer_count += left_writer_count;
 
         globals.matches += matches;
-        SemaphoreUtils::Post(ptd->mine);
+        Sem::Post(ptd->mine);
     }
 
     delete[] L_position_map;
@@ -682,28 +674,12 @@ std::vector<uint64_t> RunPhase1(
         Timer computation_pass_timer;
 
         THREADDATA* td = new THREADDATA[num_threads];
-#ifdef _WIN32
-        HANDLE* mutex = new HANDLE[globals.num_threads];
-#elif __APPLE__
-        dispatch_semaphore_t * mutex = new dispatch_semaphore_t [num_threads];
-#else
-        sem_t* mutex = new sem_t[num_threads];
-#endif
+        auto* mutex = new Sem::type[num_threads];
 
         std::vector<std::thread> threads;
 
         for (int i = 0; i < num_threads; i++) {
-#ifdef _WIN32
-            mutex[i] = CreateSemaphore(
-                NULL,   // default security attributes
-                0,      // initial count
-                2,      // maximum count
-                NULL);  // unnamed semaphore
-#elif __APPLE__
-            mutex[i] = dispatch_semaphore_create(0);
-#else
-            sem_init(&mutex[i], 0, 0);
-#endif
+            mutex[i] = Sem::Create();
         }
 
         for (int i = 0; i < globals.num_threads; i++) {
@@ -723,20 +699,14 @@ std::vector<uint64_t> RunPhase1(
 
             threads.emplace_back(phase1_thread, &td[i]);
         }
-        SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
+        Sem::Post(&mutex[globals.num_threads - 1]);
 
         for (auto& t : threads) {
             t.join();
         }
 
         for (int i = 0; i < globals.num_threads; i++) {
-#ifdef _WIN32
-            CloseHandle(mutex[i]);
-#elif __APPLE__
-            dispatch_release(mutex[i]);
-#else
-            sem_close(&mutex[i]);
-#endif
+            Sem::Destroy(mutex[i]);
         }
 
         // end of parallel execution
