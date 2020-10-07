@@ -63,212 +63,207 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
-int main(int argc, char *argv[])
-{
-    try {
-        cxxopts::Options options(
-            "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
-        options.positional_help("(generate/prove/verify/check) param1 param2 ")
-            .show_positional_help();
+int main(int argc, char *argv[]) try {
+    cxxopts::Options options(
+        "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
+    options.positional_help("(generate/prove/verify/check) param1 param2 ")
+        .show_positional_help();
 
-        // Default values
-        uint8_t k = 20;
-        uint32_t num_buckets = 0;
-        uint32_t num_stripes = 0;
-        uint8_t num_threads = 0;
-        string filename = "plot.dat";
-        string tempdir = ".";
-        string tempdir2 = ".";
-        string finaldir = ".";
-        string operation = "help";
-        string memo = "0102030405";
-        string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
-        uint32_t buffmegabytes = 0;
+    // Default values
+    uint8_t k = 20;
+    uint32_t num_buckets = 0;
+    uint32_t num_stripes = 0;
+    uint8_t num_threads = 0;
+    string filename = "plot.dat";
+    string tempdir = ".";
+    string tempdir2 = ".";
+    string finaldir = ".";
+    string operation = "help";
+    string memo = "0102030405";
+    string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
+    uint32_t buffmegabytes = 0;
 
-        options.allow_unrecognised_options().add_options()(
-                "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
-                "h, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
-                    "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
-                "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
-                "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
-            "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
-            "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
-            "f, file", "Filename", cxxopts::value<string>(filename))(
-            "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
-            "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
-            "b, buffer",
-            "Megabytes to be used as buffer for sorting and plotting",
-            cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
+    options.allow_unrecognised_options().add_options()(
+            "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
+            "h, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
+                "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
+            "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
+            "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
+        "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
+        "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
+        "f, file", "Filename", cxxopts::value<string>(filename))(
+        "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
+        "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
+        "b, buffer",
+        "Megabytes to be used as buffer for sorting and plotting",
+        cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
 
-        auto result = options.parse(argc, argv);
+    auto result = options.parse(argc, argv);
 
-        if (result.count("help") || argc < 2) {
+    if (result.count("help") || argc < 2) {
+        HelpAndQuit(options);
+    }
+    operation = argv[1];
+    std::cout << "operation: " << operation << std::endl;
+
+    if (operation == "help") {
+        HelpAndQuit(options);
+    } else if (operation == "generate") {
+        cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
+             << " id=" << id << endl
+             << endl;
+        id = Strip0x(id);
+        if (id.size() != 64) {
+            cout << "Invalid ID, should be 32 bytes (hex)" << endl;
+            exit(1);
+        }
+        memo = Strip0x(memo);
+        if (memo.size() % 2 != 0) {
+            cout << "Invalid memo, should be only whole bytes (hex)" << endl;
+            exit(1);
+        }
+        std::vector<uint8_t> memo_bytes(memo.size() / 2);
+        std::array<uint8_t, 32> id_bytes;
+
+        HexToBytes(memo, memo_bytes.data());
+        HexToBytes(id, id_bytes.data());
+
+        DiskPlotter plotter = DiskPlotter();
+        plotter.CreatePlotDisk(
+                tempdir,
+                tempdir2,
+                finaldir,
+                filename,
+                k,
+                memo_bytes.data(),
+                memo_bytes.size(),
+                id_bytes.data(),
+                id_bytes.size(),
+                buffmegabytes,
+                num_buckets,
+                num_stripes,
+                num_threads);
+    } else if (operation == "prove") {
+        if (argc < 3) {
             HelpAndQuit(options);
         }
-        operation = argv[1];
-        std::cout << "operation: " << operation << std::endl;
+        cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl
+             << endl;
+        string challenge = Strip0x(argv[2]);
+        if (challenge.size() != 64) {
+            cout << "Invalid challenge, should be 32 bytes" << endl;
+            exit(1);
+        }
+        uint8_t challenge_bytes[32];
+        HexToBytes(challenge, challenge_bytes);
 
-        if (operation == "help") {
+        DiskProver prover(filename);
+        vector<LargeBits> qualities = prover.GetQualitiesForChallenge(challenge_bytes);
+        for (uint32_t i = 0; i < qualities.size(); i++) {
+            k = prover.GetSize();
+            uint8_t *proof_data = new uint8_t[8 * k];
+            LargeBits proof = prover.GetFullProof(challenge_bytes, i);
+            proof.ToBytes(proof_data);
+            cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+            delete[] proof_data;
+        }
+        if (qualities.empty()) {
+            cout << "No proofs found." << endl;
+            exit(1);
+        }
+    } else if (operation == "verify") {
+        if (argc < 4) {
             HelpAndQuit(options);
-        } else if (operation == "generate") {
-            cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
-                 << " id=" << id << endl
-                 << endl;
-            id = Strip0x(id);
-            if (id.size() != 64) {
-                cout << "Invalid ID, should be 32 bytes (hex)" << endl;
-                exit(1);
-            }
-            memo = Strip0x(memo);
-            if (memo.size() % 2 != 0) {
-                cout << "Invalid memo, should be only whole bytes (hex)" << endl;
-                exit(1);
-            }
-            std::vector<uint8_t> memo_bytes(memo.size() / 2);
-            std::array<uint8_t, 32> id_bytes;
+        }
+        Verifier verifier = Verifier();
 
-            HexToBytes(memo, memo_bytes.data());
-            HexToBytes(id, id_bytes.data());
+        id = Strip0x(id);
+        string proof = Strip0x(argv[2]);
+        string challenge = Strip0x(argv[3]);
+        if (id.size() != 64) {
+            cout << "Invalid ID, should be 32 bytes" << endl;
+            exit(1);
+        }
+        if (challenge.size() != 64) {
+            cout << "Invalid challenge, should be 32 bytes" << endl;
+            exit(1);
+        }
+        if (proof.size() % 16) {
+            cout << "Invalid proof, should be a multiple of 8 bytes" << endl;
+            exit(1);
+        }
+        k = proof.size() / 16;
+        cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3]
+             << " and k=" << static_cast<int>(k) << endl
+             << endl;
+        uint8_t id_bytes[32];
+        uint8_t challenge_bytes[32];
+        uint8_t *proof_bytes = new uint8_t[proof.size() / 2];
+        HexToBytes(id, id_bytes);
+        HexToBytes(challenge, challenge_bytes);
+        HexToBytes(proof, proof_bytes);
 
-            DiskPlotter plotter = DiskPlotter();
-            try {
-                plotter.CreatePlotDisk(
-                        tempdir,
-                        tempdir2,
-                        finaldir,
-                        filename,
-                        k,
-                        memo_bytes.data(),
-                        memo_bytes.size(),
-                        id_bytes.data(),
-                        id_bytes.size(),
-                        buffmegabytes,
-                        num_buckets,
-                        num_stripes,
-                        num_threads);
-            } catch (const std::exception &e) {
-                std::cerr << "Caught exception while plotting: " << e.what() << std::endl;
-                throw e;
-            }
-        } else if (operation == "prove") {
-            if (argc < 3) {
-                HelpAndQuit(options);
-            }
-            cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl
-                 << endl;
-            string challenge = Strip0x(argv[2]);
-            if (challenge.size() != 64) {
-                cout << "Invalid challenge, should be 32 bytes" << endl;
-                exit(1);
-            }
-            uint8_t challenge_bytes[32];
-            HexToBytes(challenge, challenge_bytes);
+        LargeBits quality =
+            verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
+        if (quality.GetSize() == 256) {
+            cout << "Proof verification suceeded. Quality: " << quality << endl;
+        } else {
+            cout << "Proof verification failed." << endl;
+            exit(1);
+        }
+        delete[] proof_bytes;
+    } else if (operation == "check") {
+        uint32_t iterations = 1000;
+        if (argc == 3) {
+            iterations = std::stoi(argv[2]);
+        }
 
-            DiskProver prover(filename);
-            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(challenge_bytes);
+        DiskProver prover(filename);
+        Verifier verifier = Verifier();
+
+        uint32_t success = 0;
+        uint8_t id_bytes[32];
+        prover.GetId(id_bytes);
+        k = prover.GetSize();
+
+        for (uint32_t num = 0; num < iterations; num++) {
+            vector<unsigned char> hash_input = intToBytes(num, 4);
+            hash_input.insert(hash_input.end(), &id_bytes[0], &id_bytes[32]);
+
+            vector<unsigned char> hash(picosha2::k_digest_size);
+            picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+
+            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
             for (uint32_t i = 0; i < qualities.size(); i++) {
-                k = prover.GetSize();
-                uint8_t *proof_data = new uint8_t[8 * k];
-                LargeBits proof = prover.GetFullProof(challenge_bytes, i);
+                LargeBits proof = prover.GetFullProof(hash.data(), i);
+                uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                 proof.ToBytes(proof_data);
-                cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                cout << "i: " << num << std::endl;
+                cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
+                cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                LargeBits quality =
+                    verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
+                if (quality.GetSize() == 256 && quality == qualities[i]) {
+                    cout << "quality: " << quality << endl;
+                    cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
+                    success++;
+                } else {
+                    cout << "Proof verification failed." << endl;
+                    exit(1);
+                }
                 delete[] proof_data;
             }
-            if (qualities.empty()) {
-                cout << "No proofs found." << endl;
-                exit(1);
-            }
-        } else if (operation == "verify") {
-            if (argc < 4) {
-                HelpAndQuit(options);
-            }
-            Verifier verifier = Verifier();
-
-            id = Strip0x(id);
-            string proof = Strip0x(argv[2]);
-            string challenge = Strip0x(argv[3]);
-            if (id.size() != 64) {
-                cout << "Invalid ID, should be 32 bytes" << endl;
-                exit(1);
-            }
-            if (challenge.size() != 64) {
-                cout << "Invalid challenge, should be 32 bytes" << endl;
-                exit(1);
-            }
-            if (proof.size() % 16) {
-                cout << "Invalid proof, should be a multiple of 8 bytes" << endl;
-                exit(1);
-            }
-            k = proof.size() / 16;
-            cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3]
-                 << " and k=" << static_cast<int>(k) << endl
-                 << endl;
-            uint8_t id_bytes[32];
-            uint8_t challenge_bytes[32];
-            uint8_t *proof_bytes = new uint8_t[proof.size() / 2];
-            HexToBytes(id, id_bytes);
-            HexToBytes(challenge, challenge_bytes);
-            HexToBytes(proof, proof_bytes);
-
-            LargeBits quality =
-                verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
-            if (quality.GetSize() == 256) {
-                cout << "Proof verification suceeded. Quality: " << quality << endl;
-            } else {
-                cout << "Proof verification failed." << endl;
-                exit(1);
-            }
-            delete[] proof_bytes;
-        } else if (operation == "check") {
-            uint32_t iterations = 1000;
-            if (argc == 3) {
-                iterations = std::stoi(argv[2]);
-            }
-
-            DiskProver prover(filename);
-            Verifier verifier = Verifier();
-
-            uint32_t success = 0;
-            uint8_t id_bytes[32];
-            prover.GetId(id_bytes);
-            k = prover.GetSize();
-
-            for (uint32_t num = 0; num < iterations; num++) {
-                vector<unsigned char> hash_input = intToBytes(num, 4);
-                hash_input.insert(hash_input.end(), &id_bytes[0], &id_bytes[32]);
-
-                vector<unsigned char> hash(picosha2::k_digest_size);
-                picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-
-                vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
-                for (uint32_t i = 0; i < qualities.size(); i++) {
-                    LargeBits proof = prover.GetFullProof(hash.data(), i);
-                    uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
-                    proof.ToBytes(proof_data);
-                    cout << "i: " << num << std::endl;
-                    cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
-                    cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
-                    LargeBits quality =
-                        verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
-                    if (quality.GetSize() == 256 && quality == qualities[i]) {
-                        cout << "quality: " << quality << endl;
-                        cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
-                        success++;
-                    } else {
-                        cout << "Proof verification failed." << endl;
-                        exit(1);
-                    }
-                    delete[] proof_data;
-                }
-            }
-            std::cout << "Total success: " << success << "/" << iterations << ", "
-                      << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
-        } else {
-            cout << "Invalid operation. Use generate/prove/verify/check" << endl;
         }
-        exit(0);
-    } catch (const cxxopts::OptionException &e) {
-        cout << "error parsing options: " << e.what() << endl;
-        exit(1);
+        std::cout << "Total success: " << success << "/" << iterations << ", "
+                  << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
+    } else {
+        cout << "Invalid operation. Use generate/prove/verify/check" << endl;
     }
+    return 0;
+} catch (const cxxopts::OptionException &e) {
+    cout << "error parsing options: " << e.what() << endl;
+    return 1;
+} catch (const std::exception &e) {
+    std::cerr << "Caught exception: " << e.what() << endl;
+    throw e;
 }
