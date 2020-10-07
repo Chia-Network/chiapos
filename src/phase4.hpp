@@ -135,7 +135,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
         }
     }
     Encoding::ANSFree(kC3R);
-    delete res.table7_sm;
+    res.table7_sm.reset();
 
     // Writes the final park to disk
     memset(P7_entry_buf, 0, P7_park_size);

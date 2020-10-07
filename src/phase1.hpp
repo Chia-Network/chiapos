@@ -76,8 +76,8 @@ struct GlobalData {
     uint64_t left_writer_count;
     uint64_t right_writer_count;
     uint64_t matches;
-    SortManager* L_sort_manager;
-    SortManager* R_sort_manager;
+    std::unique_ptr<SortManager> L_sort_manager;
+    std::unique_ptr<SortManager> R_sort_manager;
     uint64_t left_reader_buf_size;
     uint64_t right_writer_buf_size;
     uint64_t left_writer_buf_size;
@@ -583,7 +583,7 @@ std::vector<uint64_t> RunPhase1(
     uint64_t prevtableentries = 0;
 
     uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
-    globals.L_sort_manager = new SortManager(
+    globals.L_sort_manager = std::make_unique<SortManager>(
         memory,
         memory_size,
         num_buckets,
@@ -667,7 +667,7 @@ std::vector<uint64_t> RunPhase1(
         // previous iteration), And will need to perform large sorts.
         globals.L_sort_manager->ChangeMemory(globals.left_reader_buf, globals.left_reader_buf_size);
 
-        globals.R_sort_manager = new SortManager(
+        globals.R_sort_manager = std::make_unique<SortManager>(
             right_writer_buf,
             globals.right_writer_buf_size,
             num_buckets,
@@ -752,10 +752,10 @@ std::vector<uint64_t> RunPhase1(
         // Truncates the file after the final write position, deleting no longer useful
         // working space
         tmp_1_disks[table_index].Truncate(globals.left_writer);
-        delete globals.L_sort_manager;
+        globals.L_sort_manager.reset();
         if (table_index < 6) {
             globals.R_sort_manager->FlushCache();
-            globals.L_sort_manager = globals.R_sort_manager;
+            globals.L_sort_manager = std::move(globals.R_sort_manager);
         } else {
             tmp_1_disks[table_index + 1].Truncate(globals.right_writer);
         }
@@ -774,7 +774,7 @@ std::vector<uint64_t> RunPhase1(
         delete[] mutex;
     }
     table_sizes[0] = 0;
-    delete globals.R_sort_manager;
+    globals.R_sort_manager.reset();
     return table_sizes;
 }
 

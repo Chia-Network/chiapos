@@ -31,7 +31,7 @@ struct Phase3Results {
     uint32_t right_entry_size_bits;
 
     uint32_t header_size;
-    SortManager *table7_sm;
+    std::unique_ptr<SortManager> table7_sm;
 };
 
 // This writes a number of entries into a file, in the final, optimized format. The park
@@ -142,8 +142,8 @@ Phase3Results RunPhase3(
     uint64_t final_entries_written = 0;
     uint32_t right_entry_size_bytes = 0;
 
-    SortManager *L_sort_manager;
-    SortManager *R_sort_manager;
+    std::unique_ptr<SortManager> L_sort_manager;
+    std::unique_ptr<SortManager> R_sort_manager;
 
     // These variables are used in the WriteParkToFile method. They are preallocatted here
     // to save time.
@@ -199,7 +199,7 @@ Phase3Results RunPhase3(
             L_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
         }
 
-        R_sort_manager = new SortManager(
+        R_sort_manager = std::make_unique<SortManager>(
             right_writer_buf,
             right_writer_buf_size,
             num_buckets,
@@ -396,13 +396,13 @@ Phase3Results RunPhase3(
 
         if (table_index > 1) {
             // Make sure all files are removed
-            delete L_sort_manager;
+            L_sort_manager.reset();
         }
 
         // L sort manager will be used for the writer, and R sort manager will be used for the
         // reader
         R_sort_manager->ChangeMemory(right_reader_buf, right_reader_buf_size);
-        L_sort_manager = new SortManager(
+        L_sort_manager = std::make_unique<SortManager>(
             right_writer_buf,
             right_writer_buf_size,
             num_buckets,
@@ -486,7 +486,7 @@ Phase3Results RunPhase3(
             }
             last_line_point = line_point;
         }
-        delete R_sort_manager;
+        R_sort_manager.reset();
         L_sort_manager->FlushCache();
 
         computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
@@ -531,7 +531,7 @@ Phase3Results RunPhase3(
         final_entries_written,
         right_entry_size_bytes * 8,
         header_size,
-        L_sort_manager};
+        std::move(L_sort_manager)};
 }
 
 #endif  // SRC_CPP_PHASE3_HPP

@@ -41,8 +41,8 @@ std::vector<uint64_t> RunPhase2(
 
     std::vector<uint64_t> new_table_sizes = std::vector<uint64_t>(8, 0);
     new_table_sizes[7] = table_sizes[7];
-    SortManager *R_sort_manager;
-    SortManager *L_sort_manager;
+    std::unique_ptr<SortManager> R_sort_manager;
+    std::unique_ptr<SortManager> L_sort_manager;
 
     // Iterates through each table (with a left and right pointer), starting at 6 & 7.
     for (int table_index = 7; table_index > 1; --table_index) {
@@ -88,7 +88,7 @@ std::vector<uint64_t> RunPhase2(
             R_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
         }
 
-        L_sort_manager = new SortManager(
+        L_sort_manager = std::make_unique<SortManager>(
             left_writer_buf,
             left_writer_buf_size,
             num_buckets,
@@ -382,7 +382,7 @@ std::vector<uint64_t> RunPhase2(
         right_writer += (right_writer_count % right_writer_buf_entries) * right_entry_size_bytes;
 
         if (table_index != 7) {
-            delete R_sort_manager;
+            R_sort_manager.reset();
         }
 
         // Truncates the right table
@@ -400,11 +400,11 @@ std::vector<uint64_t> RunPhase2(
             tmp_1_disks[table_index - 1].Truncate(left_writer);
         } else {
             L_sort_manager->FlushCache();
-            R_sort_manager = L_sort_manager;
+            R_sort_manager = std::move(L_sort_manager);
         }
         delete[] right_entry_buf_SM;
     }
-    delete L_sort_manager;
+    L_sort_manager.reset();
     return new_table_sizes;
 }
 
