@@ -696,72 +696,78 @@ std::vector<uint64_t> RunPhase1(
     // many elements are in each bucket.
     std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
 
-    // Start of parallel execution
+    {
+        // Start of parallel execution
 
-    THREADF1DATA td[num_threads];
+        THREADF1DATA* td = new THREADF1DATA[num_threads];
 
 #ifdef _WIN32
-    HANDLE* t = new HANDLE[num_threads];
-    HANDLE* mutex = new HANDLE[globals.num_threads];
+        HANDLE* t = new HANDLE[num_threads];
+        HANDLE* mutex = new HANDLE[globals.num_threads];
 #elif __APPLE__
-    pthread_t* t = new pthread_t[num_threads];
-    dispatch_semaphore_t* mutex = new dispatch_semaphore_t[num_threads];
+        pthread_t* t = new pthread_t[num_threads];
+        dispatch_semaphore_t* mutex = new dispatch_semaphore_t[num_threads];
 #else
-    pthread_t* t = new pthread_t[num_threads];
-    sem_t* mutex = new sem_t[num_threads];
+        pthread_t* t = new pthread_t[num_threads];
+        sem_t* mutex = new sem_t[num_threads];
 #endif
 
-    for (int i = 0; i < num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
 #ifdef _WIN32
-        mutex[i] = CreateSemaphore(
-            NULL,   // default security attributes
-            0,      // initial count
-            1,      // maximum count
-            NULL);  // unnamed semaphore
+            mutex[i] = CreateSemaphore(
+                NULL,   // default security attributes
+                0,      // initial count
+                1,      // maximum count
+                NULL);  // unnamed semaphore
 #elif __APPLE__
-        mutex[i] = dispatch_semaphore_create(0);
+            mutex[i] = dispatch_semaphore_create(0);
 #else
-        sem_init(&mutex[i], 0, 0);
+            sem_init(&mutex[i], 0, 0);
 #endif
-    }
+        }
 
-    for (int i = 0; i < globals.num_threads; i++) {
-        td[i].index = i;
-        td[i].mine = &mutex[i];
-        td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
+        for (int i = 0; i < globals.num_threads; i++) {
+            td[i].index = i;
+            td[i].mine = &mutex[i];
+            td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
 
-        td[i].k = k;
-        td[i].id = id;
+            td[i].k = k;
+            td[i].id = id;
 
 #ifdef _WIN32
-        t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
+            t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
 #else
-        pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
+            pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
 #endif
-    }
+        }
 
-    SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
+        SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
-    for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
-        WaitForSingleObject(t[i], INFINITE);
-        CloseHandle(t[i]);
+            WaitForSingleObject(t[i], INFINITE);
+            CloseHandle(t[i]);
 #else
-        pthread_join(t[i], NULL);
+            pthread_join(t[i], NULL);
 #endif
-    }
+        }
 
-    for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
-        CloseHandle(mutex[i]);
+            CloseHandle(mutex[i]);
 #elif __APPLE__
-        dispatch_release(mutex[i]);
+            dispatch_release(mutex[i]);
 #else
-        sem_close(&mutex[i]);
+            sem_close(&mutex[i]);
 #endif
-    }
+        }
 
-    // end of parallel execution
+        delete[] t;
+        delete[] td;
+        delete[] mutex;
+
+        // end of parallel execution
+    }
 
     prevtableentries = 1ULL << k;
     f1_start_time.PrintElapsed("F1 complete, time:");
