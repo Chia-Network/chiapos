@@ -74,8 +74,11 @@ typedef struct {
 typedef struct {
     int index;
 #ifdef _WIN32
-    HANDLE mine;
-    HANDLE theirs;
+    HANDLE* mine;
+    HANDLE* theirs;
+#elif __APPLE__
+    dispatch_semaphore_t* mine;
+    dispatch_semaphore_t* theirs;
 #else
     sem_t* mine;
     sem_t* theirs;
@@ -632,11 +635,7 @@ void* F1thread(void* arg)
             x++;
         }
 
-#ifdef _WIN32
-        WaitForSingleObject(ptd->theirs, INFINITE);
-#else
-        sem_wait(ptd->theirs);
-#endif
+        SemaphoreUtils::Wait(ptd->theirs);
 
         // Write it out
 
@@ -644,15 +643,7 @@ void* F1thread(void* arg)
             globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
         }
 
-#ifdef _WIN32
-        ReleaseSemaphore(ptd->mine, 1, NULL);
-#else
-        sem_post(ptd->mine);
-#endif
-
-        if (x + 1 > max_value) {
-            break;
-        }
+        SemaphoreUtils::Post(ptd->mine);
     }
 
     free(f1_entries);
@@ -707,33 +698,37 @@ std::vector<uint64_t> RunPhase1(
 
     // Start of parallel execution
 
-    THREADF1DATA td[globals.num_threads];
+    THREADF1DATA td[num_threads];
+
 #ifdef _WIN32
-    HANDLE t[globals.num_threads];
-    HANDLE mutex[globals.num_threads];
+    HANDLE* t = new HANDLE[num_threads];
+    HANDLE* mutex = new HANDLE[globals.num_threads];
+#elif __APPLE__
+    pthread_t* t = new pthread_t[num_threads];
+    dispatch_semaphore_t* mutex = new dispatch_semaphore_t[num_threads];
 #else
-    pthread_t t[globals.num_threads];
-    sem_t* mutex[globals.num_threads];
-    char semname[20];
+    pthread_t* t = new pthread_t[num_threads];
+    sem_t* mutex = new sem_t[num_threads];
 #endif
 
-    for (int i = 0; i < globals.num_threads; i++) {
+    for (int i = 0; i < num_threads; i++) {
 #ifdef _WIN32
         mutex[i] = CreateSemaphore(
             NULL,   // default security attributes
             0,      // initial count
             1,      // maximum count
             NULL);  // unnamed semaphore
+#elif __APPLE__
+        mutex[i] = dispatch_semaphore_create(0);
 #else
-        sprintf(semname, "f1 sem %d", i);
-        mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+        sem_init(&mutex[i], 0, 0);
 #endif
     }
 
     for (int i = 0; i < globals.num_threads; i++) {
         td[i].index = i;
-        td[i].mine = mutex[i];
-        td[i].theirs = mutex[(globals.num_threads + i - 1) % globals.num_threads];
+        td[i].mine = &mutex[i];
+        td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
 
         td[i].k = k;
         td[i].id = id;
@@ -745,11 +740,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
     }
 
-#ifdef _WIN32
-    ReleaseSemaphore(mutex[globals.num_threads - 1], 1, NULL);
-#else
-    sem_post(mutex[globals.num_threads - 1]);
-#endif
+    SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
     for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
@@ -763,10 +754,10 @@ std::vector<uint64_t> RunPhase1(
     for (int i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
         CloseHandle(mutex[i]);
+#elif __APPLE__
+        dispatch_release(mutex[i]);
 #else
-        sem_close(mutex[i]);
-        sprintf(semname, "f1 sem %d", i);
-        sem_unlink(semname);
+        sem_close(&mutex[i]);
 #endif
     }
 
