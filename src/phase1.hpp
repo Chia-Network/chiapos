@@ -49,7 +49,7 @@ namespace fs = ghc::filesystem;
 #include "util.hpp"
 
 typedef struct {
-    int index;
+    uint32_t index;
 #ifdef _WIN32
     HANDLE* mine;
     HANDLE* theirs;
@@ -72,7 +72,7 @@ typedef struct {
 } THREADDATA;
 
 typedef struct {
-    int index;
+    uint32_t index;
 #ifdef _WIN32
     HANDLE* mine;
     HANDLE* theirs;
@@ -592,7 +592,7 @@ void* F1thread(void* arg)
     uint8_t k = ptd->k;
     uint32_t entry_size_bytes = 16;
 
-    uint64_t max_value = ((uint64_t)1 << (k)) - 1;
+    uint64_t max_value = ((uint64_t)1 << (k));
 
     uint64_t right_buf_entries = 1 << (kBatchSizes);
 
@@ -609,28 +609,21 @@ void* F1thread(void* arg)
         // For each pair x, y in the batch
 
         uint64_t right_writer_count = 0;
-        uint64_t x = lp * (2 << (kBatchSizes - 1));
+        uint64_t x = lp * (1 << (kBatchSizes));
 
-        uint64_t loopcount = min(max_value + 1 - x, (uint64_t)1 << (kBatchSizes));
-
-        // cout << "thread " << ptd->index << " x " << x << " loopcount " << loopcount << endl;
+        uint64_t loopcount = min(max_value - x, (uint64_t)1 << (kBatchSizes));
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
         f1.CalculateBuckets(x, loopcount, f1_entries);
-        for (int i = 0; i < loopcount; i++) {
-            // cout << i << endl;
-
+        for (uint32_t i = 0; i < loopcount; i++) {
             uint8_t to_write[16];
             uint128_t entry;
 
             entry = (uint128_t)f1_entries[i] << (128 - kExtraBits - k);
             entry |= (uint128_t)x << (128 - kExtraBits - 2 * k);
             Util::IntTo16Bytes(to_write, entry);
-            // cout << "1" << endl;
             memcpy(&(right_writer_buf[i * entry_size_bytes]), to_write, 16);
-            // cout << "2" << endl;
-
             right_writer_count++;
             x++;
         }
@@ -638,8 +631,7 @@ void* F1thread(void* arg)
         SemaphoreUtils::Wait(ptd->theirs);
 
         // Write it out
-
-        for (int i = 0; i < right_writer_count; i++) {
+        for (uint32_t i = 0; i < right_writer_count; i++) {
             globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
         }
 
@@ -647,7 +639,6 @@ void* F1thread(void* arg)
     }
 
     free(f1_entries);
-
     delete[] right_writer_buf;
 
     return 0;
@@ -712,7 +703,7 @@ std::vector<uint64_t> RunPhase1(
         sem_t* mutex = new sem_t[num_threads];
 #endif
 
-        for (int i = 0; i < num_threads; i++) {
+        for (uint32_t i = 0; i < num_threads; i++) {
 #ifdef _WIN32
             mutex[i] = CreateSemaphore(
                 NULL,   // default security attributes
@@ -726,7 +717,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
             td[i].index = i;
             td[i].mine = &mutex[i];
             td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
@@ -743,7 +734,7 @@ std::vector<uint64_t> RunPhase1(
 
         SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             WaitForSingleObject(t[i], INFINITE);
             CloseHandle(t[i]);
@@ -752,7 +743,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             CloseHandle(mutex[i]);
 #elif __APPLE__
@@ -845,7 +836,7 @@ std::vector<uint64_t> RunPhase1(
         sem_t* mutex = new sem_t[num_threads];
 #endif
 
-        for (int i = 0; i < num_threads; i++) {
+        for (uint32_t i = 0; i < num_threads; i++) {
 #ifdef _WIN32
             mutex[i] = CreateSemaphore(
                 NULL,   // default security attributes
@@ -859,7 +850,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
             td[i].index = i;
             td[i].mine = &mutex[i];
             td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
@@ -882,7 +873,7 @@ std::vector<uint64_t> RunPhase1(
         }
         SemaphoreUtils::Post(&mutex[globals.num_threads - 1]);
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             WaitForSingleObject(t[i], INFINITE);
             CloseHandle(t[i]);
@@ -891,7 +882,7 @@ std::vector<uint64_t> RunPhase1(
 #endif
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (uint32_t i = 0; i < globals.num_threads; i++) {
 #ifdef _WIN32
             CloseHandle(mutex[i]);
 #elif __APPLE__
