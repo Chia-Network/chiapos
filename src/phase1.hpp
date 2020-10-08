@@ -54,8 +54,8 @@ typedef struct {
     HANDLE* mine;
     HANDLE* theirs;
 #elif __APPLE__
-    dispatch_semaphore_t *mine;
-    dispatch_semaphore_t *theirs;
+    dispatch_semaphore_t* mine;
+    dispatch_semaphore_t* theirs;
 #else
     sem_t* mine;
     sem_t* theirs;
@@ -70,6 +70,19 @@ typedef struct {
     uint32_t compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks;
 } THREADDATA;
+
+typedef struct {
+    int index;
+#ifdef _WIN32
+    HANDLE mine;
+    HANDLE theirs;
+#else
+    sem_t* mine;
+    sem_t* theirs;
+#endif
+    uint8_t k;
+    const uint8_t* id;
+} THREADF1DATA;
 
 struct GlobalData {
     uint64_t left_writer_count;
@@ -156,8 +169,8 @@ void* phase1_thread(void* arg)
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
-    uint64_t right_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
+    uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
+    uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
     uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes]();
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes]();
 
@@ -206,8 +219,8 @@ void* phase1_thread(void* arg)
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
         bool need_new_bucket = false;
-        bool first_thread =  ptd->index % globals.num_threads == 0;
-        bool last_thread =  ptd->index % globals.num_threads == globals.num_threads - 1;
+        bool first_thread = ptd->index % globals.num_threads == 0;
+        bool last_thread = ptd->index % globals.num_threads == globals.num_threads - 1;
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
@@ -506,7 +519,8 @@ void* phase1_thread(void* arg)
         }
 
         // If we needed new bucket, we already waited
-        // Do not wait if we are the first thread, since we are guaranteed that everything is written
+        // Do not wait if we are the first thread, since we are guaranteed that everything is
+        // written
         if (!need_new_bucket && !first_thread) {
             SemaphoreUtils::Wait(ptd->theirs);
         }
@@ -562,6 +576,92 @@ void* phase1_thread(void* arg)
     return 0;
 }
 
+#ifdef _WIN32
+DWORD WINAPI F1thread(LPVOID lpParameter)
+{
+    THREADF1DATA* ptd = (THREADF1DATA*)lpParameter;
+#else
+void* F1thread(void* arg)
+{
+    THREADF1DATA* ptd = (THREADF1DATA*)arg;
+#endif
+
+    uint8_t k = ptd->k;
+    uint32_t entry_size_bytes = 16;
+
+    uint64_t max_value = ((uint64_t)1 << (k)) - 1;
+
+    uint64_t right_buf_entries = 1 << (kBatchSizes);
+
+    uint64_t* f1_entries = (uint64_t*)malloc((1 << kBatchSizes) * sizeof(*f1_entries));
+
+    F1Calculator f1(k, ptd->id);
+
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * entry_size_bytes];
+
+    // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
+    // to increase CPU efficency.
+    for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
+         lp = lp + globals.num_threads) {  // globals.num_threads) {
+        // For each pair x, y in the batch
+
+        uint64_t right_writer_count = 0;
+        uint64_t x = lp * (2 << (kBatchSizes - 1));
+
+        uint64_t loopcount = min(max_value + 1 - x, (uint64_t)1 << (kBatchSizes));
+
+        // cout << "thread " << ptd->index << " x " << x << " loopcount " << loopcount << endl;
+
+        // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
+        // to increase CPU efficency.
+        f1.CalculateBuckets(x, loopcount, f1_entries);
+        for (int i = 0; i < loopcount; i++) {
+            // cout << i << endl;
+
+            uint8_t to_write[16];
+            uint128_t entry;
+
+            entry = (uint128_t)f1_entries[i] << (128 - kExtraBits - k);
+            entry |= (uint128_t)x << (128 - kExtraBits - 2 * k);
+            Util::IntTo16Bytes(to_write, entry);
+            // cout << "1" << endl;
+            memcpy(&(right_writer_buf[i * entry_size_bytes]), to_write, 16);
+            // cout << "2" << endl;
+
+            right_writer_count++;
+            x++;
+        }
+
+#ifdef _WIN32
+        WaitForSingleObject(ptd->theirs, INFINITE);
+#else
+        sem_wait(ptd->theirs);
+#endif
+
+        // Write it out
+
+        for (int i = 0; i < right_writer_count; i++) {
+            globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
+        }
+
+#ifdef _WIN32
+        ReleaseSemaphore(ptd->mine, 1, NULL);
+#else
+        sem_post(ptd->mine);
+#endif
+
+        if (x + 1 > max_value) {
+            break;
+        }
+    }
+
+    free(f1_entries);
+
+    delete[] right_writer_buf;
+
+    return 0;
+}
+
 // This is Phase 1, or forward propagation. During this phase, all of the 7 tables,
 // and f functions, are evaluated. The result is an intermediate plot file, that is
 // several times larger than what the final file will be, but that has all of the
@@ -588,7 +688,6 @@ std::vector<uint64_t> RunPhase1(
     F1Calculator f1(k, id);
     uint64_t x = 0;
     uint64_t prevtableentries = 0;
-    uint64_t *f1_entries = (uint64_t *)malloc((1 << kBatchSizes) * sizeof(*f1_entries));
 
     uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
     globals.L_sort_manager = new SortManager(
@@ -606,23 +705,74 @@ std::vector<uint64_t> RunPhase1(
     // many elements are in each bucket.
     std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
 
-    // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
-    // to increase CPU efficency.
-    for (uint64_t lp = 0; lp < (uint64_t)1 << (k - kBatchSizes); lp++) {
-        f1.CalculateBuckets(x, 1 << kBatchSizes, f1_entries);
-        for (int i = 0; i < 1 << kBatchSizes; i++) {
-            uint8_t to_write[16];
-            uint128_t entry;
+    // Start of parallel execution
 
-            entry = (uint128_t)f1_entries[i] << (128 - kExtraBits - k);
-            entry |= (uint128_t)x << (128 - kExtraBits - 2 * k);
-            Util::IntTo16Bytes(to_write, entry);
-            globals.L_sort_manager->AddToCache(to_write);
-            x++;
-        }
+    THREADF1DATA td[globals.num_threads];
+#ifdef _WIN32
+    HANDLE t[globals.num_threads];
+    HANDLE mutex[globals.num_threads];
+#else
+    pthread_t t[globals.num_threads];
+    sem_t* mutex[globals.num_threads];
+    char semname[20];
+#endif
+
+    for (int i = 0; i < globals.num_threads; i++) {
+#ifdef _WIN32
+        mutex[i] = CreateSemaphore(
+            NULL,   // default security attributes
+            0,      // initial count
+            1,      // maximum count
+            NULL);  // unnamed semaphore
+#else
+        sprintf(semname, "f1 sem %d", i);
+        mutex[i] = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR, 0);
+#endif
     }
+
+    for (int i = 0; i < globals.num_threads; i++) {
+        td[i].index = i;
+        td[i].mine = mutex[i];
+        td[i].theirs = mutex[(globals.num_threads + i - 1) % globals.num_threads];
+
+        td[i].k = k;
+        td[i].id = id;
+
+#ifdef _WIN32
+        t[i] = CreateThread(0, 0, F1thread, &(td[i]), 0, NULL);
+#else
+        pthread_create(&(t[i]), NULL, F1thread, &(td[i]));
+#endif
+    }
+
+#ifdef _WIN32
+    ReleaseSemaphore(mutex[globals.num_threads - 1], 1, NULL);
+#else
+    sem_post(mutex[globals.num_threads - 1]);
+#endif
+
+    for (int i = 0; i < globals.num_threads; i++) {
+#ifdef _WIN32
+        WaitForSingleObject(t[i], INFINITE);
+        CloseHandle(t[i]);
+#else
+        pthread_join(t[i], NULL);
+#endif
+    }
+
+    for (int i = 0; i < globals.num_threads; i++) {
+#ifdef _WIN32
+        CloseHandle(mutex[i]);
+#else
+        sem_close(mutex[i]);
+        sprintf(semname, "f1 sem %d", i);
+        sem_unlink(semname);
+#endif
+    }
+
+    // end of parallel execution
+
     prevtableentries = 1ULL << k;
-    free(f1_entries);
     f1_start_time.PrintElapsed("F1 complete, time:");
     globals.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;
@@ -692,7 +842,7 @@ std::vector<uint64_t> RunPhase1(
         HANDLE* mutex = new HANDLE[globals.num_threads];
 #elif __APPLE__
         pthread_t* t = new pthread_t[num_threads];
-        dispatch_semaphore_t * mutex = new dispatch_semaphore_t [num_threads];
+        dispatch_semaphore_t* mutex = new dispatch_semaphore_t[num_threads];
 #else
         pthread_t* t = new pthread_t[num_threads];
         sem_t* mutex = new sem_t[num_threads];
