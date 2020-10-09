@@ -197,10 +197,6 @@ public:
                 tmp_1_disks.emplace_back(fname);
 
             FileDisk tmp2_disk(tmp_2_filename);
-            if (!tmp2_disk.isOpen()) {
-                throw InvalidValueException(
-                    "Could not open " + std::string(tmp_2_filename.c_str()));
-            }
 
             assert(id_len == kIdLen);
 
