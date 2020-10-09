@@ -30,6 +30,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <memory>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -208,7 +209,7 @@ public:
             assert(id_len == kIdLen);
 
             // Memory to be used for sorting and buffers
-            uint8_t* memory = new uint8_t[memory_size]();
+            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size]);
 
             std::cout << std::endl
                       << "Starting phase 1/4: Forward Propagation into tmp files... "
@@ -217,7 +218,7 @@ public:
             Timer p1;
             Timer all_phases;
             std::vector<uint64_t> table_sizes = RunPhase1(
-                memory,
+                memory.get(),
                 tmp_1_disks,
                 k,
                 id,
@@ -236,7 +237,7 @@ public:
 
             Timer p2;
             std::vector<uint64_t> backprop_table_sizes = RunPhase2(
-                memory,
+                memory.get(),
                 tmp_1_disks,
                 table_sizes,
                 k,
@@ -256,7 +257,7 @@ public:
                       << " ... " << Timer::GetNow();
             Timer p3;
             Phase3Results res = RunPhase3(
-                memory,
+                memory.get(),
                 k,
                 tmp2_disk,
                 tmp_1_disks,
@@ -295,8 +296,6 @@ public:
                              (1024 * 1024 * 1024)
                       << " GiB" << std::endl;
             all_phases.PrintElapsed("Total time =");
-
-            delete[] memory;
         }
 
         std::cin.tie(prevstr);
