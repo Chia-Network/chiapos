@@ -32,8 +32,7 @@ namespace fs = ghc::filesystem;
 #include "./bits.hpp"
 #include "./util.hpp"
 
-class Disk {
-public:
+struct Disk {
     virtual void Read(uint64_t begin, uint8_t *memcache, uint64_t length) = 0;
 
     virtual void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) = 0;
@@ -42,45 +41,42 @@ public:
 
     virtual std::string GetFileName() = 0;
 
-    virtual ~Disk(){};
+    virtual ~Disk() = default;
 };
 
-class FileDisk : public Disk {
-public:
-    inline explicit FileDisk(const fs::path &filename)
+struct FileDisk : Disk {
+    explicit FileDisk(const fs::path &filename)
     {
         filename_ = filename;
 
         // Opens the file for reading and writing
-        f_ = fopen(filename.c_str(), "w+b");
+        f_ = ::fopen(filename.c_str(), "w+b");
+        if (f_ == nullptr) {
+            throw InvalidValueException(
+                "Could not open " + filename.string() + ": " + ::strerror(errno));
+        }
     }
 
     FileDisk(FileDisk &&fd)
     {
         filename_ = fd.filename_;
         f_ = fd.f_;
-        fd.f_ = NULL;
+        fd.f_ = nullptr;
     }
 
-    bool isOpen() { return (f_ != NULL); }
+    FileDisk(const FileDisk &) = delete;
+    FileDisk &operator=(const FileDisk &) = delete;
 
     void Close()
     {
-        if (f_ != NULL) {
-            fclose(f_);
-            f_ = NULL;
-        }
+        if (f_ == nullptr) return;
+        ::fclose(f_);
+        f_ = nullptr;
     }
 
-    ~FileDisk()
-    {
-        if (f_ != NULL) {
-            fclose(f_);
-            f_ = NULL;
-        }
-    }
+    ~FileDisk() { Close(); }
 
-    inline void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override
+    void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override
     {
         // Seek, read, and replace into memcache
         uint64_t amtread;
@@ -89,11 +85,13 @@ public:
 #ifdef WIN32
                 _fseeki64(f_, begin, SEEK_SET);
 #else
-                fseek(f_, begin, SEEK_SET);
+                // fseek() takes a long as offset, make sure it's wide enough
+                static_assert(sizeof(long) >= sizeof(begin));
+                ::fseek(f_, begin, SEEK_SET);
 #endif
                 bReading = true;
             }
-            amtread = fread(reinterpret_cast<char *>(memcache), sizeof(uint8_t), length, f_);
+            amtread = ::fread(reinterpret_cast<char *>(memcache), sizeof(uint8_t), length, f_);
             readPos = begin + amtread;
             if (amtread != length) {
                 std::cout << "Only read " << amtread << " of " << length << " bytes at offset "
@@ -108,7 +106,7 @@ public:
         } while (amtread != length);
     }
 
-    inline void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) override
+    void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) override
     {
         // Seek and write from memcache
         uint64_t amtwritten;
@@ -117,12 +115,14 @@ public:
 #ifdef WIN32
                 _fseeki64(f_, begin, SEEK_SET);
 #else
-                fseek(f_, begin, SEEK_SET);
+                // fseek() takes a long as offset, make sure it's wide enough
+                static_assert(sizeof(long) >= sizeof(begin));
+                ::fseek(f_, begin, SEEK_SET);
 #endif
                 bReading = false;
             }
             amtwritten =
-                fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
+                ::fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
             writePos = begin + amtwritten;
             if (writePos > writeMax)
                 writeMax = writePos;
@@ -139,22 +139,22 @@ public:
         } while (amtwritten != length);
     }
 
-    inline std::string GetFileName() override { return filename_.string(); }
+    std::string GetFileName() override { return filename_.string(); }
 
-    inline uint64_t GetWriteMax() const noexcept { return writeMax; }
+    uint64_t GetWriteMax() const noexcept { return writeMax; }
 
-    inline void Truncate(uint64_t new_size) override
+    void Truncate(uint64_t new_size) override
     {
-        if (f_ != NULL)
-            fclose(f_);
+        Close();
         fs::resize_file(filename_, new_size);
-        f_ = fopen(filename_.c_str(), "r+b");
+        f_ = ::fopen(filename_.c_str(), "r+b");
+        if (f_ == nullptr) {
+            throw InvalidValueException(
+                "Could not open " + filename_.string() + ": " + ::strerror(errno));
+        }
     }
 
 private:
-    FileDisk(const FileDisk &);
-
-    FileDisk &operator=(const FileDisk &);
 
     uint64_t readPos = 0;
     uint64_t writePos = 0;
