@@ -193,12 +193,8 @@ public:
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
-            tmp_1_disks.push_back(FileDisk(tmp_1_filenames[0]));
-            for (int i = 1; i < 8; i++) {
-                uint64_t tablesize = ((uint64_t)1) << (k + 1);
-                tablesize = tablesize * EntrySizes::GetMaxEntrySize(k, i, true);
-                tmp_1_disks.push_back(FileDisk(tmp_1_filenames[i]));
-            }
+            for (auto const& fname : tmp_1_filenames)
+                tmp_1_disks.emplace_back(fname);
 
             FileDisk tmp2_disk(tmp_2_filename);
             if (!tmp2_disk.isOpen()) {
