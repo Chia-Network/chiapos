@@ -20,6 +20,10 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
+#include <chrono>
+
+using namespace std::chrono_literals; // for operator""min;
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -97,11 +101,7 @@ struct FileDisk : Disk {
                 std::cout << "Only read " << amtread << " of " << length << " bytes at offset "
                           << begin << " from " << filename_ << "with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
-#ifdef WIN32
-                Sleep(5 * 60000);
-#else
-                sleep(5 * 60);
-#endif
+                std::this_thread::sleep_for(5min);
             }
         } while (amtread != length);
     }
@@ -130,11 +130,7 @@ struct FileDisk : Disk {
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
                           << begin << " to " << filename_ << "with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
-#ifdef WIN32
-                Sleep(5 * 60000);
-#else
-                sleep(5 * 60);
-#endif
+                std::this_thread::sleep_for(5min);
             }
         } while (amtwritten != length);
     }
