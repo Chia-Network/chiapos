@@ -25,7 +25,7 @@
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
 
-#include "../lib/include/filesystem.hh"
+#include "../lib/include/filesystem.hpp"
 
 namespace fs = ghc::filesystem;
 
