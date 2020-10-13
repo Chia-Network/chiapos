@@ -23,6 +23,10 @@
 #include <thread>
 #include <chrono>
 
+// enables disk I/O logging to disk.log
+// use tools/disk.gnuplot to generate a plot
+#define ENABLE_LOGGING 0
+
 using namespace std::chrono_literals; // for operator""min;
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
@@ -47,6 +51,45 @@ struct Disk {
 
     virtual ~Disk() = default;
 };
+
+#if ENABLE_LOGGING
+#include <unordered_map>
+#include <cinttypes>
+
+enum class op_t { read, write};
+void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t length)
+{
+    static std::mutex m;
+    static std::unordered_map<std::string, int> file_index;
+    static auto const start_time = std::chrono::steady_clock::now();
+    static int next_file = 0;
+
+    auto const timestamp = std::chrono::steady_clock::now() - start_time;
+
+    int fd = ::open("disk.log", O_WRONLY | O_CREAT | O_APPEND, 0755);
+
+    std::unique_lock<std::mutex> l(m);
+
+    int const index = [&] {
+        auto it = file_index.find(filename.string());
+        if (it != file_index.end()) return it->second;
+        file_index[filename.string()] = next_file;
+        return next_file++;
+    }();
+
+    // timestamp (ms), start-offset, end-offset, operation (0 = read, 1 = write), file_index
+    char buffer[512];
+    int const len = std::snprintf(buffer, sizeof(buffer)
+        , "%" PRId64 "\t%" PRIu64 "\t%" PRIu64 "\t%d\t%d\n"
+        , std::chrono::duration_cast<std::chrono::milliseconds>(timestamp).count()
+        , offset
+        , offset + length
+        , op
+        , index);
+    ::write(fd, buffer, len);
+    ::close(fd);
+}
+#endif
 
 struct FileDisk : Disk {
     explicit FileDisk(const fs::path &filename)
@@ -82,6 +125,9 @@ struct FileDisk : Disk {
 
     void Read(uint64_t begin, uint8_t *memcache, uint64_t length) override
     {
+#if ENABLE_LOGGING
+        disk_log(filename_, op_t::read, begin, length);
+#endif
         // Seek, read, and replace into memcache
         uint64_t amtread;
         do {
@@ -108,6 +154,9 @@ struct FileDisk : Disk {
 
     void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) override
     {
+#if ENABLE_LOGGING
+        disk_log(filename_, op_t::write, begin, length);
+#endif
         // Seek and write from memcache
         uint64_t amtwritten;
         do {
