@@ -77,7 +77,9 @@ public:
     inline F1Calculator(uint8_t k, const uint8_t* orig_key)
     {
         uint8_t enc_key[32];
+        size_t buf_blocks = cdiv(k << kBatchSizes, kF1BlockSizeBits) + 1;
         this->k_ = k;
+        this->buf_ = new uint8_t[buf_blocks * kF1BlockSizeBits / 8];
 
         // First byte is 1, the index of this table
         enc_key[0] = 1;
@@ -87,7 +89,10 @@ public:
         chacha8_keysetup(&this->enc_ctx_, enc_key, 256, NULL);
     }
 
-    inline ~F1Calculator() {}
+    inline ~F1Calculator()
+    {
+        delete[] buf_;
+    }
 
     // Disable copying
     F1Calculator(const F1Calculator&) = delete;
@@ -154,69 +159,27 @@ public:
         return std::make_pair(CalculateF(L), L);
     }
 
-    // Returns an evaluation of F1(L), and the metadata (L) that must be stored to evaluate F2,
-    // for 'number_of_evaluations' adjacent inputs.
-    inline std::vector<std::pair<Bits, Bits>> CalculateBuckets(
-        const Bits& start_L,
-        uint64_t number_of_evaluations)
+    // F1(x) values for x in range [first_x, first_x + n) are placed in res[].
+    // n must not be more than 1 << kBatchSizes.
+    void CalculateBuckets(uint64_t first_x, uint64_t n, uint64_t *res)
     {
-        uint16_t num_output_bits = k_;
-        uint16_t block_size_bits = kF1BlockSizeBits;
+        uint64_t start = first_x * k_ / kF1BlockSizeBits;
+        // 'end' is one past the last keystream block number to be generated
+        uint64_t end = cdiv((first_x + n) * k_, kF1BlockSizeBits);
+        uint64_t n_blks = end - start;
+        uint32_t start_bit = first_x * k_ % kF1BlockSizeBits;
+        uint8_t x_shift = k_ - kExtraBits;
 
-        uint64_t two_to_the_k = (uint64_t)1 << k_;
-        if (start_L.GetValue() + number_of_evaluations > two_to_the_k) {
-            throw "Evaluation out of range";
+        assert(n <= (1U << kBatchSizes));
+
+        chacha8_get_keystream(&this->enc_ctx_, start, n_blks, buf_);
+        for (uint64_t x = first_x; x < first_x + n; x++) {
+            uint64_t y = Util::SliceInt64FromBytes(buf_, start_bit, k_);
+
+            res[x - first_x] = (y << kExtraBits) | (x >> x_shift);
+
+            start_bit += k_;
         }
-        // Counter for the first input
-        uint64_t counter = (start_L.GetValue() * (uint128_t)num_output_bits) / block_size_bits;
-        // Counter for the last input
-        uint64_t counter_end =
-            ((start_L.GetValue() + (uint128_t)number_of_evaluations + 1) * num_output_bits) /
-            block_size_bits;
-
-        std::vector<Bits> blocks;
-        uint64_t L = (counter * block_size_bits) / num_output_bits;
-        uint8_t ciphertext_bytes[kF1BlockSizeBits / 8];
-
-        // Evaluates ChaCha8 for each block
-        while (counter <= counter_end) {
-            chacha8_get_keystream(&this->enc_ctx_, counter, 1, ciphertext_bytes);
-            Bits ciphertext(ciphertext_bytes, block_size_bits / 8, block_size_bits);
-            blocks.push_back(std::move(ciphertext));
-            ++counter;
-        }
-
-        std::vector<std::pair<Bits, Bits>> results;
-        uint64_t block_number = 0;
-        uint16_t start_bit = (start_L.GetValue() * (uint128_t)num_output_bits) % block_size_bits;
-
-        // For each of the inputs, grabs the correct slice from the encrypted data.
-        for (L = start_L.GetValue(); L < start_L.GetValue() + number_of_evaluations; L++) {
-            Bits L_bits = Bits(L, k_);
-
-            // Takes the first kExtraBits bits from the input, and adds zeroes if it's not enough
-            Bits extra_data = L_bits.Slice(0, kExtraBits);
-            if (extra_data.GetSize() < kExtraBits) {
-                extra_data = extra_data + Bits(0, kExtraBits - extra_data.GetSize());
-            }
-
-            if (start_bit + num_output_bits < block_size_bits) {
-                // Everything can be sliced from the current block
-                results.push_back(std::make_pair(
-                    blocks[block_number].Slice(start_bit, start_bit + num_output_bits) + extra_data,
-                    L_bits));
-            } else {
-                // Must move forward one block
-                Bits left = blocks[block_number].Slice(start_bit);
-                Bits right = blocks[block_number + 1].Slice(
-                    0, num_output_bits - (block_size_bits - start_bit));
-                results.push_back(std::make_pair(left + right + extra_data, L_bits));
-                ++block_number;
-            }
-            // Start bit of the output slice in the current block
-            start_bit = (start_bit + num_output_bits) % block_size_bits;
-        }
-        return results;
     }
 
 private:
@@ -225,6 +188,8 @@ private:
 
     // ChaCha8 context
     struct chacha8_ctx enc_ctx_;
+
+    uint8_t *buf_;
 };
 
 struct rmap_item {
