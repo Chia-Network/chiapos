@@ -1108,7 +1108,7 @@ Therefore, this information cannot be used to significantly reduce plot size.
 
 ### Pruning bad x values
 
-Most entries stored in the plot cannot be removed without without reducing the per-byte effectiveness of the plot. However, removing entries which lead to few or only one final solution might lead to an increase in the per-byte effectiveness. This will be a small number of entries, since the chances of finding multiple such entries that contribute to the same final output gets exponentially lower from $Table_7$ to $Table_1$.
+Most entries stored in the plot cannot be removed without reducing the per-byte effectiveness of the plot. However, removing entries which lead to few or only one final solution might lead to an increase in the per-byte effectiveness. This will be a small number of entries, since the chances of finding multiple such entries that contribute to the same final output gets exponentially lower from $Table_7$ to $Table_1$.
 
 ### Replotting Attack
 
