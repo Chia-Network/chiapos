@@ -572,6 +572,7 @@ std::vector<uint64_t> RunPhase1(
     F1Calculator f1(k, id);
     uint64_t x = 0;
     uint64_t prevtableentries = 0;
+    uint64_t *f1_entries = new uint64_t[1 << kBatchSizes];
 
     uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
     globals.L_sort_manager = std::make_unique<SortManager>(
@@ -585,31 +586,27 @@ std::vector<uint64_t> RunPhase1(
         0,
         globals.stripe_size);
 
-    // The max value our input (x), can take. A proof of space is 64 of these x values.
-    uint64_t max_value = ((uint64_t)1 << (k)) - 1;
-
     // These are used for sorting on disk. The sort on disk code needs to know how
     // many elements are in each bucket.
     std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
-    for (uint64_t lp = 0; lp <= (((uint64_t)1) << (k - kBatchSizes)); lp++) {
-        // For each pair x, y in the batch
-        for (auto kv : f1.CalculateBuckets(Bits(x, k), 2 << (kBatchSizes - 1))) {
-            Bits to_write = std::get<0>(kv) + std::get<1>(kv);
-            globals.L_sort_manager->AddToCache(to_write);
-            prevtableentries++;
+    for (uint64_t lp = 0; lp < (uint64_t)1 << (k - kBatchSizes); lp++) {
+        f1.CalculateBuckets(x, 1 << kBatchSizes, f1_entries);
+        for (int i = 0; i < 1 << kBatchSizes; i++) {
+            uint8_t to_write[16];
+            uint128_t entry;
 
-            if (x + 1 > max_value) {
-                break;
-            }
-            ++x;
-        }
-        if (x + 1 > max_value) {
-            break;
+            entry = (uint128_t)f1_entries[i] << (128 - kExtraBits - k);
+            entry |= (uint128_t)x << (128 - kExtraBits - 2 * k);
+            Util::IntTo16Bytes(to_write, entry);
+            globals.L_sort_manager->AddToCache(to_write);
+            x++;
         }
     }
+    prevtableentries = 1ULL << k;
+    delete[] f1_entries;
     f1_start_time.PrintElapsed("F1 complete, time:");
     globals.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;

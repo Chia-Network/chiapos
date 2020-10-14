@@ -71,12 +71,11 @@ public:
         std::vector<Bits> proof;
         std::vector<Bits> ys;
         std::vector<Bits> metadata;
-        F1Calculator f1;
+        F1Calculator f1(k, id);
 
         for (uint8_t i = 0; i < 64; i++)
             proof.push_back(Bits(proof_bits.SliceBitsToInt(k * i, k * (i + 1)), k));
 
-        f1 = F1Calculator(k, id);
         // Calculates f1 for each of the given xs. Note that the proof is in proof order.
         for (uint8_t i = 0; i < 64; i++) {
             std::pair<Bits, Bits> results = f1.CalculateBucket(proof[i]);
