@@ -1,13 +1,13 @@
 #ifndef _UINT128_T_CONFIG_
   #define _UINT128_T_CONFIG_
   #if defined(_MSC_VER)
-    #if defined(_DLL)
-      #define _UINT128_T_EXPORT __declspec(dllexport)
-      #define _UINT128_T_IMPORT __declspec(dllimport)
-    #else
+//    #if defined(_DLL)
+//      #define _UINT128_T_EXPORT __declspec(dllexport)
+//      #define _UINT128_T_IMPORT __declspec(dllimport)
+//    #else
       #define _UINT128_T_EXPORT
       #define _UINT128_T_IMPORT
-    #endif
+//    #endif
   #else
     // All modules on Unix are compiled with -fvisibility=hidden
     // All API symbols get visibility default

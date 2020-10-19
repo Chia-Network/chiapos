@@ -41,12 +41,30 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
+IF (MSVC)
+IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Oy")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O2 /Oy")
+ELSE()
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Ob1")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Ob1")
+ENDIF()
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zi")
+
+ELSE()
 IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 ELSE()
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Og")
+ENDIF()
+
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g")
+
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
@@ -61,9 +79,16 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=thread")
 set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=thread")
 ENDIF()
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g")
-
+IF (WIN32)
+set(BLAKE3_SRC
+    src/b3/blake3.c
+    src/b3/blake3_portable.c
+    src/b3/blake3_dispatch.c
+    src/b3/blake3_avx2.c
+    src/b3/blake3_avx512.c
+    src/b3/blake3_sse41.c
+)
+ELSE()
 set(BLAKE3_SRC
     src/b3/blake3.c
     src/b3/blake3_portable.c
@@ -72,6 +97,7 @@ set(BLAKE3_SRC
     src/b3/blake3_avx512_x86-64_unix.S
     src/b3/blake3_sse41_x86-64_unix.S
 )
+ENDIF()
 
 pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
 
@@ -90,6 +116,9 @@ add_executable(RunTests
 
 find_package(Threads REQUIRED)
 
+add_library(uint128 STATIC uint128_t/uint128_t.cpp)
+target_include_directories(uint128 PUBLIC uint128_t)
+
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
 target_compile_features(RunTests PUBLIC cxx_std_17)
@@ -106,10 +135,10 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   target_link_libraries(chiapos PRIVATE fse Threads::Threads)
   target_link_libraries(ProofOfSpace fse Threads::Threads)
   target_link_libraries(RunTests fse Threads::Threads)
-elseif (WIN32)
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
-  target_link_libraries(RunTests fse Threads::Threads)
+elseif (MSVC)
+  target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128)
+  target_link_libraries(ProofOfSpace fse Threads::Threads uint128)
+  target_link_libraries(RunTests fse Threads::Threads uint128)
 else()
   target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads)
   target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads)
