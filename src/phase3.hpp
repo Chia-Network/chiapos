@@ -225,7 +225,7 @@ Phase3Results RunPhase3(
         uint64_t greatest_pos = 0;
 
         uint8_t *right_entry_buf;
-        uint8_t *left_entry_disk_buf;
+        uint8_t *left_entry_disk_buf = left_reader_buf;
         uint8_t *left_entry_buf_sm = new uint8_t[left_entry_size_bytes];
 
         uint64_t entry_sort_key, entry_pos, entry_offset;
