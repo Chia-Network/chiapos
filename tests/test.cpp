@@ -742,7 +742,7 @@ TEST_CASE("Sort on disk")
     SECTION("Lazy Sort Manager QS")
     {
         uint32_t iters = 250000;
-        uint32_t size = 32;
+        uint32_t const size = 32;
         vector<Bits> input;
         uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
@@ -773,7 +773,7 @@ TEST_CASE("Sort on disk")
     SECTION("Lazy Sort Manager uniform sort")
     {
         uint32_t iters = 120000;
-        uint32_t size = 32;
+        uint32_t const size = 32;
         vector<Bits> input;
         uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
@@ -804,7 +804,7 @@ TEST_CASE("Sort on disk")
     SECTION("Sort in Memory")
     {
         uint32_t iters = 100000;
-        uint32_t size = 32;
+        uint32_t const size = 32;
         vector<Bits> input;
         uint32_t begin = 1000;
         FakeDisk disk = FakeDisk(5000000);
