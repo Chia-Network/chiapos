@@ -1663,9 +1663,9 @@ GHC_INLINE void path::postprocess_path_with_format(path::impl_string_type& p, pa
                         p[0] = '\\';
                     }
                 }
-                else if (detail::startsWith(p, std::string("\\??\\"))) {
-                    p.erase(0, 4);
-                }
+//                else if (detail::startsWith(p, std::string("\\??\\"))) {
+//                    p.erase(0, 4);
+//                }
             }
             for (auto& c : p) {
                 if (c == '\\') {
