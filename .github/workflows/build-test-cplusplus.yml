@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-20.04, windows-latest]
 
     steps:
     - name: Cancel previous runs on the same branch
@@ -22,6 +22,15 @@ jobs:
       with:
         fetch-depth: 0
         # we need fetch-depth 0 so setuptools_scm can resolve tags
+
+    - name: cmake, RunTests with Windows
+      if: startsWith(matrix.os, 'windows')
+      run: |
+        mkdir build-win
+        cd build-win
+        cmake ..
+        cmake --build . --config Release -j 6
+        ctest -C Release -j 6
 
     - name: cmake, RunTests, and valgrind on ${{ matrix.os }}
       if: startsWith(matrix.os, 'ubuntu')
