@@ -1,0 +1,53 @@
+name: Build and Test C++
+
+on: [push, pull_request]
+
+jobs:
+  build_wheels:
+    name: Build and Test C++ on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - name: Cancel previous runs on the same branch
+      uses: styfle/cancel-workflow-action@0.5.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        # we need fetch-depth 0 so setuptools_scm can resolve tags
+
+    - name: cmake, RunTests, and valgrind on ${{ matrix.os }}
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get install valgrind -y
+        mkdir build
+        cd build
+        cmake ../
+        cmake --build . -- -j 6
+        ctest -j 6
+        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6
+
+    - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        mkdir build-asan
+        cd build-asan
+        cmake -DCMAKE_BUILD_TYPE=ASAN ../
+        cmake --build . -- -j 6
+        ./RunTests
+
+    - name: cmake, RunTests with thread sanitizer on Ubuntu
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        mkdir build-tsan
+        cd build-tsan
+        cmake -DCMAKE_BUILD_TYPE=TSAN ../
+        cmake --build . -- -j 6
+        ./RunTests
