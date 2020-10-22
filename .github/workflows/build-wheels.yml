@@ -60,35 +60,6 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
-    - name: cmake, RunTests, and valgrind with Ubuntu 20.04
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        sudo apt-get install valgrind -y
-        mkdir build
-        cd build
-        cmake ../
-        cmake --build . -- -j 6
-        ctest -j 6
-        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6
-
-    - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        mkdir build-asan
-        cd build-asan
-        cmake -DCMAKE_BUILD_TYPE=ASAN ../
-        cmake --build . -- -j 6
-        ./RunTests
-
-    - name: cmake, RunTests with thread sanitizer on Ubuntu
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        mkdir build-tsan
-        cd build-tsan
-        cmake -DCMAKE_BUILD_TYPE=TSAN ../
-        cmake --build . -- -j 6
-        ./RunTests
-
     - name: Build wheels and test
       run: |
         python -m cibuildwheel --output-dir dist

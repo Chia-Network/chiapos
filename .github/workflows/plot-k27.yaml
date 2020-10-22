@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build_wheels:
-    name: Build wheel on ${{ matrix.os }}
+    name: Plot k=27 on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -41,4 +41,6 @@ jobs:
         cmake --build . -- -j 6
         ./ProofOfSpace -k 27 create
         ./ProofOfSpace check -f plot.dat
-        sha256sum plot.dat
+        SHACHECK=$(sha256sum plot.dat)
+        echo "$SHACHECK"
+#  1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat
