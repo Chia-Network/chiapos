@@ -231,14 +231,14 @@ namespace Util {
         uint32_t start_bit,
         const uint32_t num_bits)
     {
+        uint64_t tmp;
+
         if (start_bit + num_bits > 64) {
             bytes += start_bit / 8;
             start_bit %= 8;
         }
 
-        uint64_t tmp = 0;
-        memcpy(&tmp, bytes, std::min(uint32_t(sizeof(uint64_t)), cdiv(start_bit + num_bits, 8)));
-        tmp = bswap_64(tmp);
+        tmp = Util::EightBytesToInt(bytes);
         tmp <<= start_bit;
         tmp >>= 64 - num_bits;
         return tmp;
