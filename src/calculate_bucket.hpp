@@ -222,7 +222,7 @@ public:
     inline void ReloadKey() {}
 
     // Performs one evaluation of the f function.
-    inline std::pair<Bits, Bits> CalculateFC(const Bits& L, const Bits& R, const Bits& y1) const
+    inline std::pair<Bits, Bits> CalculateBucket(const Bits& y1, const Bits& L, const Bits& R) const
     {
         Bits input;
         uint8_t input_bytes[64];
@@ -261,16 +261,6 @@ public:
         }
 
         return std::make_pair(Bits(f, k_ + kExtraBits), c);
-    }
-
-    // Returns an evaluation of F_i(L), and the metadata (L) that must be stored to evaluate F_i+1.
-    inline std::pair<Bits, Bits> CalculateBucket(
-        const Bits& y1,
-        const Bits& y2,
-        const Bits& L,
-        const Bits& R)
-    {
-        return CalculateFC(L, R, y1);
     }
 
     // Given two buckets with entries (y values), computes which y values match, and returns a list

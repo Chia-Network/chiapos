@@ -374,7 +374,7 @@ void VerifyFC(uint8_t t, uint8_t k, uint64_t L, uint64_t R, uint64_t y1, uint64_
     FxCalculator fcalc(k, t);
 
     std::pair<Bits, Bits> res = fcalc.CalculateBucket(
-        Bits(y1, k + kExtraBits), Bits(), Bits(L, k * size), Bits(R, k * size));
+        Bits(y1, k + kExtraBits), Bits(L, k * size), Bits(R, k * size));
     REQUIRE(res.first.GetValue() == y);
     if (c) {
         REQUIRE(res.second.GetValue() == c);
