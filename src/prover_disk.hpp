@@ -253,9 +253,9 @@ private:
         disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
 
         // This is the checkpoint at the beginning of the park
-        uint16_t line_point_size_bits = EntrySizes::CalculateLinePointSize(k) * 8;
-        uint8_t* line_point_bin = new uint8_t[line_point_size_bits / 8];
-        disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size_bits / 8);
+        uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
+        uint8_t* line_point_bin = new uint8_t[line_point_size + 7];
+        disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size);
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs

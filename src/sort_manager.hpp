@@ -79,7 +79,7 @@ public:
         this->final_position_start = 0;
         this->final_position_end = 0;
         this->next_bucket_to_sort = 0;
-        this->entry_buf = new uint8_t[entry_size]();
+        this->entry_buf = new uint8_t[entry_size + 7]();
     }
 
     inline void AddToCache(const Bits &entry)

@@ -142,7 +142,7 @@ void* phase1_thread(THREADDATA* ptd)
     // writing results to the right table.
     uint64_t left_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
     uint64_t right_buf_entries = 5000 + (uint64_t)((1.1)*(globals.stripe_size));
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes]();
+    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes + 7]();
     uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes]();
 
     FxCalculator f(k, table_index + 1);

@@ -48,7 +48,7 @@ static uint128_t to_uint128(uint64_t hi, uint64_t lo) { return (uint128_t)hi << 
 
 TEST_CASE("SliceInt64FromBytes 1 bit")
 {
-    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+    const uint8_t bytes[9 + 7] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
 
     // since we interpret the first 64 bits (8 bytes) as big endian, the
     // first byte is 0x01
@@ -84,7 +84,7 @@ TEST_CASE("SliceInt64FromBytes 1 bit")
 
 TEST_CASE("SliceInt64FromBytes 8 bits")
 {
-    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+    const uint8_t bytes[9 + 7] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
 
     // since we interpret the first 64 bits (8 bytes) as big endian, the
     // first byte is 0x01
@@ -114,7 +114,7 @@ TEST_CASE("SliceInt64FromBytes 8 bits")
 
 TEST_CASE("SliceInt64FromBytes 24 bits")
 {
-    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+    const uint8_t bytes[9 + 7] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
 
     // since we interpret the first 64 bits (8 bytes) as big endian, the
     // first byte is 0x01
@@ -130,7 +130,7 @@ TEST_CASE("SliceInt64FromBytes 24 bits")
 
 TEST_CASE("SliceInt64FromBytesFull")
 {
-    const uint8_t bytes[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+    const uint8_t bytes[9 + 7] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
 
     // since we interpret the first 64 bits (8 bytes) as big endian, the
     // first byte is 0x01
@@ -149,11 +149,11 @@ TEST_CASE("Util")
 {
     SECTION("Increment and decrement")
     {
-        uint8_t bytes[3] = {45, 172, 225};
+        uint8_t bytes[3 + 7] = {45, 172, 225};
         REQUIRE(Util::SliceInt64FromBytes(bytes, 2, 19) == 374172);
-        uint8_t bytes2[1] = {213};
+        uint8_t bytes2[1 + 7] = {213};
         REQUIRE(Util::SliceInt64FromBytes(bytes2, 1, 5) == 21);
-        uint8_t bytes3[17] = {1, 2, 3, 4, 5, 6, 7, 255, 255, 10, 11, 12, 13, 14, 15, 16, 255};
+        uint8_t bytes3[17 + 7] = {1, 2, 3, 4, 5, 6, 7, 255, 255, 10, 11, 12, 13, 14, 15, 16, 255};
         uint128_t int3 = to_uint128(0x01020304050607ff, 0xff0a0b0c0d0e0f10);
         REQUIRE(Util::SliceInt64FromBytes(bytes3, 64, 64) == (uint64_t)int3);
         REQUIRE(Util::SliceInt64FromBytes(bytes3, 0, 60) == (uint64_t)(int3 >> 68));
@@ -648,12 +648,12 @@ TEST_CASE("Sort on disk")
     SECTION("ExtractNum")
     {
         for (int i = 0; i < 15 * 8 - 5; i++) {
-            uint8_t buf[15];
+            uint8_t buf[15 + 7];
             Bits((uint128_t)27 << i, 15 * 8).ToBytes(buf);
 
             REQUIRE(Util::ExtractNum(buf, 15, 15 * 8 - 4 - i, 3) == 5);
         }
-        uint8_t buf[16];
+        uint8_t buf[16 + 7];
         Bits((uint128_t)27 << 5, 128).ToBytes(buf);
         REQUIRE(Util::ExtractNum(buf, 16, 100, 200) == 864);
     }
