@@ -237,8 +237,19 @@ namespace Util {
         }
 
         uint64_t tmp = 0;
-        memcpy(&tmp, bytes, std::min(uint32_t(sizeof(uint64_t)), cdiv(start_bit + num_bits, 8)));
-        tmp = bswap_64(tmp);
+        auto const num_bytes = cdiv(start_bit + num_bits, 8);
+        switch(num_bytes) {
+        default: tmp |= uint64_t(bytes[7]);
+        case 7: tmp |= uint64_t(bytes[6]) << (1*8);
+        case 6: tmp |= uint64_t(bytes[5]) << (2*8);
+        case 5: tmp |= uint64_t(bytes[4]) << (3*8);
+        case 4: tmp |= uint64_t(bytes[3]) << (4*8);
+        case 3: tmp |= uint64_t(bytes[2]) << (5*8);
+        case 2: tmp |= uint64_t(bytes[1]) << (6*8);
+        case 1: tmp |= uint64_t(bytes[0]) << (7*8);
+        case 0: break;
+        }
+
         tmp <<= start_bit;
         tmp >>= 64 - num_bits;
         return tmp;
