@@ -201,7 +201,7 @@ public:
             assert(id_len == kIdLen);
 
             // Memory to be used for sorting and buffers
-            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size]);
+            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
 
             std::cout << std::endl
                       << "Starting phase 1/4: Forward Propagation into tmp files... "

@@ -222,10 +222,13 @@ namespace Util {
         return count;
     }
 
-    // bytes points to a big-endian 64 bit value (possibly truncated, if
-    // start_bit + num_bits < 64). Returns the integer that starts at start_bit
-    // that is num_bits long (as a native-endian integer).
-    // Note: requires start_bit % 8 + num_bits <= 64
+    // 'bytes' points to a big-endian 64 bit value (possibly truncated, if
+    // (start_bit % 8 + num_bits > 64)). Returns the integer that starts at
+    // 'start_bit' that is 'num_bits' long (as a native-endian integer).
+    //
+    // Note: requires that 8 bytes after the first sliced byte are addressable
+    // (regardless of 'num_bits'). In practice it can be ensured by allocating
+    // extra 7 bytes to all memory buffers passed to this function.
     inline uint64_t SliceInt64FromBytes(
         const uint8_t *bytes,
         uint32_t start_bit,

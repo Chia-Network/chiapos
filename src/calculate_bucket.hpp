@@ -79,7 +79,7 @@ public:
         uint8_t enc_key[32];
         size_t buf_blocks = cdiv(k << kBatchSizes, kF1BlockSizeBits) + 1;
         this->k_ = k;
-        this->buf_ = new uint8_t[buf_blocks * kF1BlockSizeBits / 8];
+        this->buf_ = new uint8_t[buf_blocks * kF1BlockSizeBits / 8 + 7];
 
         // First byte is 1, the index of this table
         enc_key[0] = 1;
