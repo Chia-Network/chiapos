@@ -105,7 +105,7 @@ public:
                 }
 
                 std::pair<Bits, Bits> results =
-                    f.CalculateBucket(ys[i], ys[i + 1], metadata[i], metadata[i + 1]);
+                    f.CalculateBucket(ys[i], metadata[i], metadata[i + 1]);
                 new_ys.push_back(std::get<0>(results));
                 new_metadata.push_back(std::get<1>(results));
             }

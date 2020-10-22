@@ -555,7 +555,6 @@ private:
                 if (std::get<0>(results[i]).GetValue() < std::get<0>(results[i + 1]).GetValue()) {
                     new_output = f.CalculateBucket(
                         std::get<0>(results[i]),
-                        std::get<0>(results[i + 1]),
                         std::get<1>(results[i]),
                         std::get<1>(results[i + 1]));
                     uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
@@ -565,7 +564,6 @@ private:
                     // Here we switch the left and the right
                     new_output = f.CalculateBucket(
                         std::get<0>(results[i + 1]),
-                        std::get<0>(results[i]),
                         std::get<1>(results[i + 1]),
                         std::get<1>(results[i]));
                     uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));

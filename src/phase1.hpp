@@ -374,7 +374,6 @@ void* phase1_thread(THREADDATA* ptd)
                         if (metadata_size <= 128) {
                             const std::pair<Bits, Bits>& f_output = f.CalculateBucket(
                                 Bits(L_entry.y, k + kExtraBits),
-                                Bits(R_entry.y, k + kExtraBits),
                                 Bits(L_entry.left_metadata, metadata_size),
                                 Bits(R_entry.left_metadata, metadata_size));
                             future_entries_to_write.push_back(
@@ -383,7 +382,6 @@ void* phase1_thread(THREADDATA* ptd)
                             // Metadata does not fit into 128 bits
                             const std::pair<Bits, Bits>& f_output = f.CalculateBucket(
                                 Bits(L_entry.y, k + kExtraBits),
-                                Bits(R_entry.y, k + kExtraBits),
                                 Bits(L_entry.left_metadata, 128) +
                                     Bits(L_entry.right_metadata, metadata_size - 128),
                                 Bits(R_entry.left_metadata, 128) +
