@@ -41,6 +41,7 @@ jobs:
         cmake --build . -- -j 6
         ./ProofOfSpace -k 27 create
         ./ProofOfSpace check -f plot.dat
+        EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
         SHACHECK=$(sha256sum plot.dat)
         echo "$SHACHECK"
-#  1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat
+        if [ "$SHACHECK" != "$EXPECTED_SHA" ]; then echo "Sha256sum does not match"; exit 1; else echo "Sha256sum matches 0x1f144aa1...163a"; fi
