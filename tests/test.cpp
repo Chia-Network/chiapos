@@ -744,7 +744,6 @@ TEST_CASE("Sort on disk")
         uint32_t iters = 250000;
         uint32_t size = 32;
         vector<Bits> input;
-        uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
         SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
@@ -763,7 +762,7 @@ TEST_CASE("Sort on disk")
         sort(input.begin(), input.end());
         uint8_t* buf3;
         for (uint32_t i = 0; i < iters; i++) {
-            buf3 = manager.ReadEntry(begin + i * size);
+            buf3 = manager.ReadEntry(i * size);
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }
@@ -775,7 +774,6 @@ TEST_CASE("Sort on disk")
         uint32_t iters = 120000;
         uint32_t size = 32;
         vector<Bits> input;
-        uint32_t begin = 0;
         const uint32_t memory_len = 1000000;
         uint8_t* memory = new uint8_t[memory_len];
         SortManager manager(memory, memory_len, 16, 4, size, ".", "test-files", 0, 1);
@@ -794,7 +792,7 @@ TEST_CASE("Sort on disk")
         sort(input.begin(), input.end());
         uint8_t* buf3;
         for (uint32_t i = 0; i < iters; i++) {
-            buf3 = manager.ReadEntry(begin + i * size);
+            buf3 = manager.ReadEntry(i * size);
             input[i].ToBytes(buf);
             REQUIRE(memcmp(buf, buf3, size) == 0);
         }
@@ -831,4 +829,30 @@ TEST_CASE("Sort on disk")
 
         delete[] memory;
     }
+}
+
+TEST_CASE("bitfield_index-simple")
+{
+    std::vector<bool> const bitfield{true, true, false, true};
+    bitfield_index const idx(bitfield);
+    CHECK(idx.lookup(0, 0) == std::pair<uint64_t, uint64_t>{0,0});
+    CHECK(idx.lookup(0, 1) == std::pair<uint64_t, uint64_t>{0,1});
+
+    CHECK(idx.lookup(0, 3) == std::pair<uint64_t, uint64_t>{0,2});
+
+    CHECK(idx.lookup(1, 0) == std::pair<uint64_t, uint64_t>{1,0});
+    CHECK(idx.lookup(1, 2) == std::pair<uint64_t, uint64_t>{1,1});
+    CHECK(idx.lookup(3, 0) == std::pair<uint64_t, uint64_t>{2,0});
+}
+
+TEST_CASE("bitfield_index-use index")
+{
+    std::vector<bool> bitfield(1024 * 1024, false);
+    CHECK(bitfield.size() == 1048576);
+    bitfield[1048576 - 3] = true;
+    bitfield[1048576 - 2] = true;
+    bitfield[1048576 - 1] = true;
+    bitfield_index const idx(bitfield);
+    CHECK(idx.lookup(1048576 - 3, 1) == std::pair<uint64_t, uint64_t>{0,1});
+    CHECK(idx.lookup(1048576 - 2, 1) == std::pair<uint64_t, uint64_t>{1,1});
 }
