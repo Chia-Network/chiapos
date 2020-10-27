@@ -150,8 +150,8 @@ void* phase1_thread(THREADDATA* ptd)
     // writing results to the right table.
     uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
     uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * right_entry_size_bytes + 7]();
-    uint8_t* left_writer_buf = new uint8_t[left_buf_entries * compressed_entry_size_bytes]();
+    std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * right_entry_size_bytes + 7]);
+    std::unique_ptr<uint8_t[]> left_writer_buf(new uint8_t[left_buf_entries * compressed_entry_size_bytes]);
 
     FxCalculator f(k, table_index + 1);
 
@@ -159,16 +159,14 @@ void* phase1_thread(THREADDATA* ptd)
     // table that did not match) Map ke
     uint16_t position_map_size = 2000;
 
-    uint16_t* L_position_map =
-        new uint16_t[position_map_size]();  // Should comfortably fit 2 buckets worth of items
-    uint16_t* R_position_map = new uint16_t[position_map_size]();
+    // Should comfortably fit 2 buckets worth of items
+    std::unique_ptr<uint16_t[]> L_position_map(new uint16_t[position_map_size]);
+    std::unique_ptr<uint16_t[]> R_position_map(new uint16_t[position_map_size]);
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
     uint64_t totalstripes = (prevtableentries + globals.stripe_size - 1) / globals.stripe_size;
     uint64_t threadstripes = (totalstripes + globals.num_threads - 1) / globals.num_threads;
-
-    std::vector<Bits> to_write_R_entries;
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * globals.num_threads + ptd->index) * globals.stripe_size;
@@ -327,9 +325,7 @@ void* phase1_thread(THREADDATA* ptd)
                     // one for L bucket and one for R bucket, and we cycle through them. Map
                     // keys are stored as positions % 2^10 for efficiency. Map values are stored
                     // as offsets from the base position for that bucket, for efficiency.
-                    uint16_t* tmp = L_position_map;
-                    L_position_map = R_position_map;
-                    R_position_map = tmp;
+                    std::swap(L_position_map, R_position_map);
                     L_position_base = R_position_base;
                     R_position_base = stripe_left_writer_count;
 
@@ -349,7 +345,7 @@ void* phase1_thread(THREADDATA* ptd)
                                 throw InvalidStateException("Left writer count overrun");
                             }
                             uint8_t* tmp_buf =
-                                left_writer_buf + left_writer_count * compressed_entry_size_bytes;
+                                left_writer_buf.get() + left_writer_count * compressed_entry_size_bytes;
 
                             left_writer_count++;
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
@@ -451,7 +447,7 @@ void* phase1_thread(THREADDATA* ptd)
 
                         if (bStripeStartPair) {
                             uint8_t* right_buf =
-                                right_writer_buf + right_writer_count * right_entry_size_bytes;
+                                right_writer_buf.get() + right_writer_count * right_entry_size_bytes;
                             new_entry.ToBytes(right_buf);
                             right_writer_count++;
                         }
@@ -510,7 +506,7 @@ void* phase1_thread(THREADDATA* ptd)
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
             uint64_t posaccum = 0;
-            uint8_t* entrybuf = right_writer_buf + i * right_entry_size_bytes;
+            uint8_t* entrybuf = right_writer_buf.get() + i * right_entry_size_bytes;
 
             for (uint32_t j = startbyte; j <= endbyte; j++) {
                 posaccum = (posaccum << 8) | (entrybuf[j]);
@@ -523,20 +519,20 @@ void* phase1_thread(THREADDATA* ptd)
         }
         if (table_index < 6) {
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(right_writer_buf + i * right_entry_size_bytes);
+                globals.R_sort_manager->AddToCache(right_writer_buf.get() + i * right_entry_size_bytes);
             }
         } else {
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
                 globals.right_writer,
-                right_writer_buf,
+                right_writer_buf.get(),
                 right_writer_count * right_entry_size_bytes);
         }
         globals.right_writer += right_writer_count * right_entry_size_bytes;
         globals.right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
-            globals.left_writer, left_writer_buf, left_writer_count * compressed_entry_size_bytes);
+            globals.left_writer, left_writer_buf.get(), left_writer_count * compressed_entry_size_bytes);
         globals.left_writer += left_writer_count * compressed_entry_size_bytes;
         globals.left_writer_count += left_writer_count;
 
@@ -544,11 +540,6 @@ void* phase1_thread(THREADDATA* ptd)
         Sem::Post(ptd->mine);
     }
 
-    delete[] L_position_map;
-    delete[] R_position_map;
-
-    delete[] right_writer_buf;
-    delete[] left_writer_buf;
     return 0;
 }
 
