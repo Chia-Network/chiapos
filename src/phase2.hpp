@@ -18,6 +18,7 @@
 #include "disk.hpp"
 #include "entry_sizes.hpp"
 #include "sort_manager.hpp"
+#include "bitfield.hpp"
 #include "bitfield_index.hpp"
 
 // Backpropagate takes in as input, a file on which forward propagation has been done.
@@ -32,7 +33,7 @@ std::vector<uint64_t> RunPhase2(
     const uint8_t *id,
     const std::string &tmp_dirname,
     const std::string &filename,
-    uint64_t const memory_size,
+    uint64_t memory_size,
     uint32_t const num_buckets,
     uint32_t const log_num_buckets)
 {
@@ -71,11 +72,20 @@ std::vector<uint64_t> RunPhase2(
     // At the end of the iteration, we transfer the next_bitfield to the current bitfield
     // to use it to prune the next table to scan.
 
-    // TODO: use a custom class that interprets a flag buffer as a bitfield.
-    // We'll need optimized bit-operations (like popcnt) later. Make sure the
-    // memory is 64 bit aligned
-    std::vector<bool> next_bitfield;
-    std::vector<bool> current_bitfield;
+    int64_t const max_table_size_bytes = *std::max_element(table_sizes.begin()
+        , table_sizes.end()) / 8;
+
+    int64_t const bitfield_memory_size = (max_table_size_bytes + 7) & ~uint64_t(7);
+    assert((bitfield_memory_size % 8) == 0);
+    assert((uintptr_t(memory) % 8) == 0);
+
+    // TODO: memory should be wrapped up in a stack allocator to simplify this
+    bitfield next_bitfield(memory, bitfield_memory_size);
+    memory += bitfield_memory_size;
+    memory_size -= bitfield_memory_size;
+    bitfield current_bitfield(memory, bitfield_memory_size);
+    memory += bitfield_memory_size;
+    memory_size -= bitfield_memory_size;
 
     // note that we don't iterate over table_index=1. That table is special
     // since it contains different data. We'll do an extra scan of table 1 at
@@ -87,7 +97,6 @@ std::vector<uint64_t> RunPhase2(
         Timer scan_timer;
 
         next_bitfield.clear();
-        next_bitfield.resize(table_sizes[table_index - 1], false);
 
         int64_t const table_size = table_sizes[table_index];
         int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, table_index, false);
@@ -117,7 +126,7 @@ std::vector<uint64_t> RunPhase2(
                 entry_pos = Util::SliceInt64FromBytes(entry, k, pos_size);
                 entry_offset = Util::SliceInt64FromBytes(entry, k + pos_size, kOffsetSize);
             } else {
-                if (!current_bitfield[read_index])
+                if (!current_bitfield.get(read_index))
                 {
                     // This entry should be dropped.
                     continue;
@@ -127,8 +136,8 @@ std::vector<uint64_t> RunPhase2(
             }
 
             // mark the two matching entries as used (pos and pos+offset)
-            next_bitfield[entry_pos] = true;
-            next_bitfield[entry_pos + entry_offset] = true;
+            next_bitfield.set(entry_pos);
+            next_bitfield.set(entry_pos + entry_offset);
         }
 
         std::cout << "scanned table " << table_index << std::endl;
@@ -187,7 +196,7 @@ std::vector<uint64_t> RunPhase2(
                 entry_offset = Util::SliceInt64FromBytes(entry, k + pos_size, kOffsetSize);
             } else {
                 // skipping
-                if (!current_bitfield[read_index]) continue;
+                if (!current_bitfield.get(read_index)) continue;
 
                 entry_pos = Util::SliceInt64FromBytes(entry, 0, pos_size);
                 entry_offset = Util::SliceInt64FromBytes(entry, pos_size, kOffsetSize);
@@ -256,7 +265,7 @@ std::vector<uint64_t> RunPhase2(
 
             render_timer.PrintElapsed("render phase 2 table: ");
         }
-        current_bitfield = std::move(next_bitfield);
+        current_bitfield.swap(next_bitfield);
         next_bitfield.clear();
     }
 
@@ -281,7 +290,7 @@ std::vector<uint64_t> RunPhase2(
 
     for (int64_t read_counter = 0; read_counter < table_size; ++read_counter, read_cursor += entry_size) {
 
-        if (current_bitfield[read_counter] == false)
+        if (current_bitfield.get(read_counter) == false)
             continue;
 
         disk.Read(read_cursor, entry, entry_size);
