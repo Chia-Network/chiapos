@@ -831,10 +831,70 @@ TEST_CASE("Sort on disk")
     }
 }
 
+TEST_CASE("bitfield-simple")
+{
+    uint64_t buffer[1];
+    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    CHECK(!b.get(0));
+    CHECK(!b.get(1));
+    CHECK(!b.get(2));
+    CHECK(!b.get(3));
+
+    b.set(0);
+    CHECK(b.get(0));
+    CHECK(!b.get(1));
+    CHECK(!b.get(2));
+    CHECK(!b.get(3));
+
+    b.set(1);
+    CHECK(b.get(0));
+    CHECK(b.get(1));
+    CHECK(!b.get(2));
+    CHECK(!b.get(3));
+
+    b.set(3);
+    CHECK(b.get(0));
+    CHECK(b.get(1));
+    CHECK(!b.get(2));
+    CHECK(b.get(3));
+}
+
+TEST_CASE("bitfield-count")
+{
+    uint64_t buffer[8];
+    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+
+    for (int i = 0; i < 512; ++i) {
+        CHECK(b.count(0, 512) == i);
+        CHECK(!b.get(i));
+        b.set(i);
+        CHECK(b.get(i));
+    }
+    CHECK(b.count(0, 512) == 512);
+}
+
+TEST_CASE("bitfield-count-unaligned")
+{
+    uint64_t buffer[8];
+    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+
+    for (int i = 0; i < 512; ++i) {
+        b.set(i);
+    }
+
+    for (int i = 0; i < 512; ++i) {
+        CHECK(b.count(0, i) == i);
+    }
+}
+
 TEST_CASE("bitfield_index-simple")
 {
-    std::vector<bool> const bitfield{true, true, false, true};
-    bitfield_index const idx(bitfield);
+    uint64_t buffer[1];
+    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    b.set(0);
+    b.set(1);
+    b.set(3);
+    bitfield_index const idx(b);
     CHECK(idx.lookup(0, 0) == std::pair<uint64_t, uint64_t>{0,0});
     CHECK(idx.lookup(0, 1) == std::pair<uint64_t, uint64_t>{0,1});
 
@@ -847,12 +907,13 @@ TEST_CASE("bitfield_index-simple")
 
 TEST_CASE("bitfield_index-use index")
 {
-    std::vector<bool> bitfield(1024 * 1024, false);
-    CHECK(bitfield.size() == 1048576);
-    bitfield[1048576 - 3] = true;
-    bitfield[1048576 - 2] = true;
-    bitfield[1048576 - 1] = true;
-    bitfield_index const idx(bitfield);
+    uint64_t buffer[1048576 / 64];
+    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    CHECK(b.size() == 1048576);
+    b.set(1048576 - 3);
+    b.set(1048576 - 2);
+    b.set(1048576 - 1);
+    bitfield_index const idx(b);
     CHECK(idx.lookup(1048576 - 3, 1) == std::pair<uint64_t, uint64_t>{0,1});
     CHECK(idx.lookup(1048576 - 2, 1) == std::pair<uint64_t, uint64_t>{1,1});
 }

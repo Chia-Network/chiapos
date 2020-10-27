@@ -15,24 +15,23 @@
 #pragma once
 
 #include <algorithm>
+#include "bitfield.hpp"
 
 struct bitfield_index
 {
-    // cache the number of set bits evey n bits. This is n. For a bitfield of
-    // size 2^32, this means a 2 MiB index
-    static inline const int64_t kIndexBucket = 16 * 1024;
+    // cache the number of set bits evey kIndexBucket bits.
+	// For a bitfield of size 2^32, this means a 4 MiB index
+    static inline const int64_t kIndexBucket = 8 * 1024;
 
-    bitfield_index(std::vector<bool> const& b) : bitfield_(b)
+    bitfield_index(bitfield const& b) : bitfield_(b)
     {
         uint64_t counter = 0;
-        auto it = bitfield_.begin();
         index_.reserve(bitfield_.size() / kIndexBucket);
 
         for (int64_t idx = 0; idx < int64_t(bitfield_.size()); idx += kIndexBucket) {
             index_.push_back(counter);
             int64_t const left = std::min(int64_t(bitfield_.size()) - idx, kIndexBucket);
-            counter += std::count(it, it + left, true);
-            it += left;
+            counter += bitfield_.count(idx, idx + left);
         }
     }
 
@@ -41,23 +40,24 @@ struct bitfield_index
         uint64_t const bucket = pos / kIndexBucket;
 
         assert(bucket < index_.size());
-        assert(pos < bitfield_.size());
-        assert(pos + offset < bitfield_.size());
+        assert(pos < uint64_t(bitfield_.size()));
+        assert(pos + offset < uint64_t(bitfield_.size()));
+        assert(bitfield_.get(pos) && bitfield_.get(pos + offset));
 
         uint64_t const base = index_[bucket];
 
-        uint64_t const diff = std::count(
-                bitfield_.begin() + (bucket * kIndexBucket), bitfield_.begin() + pos, true);
-        uint64_t const new_offset = std::count(
-            bitfield_.begin() + pos
-            , bitfield_.begin() + pos + offset, true);
+        int64_t const aligned_pos = pos & ~uint64_t(63);
 
-        assert(new_offset <= offset);
+        uint64_t const aligned_pos_count = bitfield_.count(bucket * kIndexBucket, aligned_pos);
+        uint64_t const offset_count = aligned_pos_count + bitfield_.count(aligned_pos, pos + offset);
+        uint64_t const pos_count = aligned_pos_count + bitfield_.count(aligned_pos, pos);
 
-        return { base + diff, new_offset };
+        assert(offset_count >= pos_count);
+
+        return { base + pos_count, offset_count - pos_count };
     }
 private:
-    std::vector<bool> const& bitfield_;
+    bitfield const& bitfield_;
     std::vector<uint64_t> index_;
 };
 

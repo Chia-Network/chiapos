@@ -42,11 +42,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11-src)
 
 IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mtune=native")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -mtune=native")
 ELSE()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og")
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Og")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
