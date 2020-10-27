@@ -226,7 +226,6 @@ Phase3Results RunPhase3(
 
         uint8_t *right_entry_buf;
         uint8_t *left_entry_disk_buf = left_reader_buf;
-        uint8_t *left_entry_buf_sm = new uint8_t[left_entry_size_bytes];
 
         uint64_t entry_sort_key, entry_pos, entry_offset;
         uint64_t cached_entry_sort_key = 0;
@@ -282,7 +281,7 @@ Phase3Results RunPhase3(
                         greatest_pos = entry_pos + entry_offset;
                     }
                     if (entry_pos == current_pos) {
-                        uint64_t old_write_pos = entry_pos % kReadMinusWrite;
+                        uint64_t const old_write_pos = entry_pos % kReadMinusWrite;
                         old_sort_keys[old_write_pos][old_counters[old_write_pos]] = entry_sort_key;
                         old_offsets[old_write_pos][old_counters[old_write_pos]] =
                             (entry_pos + entry_offset);
@@ -331,7 +330,7 @@ Phase3Results RunPhase3(
                 }
             }
 
-            uint64_t write_pointer_pos = current_pos - kReadMinusWrite + 1;
+            uint64_t const write_pointer_pos = current_pos - kReadMinusWrite + 1;
 
             // Rewrites each right entry as (line_point, sort_key)
             if (current_pos + 1 >= kReadMinusWrite) {
@@ -376,8 +375,6 @@ Phase3Results RunPhase3(
 
         // Flush cache so all entries are written to buckets
         R_sort_manager->FlushCache();
-
-        delete[] left_entry_buf_sm;
 
         Timer computation_pass_2_timer;
 
