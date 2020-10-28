@@ -52,7 +52,7 @@ void WriteParkToFile(
     uint8_t k,
     uint8_t table_index,
     uint8_t *park_buffer,
-    uint64_t park_buffer_size)
+    uint64_t const park_buffer_size)
 {
     // Parks are fixed size, so we know where to start writing. The deltas will not go over
     // into the next park.
@@ -147,10 +147,10 @@ Phase3Results RunPhase3(
 
     // These variables are used in the WriteParkToFile method. They are preallocatted here
     // to save time.
-    uint64_t park_buffer_size = EntrySizes::CalculateLinePointSize(k) +
-                                EntrySizes::CalculateStubsSize(k) + 2 +
-                                EntrySizes::CalculateMaxDeltasSize(k, 1);
-    uint8_t *park_buffer = new uint8_t[park_buffer_size];
+    uint64_t const park_buffer_size = EntrySizes::CalculateLinePointSize(k)
+        + EntrySizes::CalculateStubsSize(k) + 2
+        + EntrySizes::CalculateMaxDeltasSize(k, 1);
+    std::unique_ptr<uint8_t[]> park_buffer(new uint8_t[park_buffer_size]);
 
     // Iterates through all tables, starting at 1, with L and R pointers.
     // For each table, R entries are rewritten with line points. Then, the right table is
@@ -453,7 +453,7 @@ Phase3Results RunPhase3(
                         park_stubs,
                         k,
                         table_index,
-                        park_buffer,
+                        park_buffer.get(),
                         park_buffer_size);
                     park_index += 1;
                     final_entries_written += (park_stubs.size() + 1);
@@ -500,7 +500,7 @@ Phase3Results RunPhase3(
                 park_stubs,
                 k,
                 table_index,
-                park_buffer,
+                park_buffer.get(),
                 park_buffer_size);
             final_entries_written += (park_stubs.size() + 1);
         }
@@ -520,7 +520,7 @@ Phase3Results RunPhase3(
     }
 
     L_sort_manager->ChangeMemory(memory, memory_size);
-    delete[] park_buffer;
+    park_buffer.reset();
 
     // These results will be used to write table P7 and the checkpoint tables in phase 4.
     return Phase3Results{
