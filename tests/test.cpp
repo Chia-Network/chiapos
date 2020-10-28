@@ -249,41 +249,6 @@ TEST_CASE("Bits")
     }
 }
 
-class FakeDisk : public Disk {
-public:
-    explicit FakeDisk(uint32_t size) : s(size, 'a')
-    {
-        f_ = std::stringstream(s, std::ios_base::in | std::ios_base::out);
-    }
-
-    ~FakeDisk() {}
-
-    void Read(uint64_t begin, uint8_t* memcache, uint64_t length) override
-    {
-        f_.seekg(begin);
-        f_.read(reinterpret_cast<char*>(memcache), length);
-    }
-
-    void Write(uint64_t begin, const uint8_t* memcache, uint64_t length) override
-    {
-        f_.seekp(begin);
-        f_.write(reinterpret_cast<const char*>(memcache), length);
-    }
-    void Truncate(uint64_t new_size) override
-    {
-        if (new_size <= s.size()) {
-            s = s.substr(0, new_size);
-        } else {
-            s = s + std::string(new_size - s.size(), 0);
-        }
-    }
-    inline std::string GetFileName() override { return "fakedisk"; }
-
-private:
-    std::string s;
-    std::stringstream f_;
-};
-
 bool CheckMatch(int64_t yl, int64_t yr)
 {
     int64_t bl = yl / kBC;
@@ -714,18 +679,6 @@ TEST_CASE("Sort on disk")
         delete[] hashes_bytes;
     }
 
-    SECTION("Fake disk")
-    {
-        FakeDisk d = FakeDisk(10000);
-        uint8_t buf[5] = {1, 2, 3, 5, 7};
-        d.Write(250, buf, 5);
-
-        uint8_t read_buf[5];
-        d.Read(250, read_buf, 5);
-
-        REQUIRE(memcmp(buf, read_buf, 5) == 0);
-    }
-
     SECTION("File disk")
     {
         FileDisk d = FileDisk("test_file.bin");
@@ -805,7 +758,7 @@ TEST_CASE("Sort on disk")
         uint32_t size = 32;
         vector<Bits> input;
         uint32_t begin = 1000;
-        FakeDisk disk = FakeDisk(5000000);
+        FileDisk disk("test_file.bin");
 
         for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
