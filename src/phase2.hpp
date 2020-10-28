@@ -21,11 +21,21 @@
 #include "bitfield.hpp"
 #include "bitfield_index.hpp"
 
+struct Phase2Results
+{
+    Disk& disk_for_table(int const table_index)
+    {
+        return output_files[table_index];
+    }
+    std::vector<BufferedDisk> output_files;
+    std::vector<uint64_t> table_sizes;
+};
+
 // Backpropagate takes in as input, a file on which forward propagation has been done.
 // The purpose of backpropagate is to eliminate any dead entries that don't contribute
 // to final values in f7, to minimize disk usage. A sort on disk is applied to each table,
 // so that they are sorted by position.
-std::vector<uint64_t> RunPhase2(
+Phase2Results RunPhase2(
     uint8_t *memory,
     std::vector<FileDisk> &tmp_1_disks,
     std::vector<uint64_t> table_sizes,
@@ -48,8 +58,6 @@ std::vector<uint64_t> RunPhase2(
     // As the last step, we compact table 1. At that point the halfes are also
     // used as the read- and write cache for the table. As we read and write
     // back to the same file.
-
-    uint64_t const read_ahead = 256 * 1024;
 
     // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
     // each table will have 0.8*2^k or fewer entries).
@@ -101,10 +109,7 @@ std::vector<uint64_t> RunPhase2(
         int64_t const table_size = table_sizes[table_index];
         int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, table_index, false);
 
-        int64_t const read_buffer_size = std::min(uint64_t(read_ahead), memory_size / 2);
-
         BufferedDisk disk(&tmp_1_disks[table_index], table_size * entry_size);
-        disk.SetReadCache(memory, read_buffer_size);
 
         // read_index is the number of entries we've processed so far (in the
         // current table) i.e. the index to the current entry. This is not used
@@ -113,10 +118,7 @@ std::vector<uint64_t> RunPhase2(
         int64_t read_cursor = 0;
         for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
         {
-            uint8_t entry[20];
-            assert(entry_size <= 20);
-
-            disk.Read(read_cursor, entry, entry_size);
+            uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
             uint64_t entry_pos = 0;
             uint64_t entry_offset = 0;
@@ -152,8 +154,8 @@ std::vector<uint64_t> RunPhase2(
         //   compacted.
         // * sort by pos
 
-        uint8_t* sort_cache = memory + read_buffer_size;
-        uint64_t const sort_cache_size = memory_size - read_buffer_size;
+        uint8_t* sort_cache = memory;
+        uint64_t const sort_cache_size = memory_size;
         auto sort_manager = std::make_unique<SortManager>(
             sort_cache,
             sort_cache_size,
@@ -166,12 +168,6 @@ std::vector<uint64_t> RunPhase2(
             0,
             strategy_t::quicksort);
 
-        if (table_index == 7) {
-            // we don't use the sort manager in this case, so we can use the
-            // memort as a write buffer instead
-            disk.SetWriteCache(sort_cache, sort_cache_size);
-        }
-
         // as we scan the table for the second time, we'll also need to remap
         // the positions and offsets based on the next_bitfield.
         bitfield_index const index(next_bitfield);
@@ -180,10 +176,7 @@ std::vector<uint64_t> RunPhase2(
         int64_t write_counter = 0;
         for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
         {
-            uint8_t entry[20];
-            assert(entry_size <= 20);
-
-            disk.Read(read_cursor, entry, entry_size);
+            uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
             uint64_t entry_pos = 0;
             uint64_t entry_offset = 0;
@@ -217,8 +210,10 @@ std::vector<uint64_t> RunPhase2(
                 new_entry += Bits(entry_pos, pos_size);
                 new_entry += Bits(entry_offset, kOffsetSize);
 
-                new_entry.ToBytes(entry);
-                disk.Write(read_index * entry_size, entry, entry_size);
+                uint8_t bytes[20];
+                assert(entry_size <= int(sizeof(bytes)));
+                new_entry.ToBytes(bytes);
+                disk.Write(read_index * entry_size, bytes, entry_size);
             }
             else {
                 Bits new_entry;
@@ -245,10 +240,9 @@ std::vector<uint64_t> RunPhase2(
         if (table_index != 7) {
             sort_manager->FlushCache();
             sort_timer.PrintElapsed("sort time = ");
-            // At this point we won't be reading from "disk", so use its buffer
-            // for writing instead of reading.
-            disk.SetReadCache(nullptr, 0);
-            disk.SetWriteCache(memory, read_buffer_size);
+
+            // clear disk caches
+            disk.FreeMemory();
 
             std::cout << "writing sorted table " << table_index << std::endl;
             Timer render_timer;
@@ -277,23 +271,17 @@ std::vector<uint64_t> RunPhase2(
     int64_t read_cursor = 0;
     int64_t write_counter = 0;
     int64_t write_cursor = 0;
-    uint8_t* entry = memory;
 
     std::cout << "compacting table " << table_index << std::endl;
 
-    // half for read buffer and half for write buffer
-    uint64_t const read_buffer_size = std::min(uint64_t(read_ahead), memory_size / 2);
-    uint64_t const write_buffer_size = std::min(uint64_t(read_ahead), memory_size - read_buffer_size);
     BufferedDisk disk(&tmp_1_disks[table_index], table_size * entry_size);
-    disk.SetReadCache(memory, read_buffer_size);
-    disk.SetWriteCache(memory + read_buffer_size, write_buffer_size);
 
     for (int64_t read_counter = 0; read_counter < table_size; ++read_counter, read_cursor += entry_size) {
 
         if (current_bitfield.get(read_counter) == false)
             continue;
 
-        disk.Read(read_cursor, entry, entry_size);
+        uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
         // in the beginning of the table, there may be a few entries that
         // haven't moved, no need to write the same bytes back again
@@ -309,7 +297,12 @@ std::vector<uint64_t> RunPhase2(
 
     std::cout << "table " << table_index << " new size: " << new_table_sizes[table_index] << std::endl;
 
-    return new_table_sizes;
+    std::vector<BufferedDisk> output_files;
+    for (int64_t i = 0; i < int64_t(tmp_1_disks.size()); ++i) {
+        int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, i, false);
+        output_files.emplace_back(&tmp_1_disks[i], new_table_sizes[i] * entry_size);
+    }
+    return { std::move(output_files), std::move(new_table_sizes) };
 }
 
 #endif  // SRC_CPP_PHASE2_HPP

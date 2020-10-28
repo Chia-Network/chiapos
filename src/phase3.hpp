@@ -120,8 +120,7 @@ Phase3Results RunPhase3(
     uint8_t *memory,
     uint8_t k,
     FileDisk &tmp2_disk /*filename*/,
-    std::vector<FileDisk> &tmp_1_disks /*plot_filename*/,
-    std::vector<uint64_t> table_sizes,
+    Phase2Results res2,
     const uint8_t *id,
     const std::string &tmp_dirname,
     const std::string &filename,
@@ -170,6 +169,9 @@ Phase3Results RunPhase3(
         // for table 1
         uint32_t park_size_bytes = EntrySizes::CalculateParkSize(k, table_index);
 
+        Disk& right_disk = res2.disk_for_table(table_index + 1);
+        Disk& left_disk = res2.disk_for_table(table_index);
+
         // Sort key for table 7 is just y, which is k bits. For all other tables it can
         // be higher than 2^k and therefore k+1 bits are used.
         uint32_t right_sort_key_size = table_index == 6 ? k : k + 1;
@@ -186,11 +188,8 @@ Phase3Results RunPhase3(
         uint64_t right_writer_buf_size = 3 * (memory_size - sort_manager_buf_size) / 4;
         uint64_t right_reader_buf_size =
             memory_size - sort_manager_buf_size - right_writer_buf_size;
-        uint8_t *left_reader_buf = &(memory[0]);
         uint8_t *right_writer_buf = &(memory[sort_manager_buf_size]);
         uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + right_writer_buf_size]);
-        uint64_t left_reader_buf_entries = sort_manager_buf_size / left_entry_size_bytes;
-        uint64_t right_reader_buf_entries = right_reader_buf_size / right_entry_size_bytes;
         uint64_t left_reader_count = 0;
         uint64_t right_reader_count = 0;
         uint64_t total_r_entries = 0;
@@ -225,8 +224,7 @@ Phase3Results RunPhase3(
         uint64_t end_of_table_pos = 0;
         uint64_t greatest_pos = 0;
 
-        uint8_t *right_entry_buf;
-        uint8_t *left_entry_disk_buf = left_reader_buf;
+        uint8_t const* left_entry_disk_buf = nullptr;
 
         uint64_t entry_sort_key, entry_pos, entry_offset;
         uint64_t cached_entry_sort_key = 0;
@@ -240,26 +238,15 @@ Phase3Results RunPhase3(
             if (end_of_right_table || current_pos <= greatest_pos) {
                 while (!end_of_right_table) {
                     if (should_read_entry) {
-                        if (right_reader_count == table_sizes[table_index + 1]) {
+                        if (right_reader_count == res2.table_sizes[table_index + 1]) {
                             end_of_right_table = true;
                             end_of_table_pos = current_pos;
                             break;
                         }
                         // The right entries are in the format from backprop, (sort_key, pos,
                         // offset)
-                        if (right_reader_count % right_reader_buf_entries == 0) {
-                            uint64_t readAmt = std::min(
-                                right_reader_buf_entries * right_entry_size_bytes,
-                                (table_sizes[table_index + 1] - right_reader_count) *
-                                    right_entry_size_bytes);
-
-                            tmp_1_disks[table_index + 1].Read(
-                                right_reader, right_reader_buf, readAmt);
-                            right_reader += readAmt;
-                        }
-                        right_entry_buf =
-                            right_reader_buf + (right_reader_count % right_reader_buf_entries) *
-                                                   right_entry_size_bytes;
+                        uint8_t const* right_entry_buf = right_disk.Read(right_reader, right_entry_size_bytes);
+                        right_reader += right_entry_size_bytes;
                         right_reader_count++;
 
                         entry_sort_key =
@@ -295,22 +282,16 @@ Phase3Results RunPhase3(
                         break;
                     }
                 }
-                if (left_reader_count < table_sizes[table_index]) {
+
+                if (left_reader_count < res2.table_sizes[table_index]) {
                     // The left entries are in the new format: (sort_key, new_pos), except for table
                     // 1: (y, x).
-                    if (table_index == 1) {
-                        if (left_reader_count % left_reader_buf_entries == 0) {
-                            uint64_t readAmt = std::min(
-                                left_reader_buf_entries * left_entry_size_bytes,
-                                (table_sizes[table_index] - left_reader_count) *
-                                    left_entry_size_bytes);
 
-                            tmp_1_disks[table_index].Read(left_reader, left_reader_buf, readAmt);
-                            left_reader += readAmt;
-                        }
-                        left_entry_disk_buf =
-                            left_reader_buf +
-                            (left_reader_count % left_reader_buf_entries) * left_entry_size_bytes;
+                    // TODO: unify these cases once SortManager implements
+                    // the ReadDisk interface
+                    if (table_index == 1) {
+                        left_entry_disk_buf = left_disk.Read(left_reader, left_entry_size_bytes);
+                        left_reader += left_entry_size_bytes;
                     } else {
                         left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader);
                         left_reader += left_entry_size_bytes;
@@ -372,7 +353,7 @@ Phase3Results RunPhase3(
         computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
 
         // Remove no longer needed file
-        tmp_1_disks[table_index].Truncate(0);
+        left_disk.Truncate(0);
 
         // Flush cache so all entries are written to buckets
         R_sort_manager->FlushCache();

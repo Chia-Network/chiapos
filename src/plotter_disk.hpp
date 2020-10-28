@@ -228,7 +228,7 @@ public:
                       << Timer::GetNow();
 
             Timer p2;
-            std::vector<uint64_t> backprop_table_sizes = RunPhase2(
+            Phase2Results res2 = RunPhase2(
                 memory.get(),
                 tmp_1_disks,
                 table_sizes,
@@ -252,8 +252,7 @@ public:
                 memory.get(),
                 k,
                 tmp2_disk,
-                tmp_1_disks,
-                backprop_table_sizes,
+                res2,
                 id,
                 tmp_dirname,
                 filename,

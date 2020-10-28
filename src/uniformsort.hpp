@@ -33,7 +33,7 @@
 class UniformSort {
 public:
     inline static void SortToMemory(
-        Disk &input_disk,
+        FileDisk &input_disk,
         uint64_t input_disk_begin,
         uint8_t *memory,
         uint32_t entry_len,
