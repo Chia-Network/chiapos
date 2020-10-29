@@ -39,29 +39,27 @@ namespace fs = ghc::filesystem;
 class SortManager {
 public:
     SortManager(
-        uint8_t *memory,
-        uint64_t memory_size,
-        uint32_t num_buckets,
-        uint32_t log_num_buckets,
+        uint8_t *const memory,
+        uint64_t const memory_size,
+        uint32_t const num_buckets,
+        uint32_t const log_num_buckets,
         uint16_t const entry_size,
         const std::string &tmp_dirname,
         const std::string &filename,
         uint32_t begin_bits,
         uint64_t const stripe_size)
-        : prev_bucket_buf_size(
+        : memory_start(memory)
+        , memory_size(memory_size)
+        , entry_size(entry_size)
+        , begin_bits(begin_bits)
+        , size_per_bucket(memory_size / num_buckets)
+        , log_num_buckets(log_num_buckets)
+        , prev_bucket_buf_size(
             2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size)
         , prev_bucket_buf_(new uint8_t[prev_bucket_buf_size]())
         // 7 bytes head-room for SliceInt64FromBytes()
         , entry_buf_(new uint8_t[entry_size + 7])
     {
-        this->memory_start = memory;
-        this->memory_size = memory_size;
-        this->size_per_bucket = memory_size / num_buckets;
-        this->log_num_buckets = log_num_buckets;
-        this->entry_size = entry_size;
-        this->begin_bits = begin_bits;
-        this->done = false;
-        this->prev_bucket_position_start = 0;
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
 
@@ -78,9 +76,6 @@ public:
                 memory + bucket_i * size_per_bucket,
                 FileDisk(bucket_filename));
         }
-        this->final_position_start = 0;
-        this->final_position_end = 0;
-        this->next_bucket_to_sort = 0;
     }
 
     void AddToCache(const Bits &entry)
@@ -223,13 +218,13 @@ private:
 
     uint64_t prev_bucket_buf_size;
     std::unique_ptr<uint8_t[]> prev_bucket_buf_;
-    uint64_t prev_bucket_position_start;
+    uint64_t prev_bucket_position_start = 0;
 
-    bool done;
+    bool done = false;
 
-    uint64_t final_position_start;
-    uint64_t final_position_end;
-    uint64_t next_bucket_to_sort;
+    uint64_t final_position_start = 0;
+    uint64_t final_position_end = 0;
+    uint64_t next_bucket_to_sort = 0;
     std::unique_ptr<uint8_t[]> entry_buf_;
 
     void FlushTable(uint16_t bucket_i)
