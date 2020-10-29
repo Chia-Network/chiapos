@@ -48,6 +48,8 @@ public:
         const std::string &filename,
         uint32_t begin_bits,
         uint64_t stripe_size)
+        // 7 bytes head-room for SliceInt64FromBytes()
+        : entry_buf_(new uint8_t[entry_size + 7])
     {
         this->memory_start = memory;
         this->memory_size = memory_size;
@@ -79,14 +81,14 @@ public:
         this->final_position_start = 0;
         this->final_position_end = 0;
         this->next_bucket_to_sort = 0;
-        this->entry_buf = new uint8_t[entry_size + 7]();
     }
 
     void AddToCache(const Bits &entry)
     {
-        entry.ToBytes(this->entry_buf);
-        return AddToCache(this->entry_buf);
+        entry.ToBytes(entry_buf_.get());
+        return AddToCache(entry_buf_.get());
     }
+
     void AddToCache(const uint8_t *entry)
     {
         if (this->done) {
@@ -186,7 +188,6 @@ public:
             fs::remove(fs::path(fd.GetFileName()));
         }
         delete[] this->prev_bucket_buf;
-        delete[] this->entry_buf;
     }
 
 private:
@@ -219,7 +220,7 @@ private:
     uint64_t final_position_start;
     uint64_t final_position_end;
     uint64_t next_bucket_to_sort;
-    uint8_t *entry_buf;
+    std::unique_ptr<uint8_t[]> entry_buf_;
 
     void FlushTable(uint16_t bucket_i)
     {
