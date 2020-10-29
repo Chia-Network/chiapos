@@ -43,13 +43,16 @@ public:
         uint64_t memory_size,
         uint32_t num_buckets,
         uint32_t log_num_buckets,
-        uint16_t entry_size,
+        uint16_t const entry_size,
         const std::string &tmp_dirname,
         const std::string &filename,
         uint32_t begin_bits,
-        uint64_t stripe_size)
+        uint64_t const stripe_size)
+        : prev_bucket_buf_size(
+            2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size)
+        , prev_bucket_buf_(new uint8_t[prev_bucket_buf_size]())
         // 7 bytes head-room for SliceInt64FromBytes()
-        : entry_buf_(new uint8_t[entry_size + 7])
+        , entry_buf_(new uint8_t[entry_size + 7])
     {
         this->memory_start = memory;
         this->memory_size = memory_size;
@@ -58,9 +61,6 @@ public:
         this->entry_size = entry_size;
         this->begin_bits = begin_bits;
         this->done = false;
-        this->prev_bucket_buf_size =
-            2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size;
-        this->prev_bucket_buf = new uint8_t[this->prev_bucket_buf_size]();
         this->prev_bucket_position_start = 0;
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
@@ -114,7 +114,7 @@ public:
             if (!(position >= this->prev_bucket_position_start)) {
                 throw InvalidStateException("Invalid prev bucket start");
             }
-            return (this->prev_bucket_buf + (position - this->prev_bucket_position_start));
+            return (prev_bucket_buf_.get() + (position - this->prev_bucket_position_start));
         }
 
         while (position >= this->final_position_end) {
@@ -149,10 +149,10 @@ public:
         }
 
         // position is the first position that we need in the new array
-        uint64_t cache_size = (this->final_position_end - position);
-        memset(this->prev_bucket_buf, 0x00, this->prev_bucket_buf_size);
+        uint64_t const cache_size = (this->final_position_end - position);
+        memset(prev_bucket_buf_.get(), 0x00, this->prev_bucket_buf_size);
         memcpy(
-            this->prev_bucket_buf,
+            prev_bucket_buf_.get(),
             this->memory_start + position - this->final_position_start,
             cache_size);
         SortBucket(quicksort);
@@ -188,7 +188,6 @@ public:
             b.file.Close();
             fs::remove(fs::path(filename));
         }
-        delete[] this->prev_bucket_buf;
     }
 
 private:
@@ -223,7 +222,7 @@ private:
     std::vector<bucket_t> buckets_;
 
     uint64_t prev_bucket_buf_size;
-    uint8_t *prev_bucket_buf;
+    std::unique_ptr<uint8_t[]> prev_bucket_buf_;
     uint64_t prev_bucket_position_start;
 
     bool done;
