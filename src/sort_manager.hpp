@@ -66,17 +66,17 @@ public:
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
 
         for (size_t bucket_i = 0; bucket_i < num_buckets; bucket_i++) {
-            this->mem_bucket_pointers.push_back(memory + bucket_i * size_per_bucket);
-            this->mem_bucket_sizes.push_back(0);
-            this->bucket_write_pointers.push_back(0);
             std::ostringstream bucket_number_padded;
             bucket_number_padded << std::internal << std::setfill('0') << std::setw(3) << bucket_i;
 
-            fs::path bucket_filename =
+            fs::path const bucket_filename =
                 fs::path(tmp_dirname) /
                 fs::path(filename + ".sort_bucket_" + bucket_number_padded.str() + ".tmp");
             fs::remove(bucket_filename);
-            this->bucket_files.push_back(FileDisk(bucket_filename));
+
+            buckets_.emplace_back(
+                memory + bucket_i * size_per_bucket,
+                FileDisk(bucket_filename));
         }
         this->final_position_start = 0;
         this->final_position_end = 0;
@@ -94,17 +94,18 @@ public:
         if (this->done) {
             throw InvalidValueException("Already finished.");
         }
-        uint64_t bucket_index =
+        uint64_t const bucket_index =
             Util::ExtractNum(entry, this->entry_size, this->begin_bits, this->log_num_buckets);
-        uint64_t mem_write_offset = mem_bucket_sizes[bucket_index] * entry_size;
+        bucket_t& b = buckets_[bucket_index];
+        uint64_t mem_write_offset = b.size * entry_size;
         if (mem_write_offset + entry_size > this->size_per_bucket) {
             this->FlushTable(bucket_index);
             mem_write_offset = 0;
         }
 
-        uint8_t *mem_write_pointer = mem_bucket_pointers[bucket_index] + mem_write_offset;
+        uint8_t *const mem_write_pointer = b.mem + mem_write_offset;
         memcpy(mem_write_pointer, entry, this->entry_size);
-        mem_bucket_sizes[bucket_index] += 1;
+        b.size += 1;
     }
 
     uint8_t *ReadEntry(uint64_t position, int quicksort = 0)
@@ -131,11 +132,11 @@ public:
     bool CloseToNewBucket(uint64_t position) const
     {
         if (!(position <= this->final_position_end)) {
-            return this->next_bucket_to_sort < this->mem_bucket_pointers.size();
+            return this->next_bucket_to_sort < buckets_.size();
         };
         return (
             position + prev_bucket_buf_size / 2 >= this->final_position_end &&
-            this->next_bucket_to_sort < this->mem_bucket_pointers.size());
+            this->next_bucket_to_sort < buckets_.size());
     }
 
     void TriggerNewBucket(uint64_t position, bool quicksort)
@@ -163,9 +164,9 @@ public:
         this->FlushCache();
         this->memory_start = new_memory;
         this->memory_size = new_memory_size;
-        this->size_per_bucket = new_memory_size / this->mem_bucket_pointers.size();
-        for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
-            this->mem_bucket_pointers[bucket_i] = (new_memory + bucket_i * size_per_bucket);
+        this->size_per_bucket = new_memory_size / buckets_.size();
+        for (size_t bucket_i = 0; bucket_i < buckets_.size(); bucket_i++) {
+            buckets_[bucket_i].mem = (new_memory + bucket_i * size_per_bucket);
         }
         this->final_position_start = 0;
         this->final_position_end = 0;
@@ -174,7 +175,7 @@ public:
 
     void FlushCache()
     {
-        for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
+        for (size_t bucket_i = 0; bucket_i < buckets_.size(); bucket_i++) {
             FlushTable(bucket_i);
         }
     }
@@ -182,21 +183,34 @@ public:
     ~SortManager()
     {
         // Close and delete files in case we exit without doing the sort
-        for (auto &fd : this->bucket_files) {
-            std::string filename = fd.GetFileName();
-            fd.Close();
-            fs::remove(fs::path(fd.GetFileName()));
+        for (auto& b : buckets_) {
+            std::string const filename = b.file.GetFileName();
+            b.file.Close();
+            fs::remove(fs::path(filename));
         }
         delete[] this->prev_bucket_buf;
     }
 
 private:
+
+    struct bucket_t
+    {
+        bucket_t(uint8_t* ptr, FileDisk f) : mem(ptr), file(std::move(f)) {}
+        // pointer to the start of the bucket memory
+        uint8_t* mem;
+        // The number of entries written to the bucket
+        uint64_t size = 0;
+        // The amount of data written to the disk bucket
+        uint64_t write_pointer = 0;
+
+        // The file for the bucket
+        FileDisk file;
+    };
+
     // Start of the whole memory array. This will be diveded into buckets
     uint8_t *memory_start;
     // Size of the whole memory array
     uint64_t memory_size;
-    // One file for each bucket
-    std::vector<FileDisk> bucket_files;
     // Size of each entry
     uint16_t entry_size;
     // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
@@ -205,12 +219,9 @@ private:
     uint64_t size_per_bucket;
     // Log of the number of buckets; num bits to use to determine bucket
     uint32_t log_num_buckets;
-    // One pointer to the start of each bucket memory
-    std::vector<uint8_t *> mem_bucket_pointers;
-    // The number of entries written to each bucket
-    std::vector<uint64_t> mem_bucket_sizes;
-    // The amount of data written to each disk bucket
-    std::vector<uint64_t> bucket_write_pointers;
+
+    std::vector<bucket_t> buckets_;
+
     uint64_t prev_bucket_buf_size;
     uint8_t *prev_bucket_buf;
     uint64_t prev_bucket_position_start;
@@ -224,44 +235,48 @@ private:
 
     void FlushTable(uint16_t bucket_i)
     {
-        uint64_t start_write = this->bucket_write_pointers[bucket_i];
-        uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
+        bucket_t& b = buckets_[bucket_i];
+
+        uint64_t const start_write = b.write_pointer;
+        uint64_t const write_len = b.size * this->entry_size;
 
         // Flush the bucket to disk
-        bucket_files[bucket_i].Write(start_write, this->mem_bucket_pointers[bucket_i], write_len);
-        this->bucket_write_pointers[bucket_i] += write_len;
+        b.file.Write(start_write, b.mem, write_len);
+        b.write_pointer += write_len;
 
         // Reset memory caches
-        this->mem_bucket_pointers[bucket_i] = this->memory_start + bucket_i * this->size_per_bucket;
-        this->mem_bucket_sizes[bucket_i] = 0;
+        b.mem = this->memory_start + bucket_i * this->size_per_bucket;
+        b.size = 0;
     }
 
     void SortBucket(int quicksort)
     {
         this->done = true;
-        if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
+        if (next_bucket_to_sort >= buckets_.size()) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
         }
-        uint64_t bucket_i = this->next_bucket_to_sort;
-        uint64_t bucket_entries = bucket_write_pointers[bucket_i] / this->entry_size;
-        uint64_t entries_fit_in_memory = this->memory_size / this->entry_size;
+        uint64_t const bucket_i = this->next_bucket_to_sort;
+        bucket_t& b = buckets_[bucket_i];
+        uint64_t const bucket_entries = b.write_pointer / this->entry_size;
+        uint64_t const entries_fit_in_memory = this->memory_size / this->entry_size;
 
         uint32_t entry_len_memory = this->entry_size - this->begin_bits / 8;
 
-        double have_ram = entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
-        double qs_ram = entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0);
-        double u_ram =
+        double const have_ram = entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
+        double const qs_ram = entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0);
+        double const u_ram =
             Util::RoundSize(bucket_entries) * entry_len_memory / (1024.0 * 1024.0 * 1024.0);
 
         if (bucket_entries > entries_fit_in_memory) {
             throw InsufficientMemoryException(
                 "Not enough memory for sort in memory. Need to sort " +
-                std::to_string(this->bucket_write_pointers[bucket_i] / (1024.0 * 1024.0 * 1024.0)) +
+                std::to_string(b.write_pointer / (1024.0 * 1024.0 * 1024.0)) +
                 "GiB");
         }
-        bool last_bucket = (bucket_i == this->mem_bucket_pointers.size() - 1) ||
-                           this->bucket_write_pointers[bucket_i + 1] == 0;
-        bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
+        bool const last_bucket = (bucket_i == buckets_.size() - 1)
+            || buckets_[bucket_i + 1].write_pointer == 0;
+
+        bool const force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort &&
@@ -270,7 +285,7 @@ private:
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
             UniformSort::SortToMemory(
-                this->bucket_files[bucket_i],
+                b.file,
                 0,
                 memory_start,
                 this->entry_size,
@@ -284,18 +299,17 @@ private:
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
                       << std::endl;
-            this->bucket_files[bucket_i].Read(
-                0, this->memory_start, bucket_entries * this->entry_size);
+            b.file.Read(0, this->memory_start, bucket_entries * this->entry_size);
             QuickSort::Sort(this->memory_start, this->entry_size, bucket_entries, this->begin_bits);
         }
 
         // Deletes the bucket file
-        std::string filename = this->bucket_files[bucket_i].GetFileName();
-        this->bucket_files[bucket_i].Close();
+        std::string filename = b.file.GetFileName();
+        b.file.Close();
         fs::remove(fs::path(filename));
 
         this->final_position_start = this->final_position_end;
-        this->final_position_end += this->bucket_write_pointers[bucket_i];
+        this->final_position_end += b.write_pointer;
         this->next_bucket_to_sort += 1;
     }
 };
