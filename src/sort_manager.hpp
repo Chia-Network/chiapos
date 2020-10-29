@@ -82,12 +82,12 @@ public:
         this->entry_buf = new uint8_t[entry_size + 7]();
     }
 
-    inline void AddToCache(const Bits &entry)
+    void AddToCache(const Bits &entry)
     {
         entry.ToBytes(this->entry_buf);
         return AddToCache(this->entry_buf);
     }
-    inline void AddToCache(const uint8_t *entry)
+    void AddToCache(const uint8_t *entry)
     {
         if (this->done) {
             throw InvalidValueException("Already finished.");
@@ -105,7 +105,7 @@ public:
         mem_bucket_sizes[bucket_index] += 1;
     }
 
-    inline uint8_t *ReadEntry(uint64_t position, int quicksort = 0)
+    uint8_t *ReadEntry(uint64_t position, int quicksort = 0)
     {
         if (position < this->final_position_start) {
             if (!(position >= this->prev_bucket_position_start)) {
@@ -126,7 +126,7 @@ public:
         return this->memory_start + (position - this->final_position_start);
     }
 
-    inline bool CloseToNewBucket(uint64_t position) const
+    bool CloseToNewBucket(uint64_t position) const
     {
         if (!(position <= this->final_position_end)) {
             return this->next_bucket_to_sort < this->mem_bucket_pointers.size();
@@ -136,7 +136,7 @@ public:
             this->next_bucket_to_sort < this->mem_bucket_pointers.size());
     }
 
-    inline void TriggerNewBucket(uint64_t position, bool quicksort)
+    void TriggerNewBucket(uint64_t position, bool quicksort)
     {
         if (!(position <= this->final_position_end)) {
             throw InvalidValueException("Triggering bucket too late");
@@ -156,7 +156,7 @@ public:
         this->prev_bucket_position_start = position;
     }
 
-    inline void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size)
+    void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size)
     {
         this->FlushCache();
         this->memory_start = new_memory;
@@ -170,7 +170,7 @@ public:
         this->next_bucket_to_sort = 0;
     }
 
-    inline void FlushCache()
+    void FlushCache()
     {
         for (size_t bucket_i = 0; bucket_i < this->mem_bucket_pointers.size(); bucket_i++) {
             FlushTable(bucket_i);
@@ -221,7 +221,7 @@ private:
     uint64_t next_bucket_to_sort;
     uint8_t *entry_buf;
 
-    inline void FlushTable(uint16_t bucket_i)
+    void FlushTable(uint16_t bucket_i)
     {
         uint64_t start_write = this->bucket_write_pointers[bucket_i];
         uint64_t write_len = this->mem_bucket_sizes[bucket_i] * this->entry_size;
@@ -235,7 +235,7 @@ private:
         this->mem_bucket_sizes[bucket_i] = 0;
     }
 
-    inline void SortBucket(int quicksort)
+    void SortBucket(int quicksort)
     {
         this->done = true;
         if (next_bucket_to_sort >= this->mem_bucket_pointers.size()) {
