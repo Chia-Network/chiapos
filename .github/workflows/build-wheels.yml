@@ -49,11 +49,6 @@ jobs:
         pip install flake8
         flake8 tests setup.py
 
-    - name: Lint source with mypy
-      run: |
-        pip install mypy
-        mypy --config-file mypi.ini setup.py tests
-
     - name: Build source distribution on MacOS
       if: startsWith(matrix.os, 'macos')
       run: |
@@ -85,8 +80,6 @@ jobs:
           python -m pip install --upgrade pip
         CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.14
         CIBW_ENVIRONMENT_WINDOWS: SETUPTOOLS_USE_DISTUTILS=stdlib
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
     - name: Upload wheels
       uses: actions/upload-artifact@v2
