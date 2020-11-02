@@ -3,7 +3,7 @@ import sys
 
 from setuptools import setup, setuptools, Extension
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+
 
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
