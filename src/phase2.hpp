@@ -29,7 +29,7 @@ struct Phase2Results
         else if (table_index == 7) return table7;
         else return *output_files[table_index - 2];
     }
-    BufferedDisk table1;
+    FilteredDisk table1;
     BufferedDisk table7;
     std::vector<std::unique_ptr<SortManager>> output_files;
     std::vector<uint64_t> table_sizes;
@@ -237,42 +237,22 @@ Phase2Results RunPhase2(
         next_bitfield.clear();
     }
 
-    // compact table 1 based on current_bitfield
+    // lazy-compact table 1 based on current_bitfield
 
     int const table_index = 1;
     int64_t const table_size = table_sizes[table_index];
     int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, table_index, false);
-    int64_t read_cursor = 0;
-    int64_t write_counter = 0;
-    int64_t write_cursor = 0;
 
-    std::cout << "compacting table " << table_index << std::endl;
-
+    // at this point, table 1 still needs to be compacted, based on
+    // current_bitfield. Instead of compacting it right now, defer it and read
+    // from it as-if it was compacted. This saves one read and one write pass
+    new_table_sizes[table_index] = current_bitfield.count(0, table_size);
     BufferedDisk disk(&tmp_1_disks[table_index], table_size * entry_size);
-
-    for (int64_t read_counter = 0; read_counter < table_size; ++read_counter, read_cursor += entry_size) {
-
-        if (current_bitfield.get(read_counter) == false)
-            continue;
-
-        uint8_t const* entry = disk.Read(read_cursor, entry_size);
-
-        // in the beginning of the table, there may be a few entries that
-        // haven't moved, no need to write the same bytes back again
-        if (write_cursor != read_cursor) {
-            disk.Write(write_cursor, entry, entry_size);
-        }
-        ++write_counter;
-        write_cursor += entry_size;
-    }
-
-    disk.Truncate(write_cursor);
-    new_table_sizes[table_index] = write_counter;
 
     std::cout << "table " << table_index << " new size: " << new_table_sizes[table_index] << std::endl;
 
     return {
-        BufferedDisk(&tmp_1_disks[1], new_table_sizes[1] * EntrySizes::GetMaxEntrySize(k, 1, false))
+        FilteredDisk(std::move(disk), std::move(current_bitfield), entry_size)
         , BufferedDisk(&tmp_1_disks[7], new_table_sizes[7] * EntrySizes::GetMaxEntrySize(k, 7, false))
         , std::move(output_files)
         , std::move(new_table_sizes)
