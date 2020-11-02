@@ -21,26 +21,5 @@
 
 class Verifier {
 public:
-    // Gets the quality string from a proof in proof ordering. The quality string is two
-    // adjacent values, determined by the quality index (1-32), and the proof in plot
-    // ordering.
-    static LargeBits GetQualityString(
-        uint8_t k,
-        LargeBits proof,
-        uint16_t quality_index,
-        const uint8_t* challenge)
-    {
-    }
-
-    // Validates a proof of space, and returns the quality string if the proof is valid for the
-    // given k and challenge. If the proof is invalid, it returns an empty LargeBits().
-    LargeBits ValidateProof(
-        const uint8_t* id,
-        uint8_t k,
-        const uint8_t* challenge,
-        const uint8_t* proof_bytes,
-        uint16_t proof_size)
-    {
-    }
 
 #endif  // SRC_CPP_VERIFIER_HPP_
