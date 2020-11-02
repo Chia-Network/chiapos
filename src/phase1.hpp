@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 #include <thread>
+#include <memory>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -556,7 +557,7 @@ void* F1thread(THREADF1DATA* ptd)
 
     F1Calculator f1(k, ptd->id);
 
-    uint8_t* right_writer_buf = new uint8_t[right_buf_entries * entry_size_bytes];
+    std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * entry_size_bytes]);
 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
@@ -595,7 +596,6 @@ void* F1thread(THREADF1DATA* ptd)
     }
 
     free(f1_entries);
-    delete[] right_writer_buf;
 
     return 0;
 }
