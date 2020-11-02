@@ -782,8 +782,7 @@ TEST_CASE("Sort on disk")
 
 TEST_CASE("bitfield-simple")
 {
-    uint64_t buffer[1];
-    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    bitfield b(4);
     CHECK(!b.get(0));
     CHECK(!b.get(1));
     CHECK(!b.get(2));
@@ -810,8 +809,7 @@ TEST_CASE("bitfield-simple")
 
 TEST_CASE("bitfield-count")
 {
-    uint64_t buffer[8];
-    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    bitfield b(512);
 
     for (int i = 0; i < 512; ++i) {
         CHECK(b.count(0, 512) == i);
@@ -824,8 +822,7 @@ TEST_CASE("bitfield-count")
 
 TEST_CASE("bitfield-count-unaligned")
 {
-    uint64_t buffer[8];
-    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    bitfield b(512);
 
     for (int i = 0; i < 512; ++i) {
         b.set(i);
@@ -838,8 +835,7 @@ TEST_CASE("bitfield-count-unaligned")
 
 TEST_CASE("bitfield_index-simple")
 {
-    uint64_t buffer[1];
-    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    bitfield b(64);
     b.set(0);
     b.set(1);
     b.set(3);
@@ -856,8 +852,7 @@ TEST_CASE("bitfield_index-simple")
 
 TEST_CASE("bitfield_index-use index")
 {
-    uint64_t buffer[1048576 / 64];
-    bitfield b(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    bitfield b(1048576);
     CHECK(b.size() == 1048576);
     b.set(1048576 - 3);
     b.set(1048576 - 2);

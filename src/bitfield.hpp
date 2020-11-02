@@ -14,17 +14,14 @@
 
 #pragma once
 
+#include <memory>
+
 struct bitfield
 {
-    bitfield(uint8_t* buffer, int64_t num_bytes)
-        : buffer_(reinterpret_cast<uint64_t*>(buffer))
-        , size_(num_bytes / 8)
+    explicit bitfield(int64_t size)
+        : buffer_(new uint64_t[(size + 63) / 64])
+        , size_((size + 63) / 64)
     {
-        // we want this buffer to be 8-byte aligned
-        // both the pointer and size
-        assert((uintptr_t(buffer) & 7) == 0);
-        assert((num_bytes % 8) == 0);
-
         clear();
     }
 
@@ -42,7 +39,7 @@ struct bitfield
 
     void clear()
     {
-        std::memset(buffer_, 0, size_ * 8);
+        std::memset(buffer_.get(), 0, size_ * 8);
     }
 
     int64_t size() const { return size_ * 64; }
@@ -59,8 +56,8 @@ struct bitfield
         assert((start_bit % 64) == 0);
         assert(start_bit <= end_bit);
 
-        uint64_t const* start = buffer_ + start_bit / 64;
-        uint64_t const* end = buffer_ + end_bit / 64;
+        uint64_t const* start = buffer_.get() + start_bit / 64;
+        uint64_t const* end = buffer_.get() + end_bit / 64;
         int64_t ret = 0;
         while (start != end) {
 #ifdef _MSC_VER
@@ -82,7 +79,7 @@ struct bitfield
         return ret;
     }
 private:
-    uint64_t* buffer_;
+    std::unique_ptr<uint64_t[]> buffer_;
 
     // number of 64-bit words
     int64_t size_;
