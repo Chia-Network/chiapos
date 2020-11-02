@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "calculate_bucket.hpp"
 
 class Verifier {
 public:
@@ -43,13 +42,5 @@ public:
         uint16_t proof_size)
     {
     }
-
-private:
-    // Compares two lists of k values, a and b. a > b iff max(a) > max(b),
-    // if there is a tie, the next largest value is compared.
-    static bool CompareProofBits(LargeBits left, LargeBits right, uint8_t k)
-    {
-    }
-};
 
 #endif  // SRC_CPP_VERIFIER_HPP_
