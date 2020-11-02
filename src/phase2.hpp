@@ -25,9 +25,13 @@ struct Phase2Results
 {
     Disk& disk_for_table(int const table_index)
     {
-        return output_files[table_index];
+        if (table_index == 1) return table1;
+        else if (table_index == 7) return table7;
+        else return *output_files[table_index - 2];
     }
-    std::vector<BufferedDisk> output_files;
+    BufferedDisk table1;
+    BufferedDisk table7;
+    std::vector<std::unique_ptr<SortManager>> output_files;
     std::vector<uint64_t> table_sizes;
 };
 
@@ -95,6 +99,12 @@ Phase2Results RunPhase2(
     memory += bitfield_memory_size;
     memory_size -= bitfield_memory_size;
 
+    std::vector<std::unique_ptr<SortManager>> output_files;
+
+    // table 1 and 7 are special. They are passed on as plain files on disk.
+    // Only table 2-6 are passed on as SortManagers, to phase3
+    output_files.resize(7 - 2);
+
     // note that we don't iterate over table_index=1. That table is special
     // since it contains different data. We'll do an extra scan of table 1 at
     // the end, just to compact it.
@@ -154,11 +164,8 @@ Phase2Results RunPhase2(
         //   compacted.
         // * sort by pos
 
-        uint8_t* sort_cache = memory;
-        uint64_t const sort_cache_size = memory_size;
         auto sort_manager = std::make_unique<SortManager>(
-            sort_cache,
-            sort_cache_size,
+            memory_size / 2,
             num_buckets,
             log_num_buckets,
             uint16_t(entry_size),
@@ -243,21 +250,10 @@ Phase2Results RunPhase2(
 
             // clear disk caches
             disk.FreeMemory();
+            sort_manager->FreeMemory();
 
-            std::cout << "writing sorted table " << table_index << std::endl;
-            Timer render_timer;
-
-            for (int64_t i = 0; i < write_counter; ++i) {
-
-                uint8_t const* entry = sort_manager->ReadEntry(i * entry_size);
-                disk.Write(i * entry_size, entry, entry_size);
-            }
-
-            disk.Truncate(write_counter * entry_size);
+            output_files[table_index - 2] = std::move(sort_manager);
             new_table_sizes[table_index] = write_counter;
-            std::cout << "table " << table_index << " new size: " << new_table_sizes[table_index] << std::endl;
-
-            render_timer.PrintElapsed("render phase 2 table: ");
         }
         current_bitfield.swap(next_bitfield);
         next_bitfield.clear();
@@ -297,12 +293,12 @@ Phase2Results RunPhase2(
 
     std::cout << "table " << table_index << " new size: " << new_table_sizes[table_index] << std::endl;
 
-    std::vector<BufferedDisk> output_files;
-    for (int64_t i = 0; i < int64_t(tmp_1_disks.size()); ++i) {
-        int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, i, false);
-        output_files.emplace_back(&tmp_1_disks[i], new_table_sizes[i] * entry_size);
-    }
-    return { std::move(output_files), std::move(new_table_sizes) };
+    return {
+        BufferedDisk(&tmp_1_disks[1], new_table_sizes[1] * EntrySizes::GetMaxEntrySize(k, 1, false))
+        , BufferedDisk(&tmp_1_disks[7], new_table_sizes[7] * EntrySizes::GetMaxEntrySize(k, 7, false))
+        , std::move(output_files)
+        , std::move(new_table_sizes)
+    };
 }
 
 #endif  // SRC_CPP_PHASE2_HPP

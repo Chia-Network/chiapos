@@ -263,7 +263,7 @@ struct BufferedDisk : Disk
                 write_buffer_size_ += length;
                 return;
             }
-            TryFlushWriteCache();
+            FlushCache();
         }
 
         if (write_buffer_size_ == 0 && write_cache >= length) {
@@ -278,7 +278,7 @@ struct BufferedDisk : Disk
 
     void Truncate(uint64_t const new_size) override
     {
-        TryFlushWriteCache();
+        FlushCache();
         disk_->Truncate(new_size);
         file_size_ = new_size;
         FreeMemory();
@@ -288,9 +288,19 @@ struct BufferedDisk : Disk
 
     void FreeMemory() override
     {
+        FlushCache();
+
         read_buffer_.reset();
         write_buffer_.reset();
         read_buffer_size_ = 0;
+        write_buffer_size_ = 0;
+    }
+
+    void FlushCache()
+    {
+        if (write_buffer_size_ == 0) return;
+
+        disk_->Write(write_buffer_start_, write_buffer_.get(), write_buffer_size_);
         write_buffer_size_ = 0;
     }
 
@@ -309,14 +319,6 @@ private:
         if (write_buffer_) return;
         write_buffer_.reset(new uint8_t[write_cache]);
         write_buffer_start_ = -1;
-        write_buffer_size_ = 0;
-    }
-
-    void TryFlushWriteCache()
-    {
-        if (write_buffer_size_ == 0) return;
-
-        disk_->Write(write_buffer_start_, write_buffer_.get(), write_buffer_size_);
         write_buffer_size_ = 0;
     }
 
