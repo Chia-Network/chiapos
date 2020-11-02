@@ -189,7 +189,7 @@ Phase3Results RunPhase3(
         }
 
         R_sort_manager = std::make_unique<SortManager>(
-            memory_size / 2,
+            (table_index == 1 || table_index == 6) ? memory_size : (memory_size / 2),
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,
@@ -365,7 +365,7 @@ Phase3Results RunPhase3(
         // reader
         R_sort_manager->FreeMemory();
         L_sort_manager = std::make_unique<SortManager>(
-            memory_size / 2,
+            (table_index == 6) ? memory_size : (memory_size / 2),
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,

@@ -40,7 +40,6 @@ struct Phase2Results
 // to final values in f7, to minimize disk usage. A sort on disk is applied to each table,
 // so that they are sorted by position.
 Phase2Results RunPhase2(
-    uint8_t *memory,
     std::vector<FileDisk> &tmp_1_disks,
     std::vector<uint64_t> table_sizes,
     uint8_t const k,
@@ -51,18 +50,6 @@ Phase2Results RunPhase2(
     uint32_t const num_buckets,
     uint32_t const log_num_buckets)
 {
-    // memory is split in two halves.
-
-    // The first half is used for read cache of the table we're reading.
-
-    // The second half is used for the sort_manager bucket cache, except for
-    // table 7, where we don't use the sort_manager; then it's used as a write
-    // cache for the table, as we update it.
-
-    // As the last step, we compact table 1. At that point the halfes are also
-    // used as the read- and write cache for the table. As we read and write
-    // back to the same file.
-
     // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
     // each table will have 0.8*2^k or fewer entries).
     uint8_t const pos_size = k;
@@ -84,20 +71,11 @@ Phase2Results RunPhase2(
     // At the end of the iteration, we transfer the next_bitfield to the current bitfield
     // to use it to prune the next table to scan.
 
-    int64_t const max_table_size_bytes = *std::max_element(table_sizes.begin()
-        , table_sizes.end()) / 8;
+    int64_t const max_table_size = *std::max_element(table_sizes.begin()
+        , table_sizes.end());
 
-    int64_t const bitfield_memory_size = (max_table_size_bytes + 7) & ~uint64_t(7);
-    assert((bitfield_memory_size % 8) == 0);
-    assert((uintptr_t(memory) % 8) == 0);
-
-    // TODO: memory should be wrapped up in a stack allocator to simplify this
-    bitfield next_bitfield(memory, bitfield_memory_size);
-    memory += bitfield_memory_size;
-    memory_size -= bitfield_memory_size;
-    bitfield current_bitfield(memory, bitfield_memory_size);
-    memory += bitfield_memory_size;
-    memory_size -= bitfield_memory_size;
+    bitfield next_bitfield(max_table_size);
+    bitfield current_bitfield(max_table_size);
 
     std::vector<std::unique_ptr<SortManager>> output_files;
 
