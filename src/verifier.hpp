@@ -20,6 +20,6 @@
 
 
 class Verifier {
-public:
+};
 
 #endif  // SRC_CPP_VERIFIER_HPP_
