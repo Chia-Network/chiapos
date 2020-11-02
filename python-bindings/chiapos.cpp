@@ -64,7 +64,7 @@ PYBIND11_MODULE(chiapos, m)
                 py::bytes ret = py::bytes(reinterpret_cast<char *>(memo), 10);
                 delete[] memo;
                 return ret;
-            })
+            });
 
     py::class_<Verifier>(m, "Verifier")
         .def(py::init<>())
