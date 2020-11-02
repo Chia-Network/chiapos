@@ -78,6 +78,12 @@ struct bitfield
         }
         return ret;
     }
+
+    void free_memory()
+    {
+        buffer_.reset();
+        size_ = 0;
+    }
 private:
     std::unique_ptr<uint64_t[]> buffer_;
 
