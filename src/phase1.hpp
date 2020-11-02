@@ -78,13 +78,7 @@ struct GlobalData {
     uint64_t matches;
     std::unique_ptr<SortManager> L_sort_manager;
     std::unique_ptr<SortManager> R_sort_manager;
-    uint64_t left_reader_buf_size;
-    uint64_t right_writer_buf_size;
-    uint64_t left_writer_buf_size;
-    uint8_t* left_reader_buf;
-    uint8_t* left_writer_buf;
     uint64_t left_writer_buf_entries;
-    uint64_t right_writer_buf_entries;
     uint64_t left_writer;
     uint64_t right_writer;
     uint64_t stripe_size;
@@ -605,7 +599,6 @@ void* F1thread(THREADF1DATA* ptd)
 // ChaCha8, and each encryption provides multiple output values. Then, the rest of the
 // f functions are computed, and a sort on disk happens for each table.
 std::vector<uint64_t> RunPhase1(
-    uint8_t* memory,
     std::vector<FileDisk>& tmp_1_disks,
     uint8_t k,
     const uint8_t* id,
@@ -627,7 +620,6 @@ std::vector<uint64_t> RunPhase1(
 
     uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
     globals.L_sort_manager = std::make_unique<SortManager>(
-        memory,
         memory_size,
         num_buckets,
         log_num_buckets,
@@ -701,32 +693,13 @@ std::vector<uint64_t> RunPhase1(
         FxCalculator f(k, table_index + 1);  // dummy to load static table
 
         globals.matches = 0;
-        // The memory will be used like this, with most memory allocated towards the SortManager,
-        // since it needs to sort large amounts of data.
-        // [----------------------------LSM/LR---------------------------|-----RSM/RW------|--LW--]
-        globals.left_reader_buf_size = floor(kMemSortProportion * memory_size);
-        globals.right_writer_buf_size = 3 * (memory_size - globals.left_reader_buf_size) / 4;
-        globals.left_writer_buf_size =
-            (memory_size - globals.left_reader_buf_size - globals.right_writer_buf_size);
-
-        globals.left_reader_buf = &(memory[0]);
-        uint8_t* right_writer_buf = &(memory[globals.left_reader_buf_size]);
-        globals.left_writer_buf =
-            &(memory[globals.left_reader_buf_size + globals.right_writer_buf_size]);
-
-        globals.right_writer_buf_entries = globals.right_writer_buf_size / right_entry_size_bytes;
         globals.left_writer_count = 0;
         globals.right_writer_count = 0;
         globals.right_writer = 0;
         globals.left_writer = 0;
 
-        // Assign the first 3/4 of memory to the left reader (which contains the data from the
-        // previous iteration), And will need to perform large sorts.
-        globals.L_sort_manager->ChangeMemory(globals.left_reader_buf, globals.left_reader_buf_size);
-
         globals.R_sort_manager = std::make_unique<SortManager>(
-            right_writer_buf,
-            globals.right_writer_buf_size,
+            memory_size,
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,

@@ -34,6 +34,7 @@ namespace fs = ghc::filesystem;
 #include "./disk.hpp"
 #include "./quicksort.hpp"
 #include "./uniformsort.hpp"
+#include "disk.hpp"
 #include "exceptions.hpp"
 
 enum class strategy_t : uint8_t
@@ -43,10 +44,9 @@ enum class strategy_t : uint8_t
     quicksort_last,
 };
 
-class SortManager {
+class SortManager : public Disk {
 public:
     SortManager(
-        uint8_t *const memory,
         uint64_t const memory_size,
         uint32_t const num_buckets,
         uint32_t const log_num_buckets,
@@ -56,15 +56,12 @@ public:
         uint32_t begin_bits,
         uint64_t const stripe_size,
         strategy_t const sort_strategy = strategy_t::uniform)
-        : memory_start(memory)
-        , memory_size(memory_size)
+        : memory_size_(memory_size)
         , entry_size(entry_size)
         , begin_bits(begin_bits)
-        , size_per_bucket(memory_size / num_buckets)
         , log_num_buckets(log_num_buckets)
         , prev_bucket_buf_size(
             2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size)
-        , prev_bucket_buf_(new uint8_t[prev_bucket_buf_size]())
         // 7 bytes head-room for SliceInt64FromBytes()
         , entry_buf_(new uint8_t[entry_size + 7])
         , strategy_(sort_strategy)
@@ -72,6 +69,7 @@ public:
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
 
+        buckets_.reserve(num_buckets);
         for (size_t bucket_i = 0; bucket_i < num_buckets; bucket_i++) {
             std::ostringstream bucket_number_padded;
             bucket_number_padded << std::internal << std::setfill('0') << std::setw(3) << bucket_i;
@@ -82,7 +80,6 @@ public:
             fs::remove(bucket_filename);
 
             buckets_.emplace_back(
-                memory + bucket_i * size_per_bucket,
                 FileDisk(bucket_filename));
         }
     }
@@ -101,15 +98,48 @@ public:
         uint64_t const bucket_index =
             Util::ExtractNum(entry, this->entry_size, this->begin_bits, this->log_num_buckets);
         bucket_t& b = buckets_[bucket_index];
-        uint64_t mem_write_offset = b.size * entry_size;
-        if (mem_write_offset + entry_size > this->size_per_bucket) {
-            this->FlushTable(bucket_index);
-            mem_write_offset = 0;
+        b.file.Write(b.write_pointer, entry, entry_size);
+        b.write_pointer += entry_size;
+    }
+
+    uint8_t const* Read(uint64_t begin, uint64_t length) override
+    {
+        assert(length <= entry_size);
+        return ReadEntry(begin);
+    }
+
+    void Write(uint64_t, uint8_t const*, uint64_t) override
+    {
+        assert(false);
+        throw InvalidStateException("Invalid Write() called on SortManager");
+    }
+
+    void Truncate(uint64_t new_size) override
+    {
+        if (new_size != 0) {
+            assert(false);
+            throw InvalidStateException("Invalid Truncate() called on SortManager");
         }
 
-        uint8_t *const mem_write_pointer = b.mem + mem_write_offset;
-        memcpy(mem_write_pointer, entry, this->entry_size);
-        b.size += 1;
+        FlushCache();
+        FreeMemory();
+    }
+
+    std::string GetFileName() override
+    {
+        return "<SortManager>";
+    }
+
+    void FreeMemory() override
+    {
+        for (auto& b : buckets_) {
+            b.file.FreeMemory();
+        }
+        prev_bucket_buf_.reset();
+        memory_start_.reset();
+        final_position_end = 0;
+        // TODO: Ideally, bucket files should be deleted as we read them (in the
+        // last reading pass over them)
     }
 
     uint8_t *ReadEntry(uint64_t position)
@@ -118,6 +148,8 @@ public:
             if (!(position >= this->prev_bucket_position_start)) {
                 throw InvalidStateException("Invalid prev bucket start");
             }
+            // this is allocated lazily, make sure it's here
+            assert(prev_bucket_buf_);
             return (prev_bucket_buf_.get() + (position - this->prev_bucket_position_start));
         }
 
@@ -130,7 +162,8 @@ public:
         if (!(this->final_position_start <= position)) {
             throw InvalidValueException("Position too small");
         }
-        return this->memory_start + (position - this->final_position_start);
+        assert(memory_start_);
+        return memory_start_.get() + (position - this->final_position_start);
     }
 
     bool CloseToNewBucket(uint64_t position) const
@@ -152,36 +185,30 @@ public:
             throw InvalidValueException("Triggering bucket too early");
         }
 
-        // position is the first position that we need in the new array
-        uint64_t const cache_size = (this->final_position_end - position);
-        memset(prev_bucket_buf_.get(), 0x00, this->prev_bucket_buf_size);
-        memcpy(
-            prev_bucket_buf_.get(),
-            this->memory_start + position - this->final_position_start,
-            cache_size);
+        if (memory_start_) {
+            // save some of the current bucket, to allow some reverse-tracking
+            // in the reading pattern,
+            // position is the first position that we need in the new array
+            uint64_t const cache_size = (this->final_position_end - position);
+            prev_bucket_buf_.reset(new uint8_t[prev_bucket_buf_size]);
+            memset(prev_bucket_buf_.get(), 0x00, this->prev_bucket_buf_size);
+            memcpy(
+                prev_bucket_buf_.get(),
+                memory_start_.get() + position - this->final_position_start,
+                cache_size);
+        }
+
         SortBucket();
         this->prev_bucket_position_start = position;
     }
 
-    void ChangeMemory(uint8_t *new_memory, uint64_t new_memory_size)
-    {
-        this->FlushCache();
-        this->memory_start = new_memory;
-        this->memory_size = new_memory_size;
-        this->size_per_bucket = new_memory_size / buckets_.size();
-        for (size_t bucket_i = 0; bucket_i < buckets_.size(); bucket_i++) {
-            buckets_[bucket_i].mem = (new_memory + bucket_i * size_per_bucket);
-        }
-        this->final_position_start = 0;
-        this->final_position_end = 0;
-        this->next_bucket_to_sort = 0;
-    }
-
     void FlushCache()
     {
-        for (size_t bucket_i = 0; bucket_i < buckets_.size(); bucket_i++) {
-            FlushTable(bucket_i);
+        for (auto& b : buckets_) {
+            b.file.FlushCache();
         }
+        final_position_end = 0;
+        memory_start_.reset();
     }
 
     ~SortManager()
@@ -189,7 +216,7 @@ public:
         // Close and delete files in case we exit without doing the sort
         for (auto& b : buckets_) {
             std::string const filename = b.file.GetFileName();
-            b.file.Close();
+            b.underlying_file.Close();
             fs::remove(fs::path(filename));
         }
     }
@@ -198,28 +225,24 @@ private:
 
     struct bucket_t
     {
-        bucket_t(uint8_t* ptr, FileDisk f) : mem(ptr), file(std::move(f)) {}
-        // pointer to the start of the bucket memory
-        uint8_t* mem;
-        // The number of entries written to the bucket
-        uint64_t size = 0;
+        bucket_t(FileDisk f) : underlying_file(std::move(f)), file(&underlying_file, 0) {}
+
         // The amount of data written to the disk bucket
         uint64_t write_pointer = 0;
 
         // The file for the bucket
-        FileDisk file;
+        FileDisk underlying_file;
+        BufferedDisk file;
     };
 
     // Start of the whole memory array. This will be diveded into buckets
-    uint8_t *memory_start;
+    std::unique_ptr<uint8_t[]> memory_start_;
     // Size of the whole memory array
-    uint64_t memory_size;
+    uint64_t memory_size_;
     // Size of each entry
     uint16_t entry_size;
     // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
     uint32_t begin_bits;
-    // Portion of memory to allocate to each bucket
-    uint64_t size_per_bucket;
     // Log of the number of buckets; num bits to use to determine bucket
     uint32_t log_num_buckets;
 
@@ -237,24 +260,14 @@ private:
     std::unique_ptr<uint8_t[]> entry_buf_;
     strategy_t strategy_;
 
-    void FlushTable(uint16_t bucket_i)
-    {
-        bucket_t& b = buckets_[bucket_i];
-
-        uint64_t const start_write = b.write_pointer;
-        uint64_t const write_len = b.size * this->entry_size;
-
-        // Flush the bucket to disk
-        b.file.Write(start_write, b.mem, write_len);
-        b.write_pointer += write_len;
-
-        // Reset memory caches
-        b.mem = this->memory_start + bucket_i * this->size_per_bucket;
-        b.size = 0;
-    }
-
     void SortBucket()
     {
+        if (!memory_start_) {
+            // we allocate the memory to sort the bucket in lazily. It'se freed
+            // in FreeMemory() or the destructor
+            memory_start_.reset(new uint8_t[memory_size_]);
+        }
+
         this->done = true;
         if (next_bucket_to_sort >= buckets_.size()) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
@@ -262,7 +275,7 @@ private:
         uint64_t const bucket_i = this->next_bucket_to_sort;
         bucket_t& b = buckets_[bucket_i];
         uint64_t const bucket_entries = b.write_pointer / this->entry_size;
-        uint64_t const entries_fit_in_memory = this->memory_size / this->entry_size;
+        uint64_t const entries_fit_in_memory = this->memory_size_ / this->entry_size;
 
         uint32_t entry_len_memory = this->entry_size - this->begin_bits / 8;
 
@@ -286,14 +299,14 @@ private:
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort &&
-            Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
+            Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size_) {
             std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
             UniformSort::SortToMemory(
-                b.file,
+                b.underlying_file,
                 0,
-                memory_start,
+                memory_start_.get(),
                 this->entry_size,
                 bucket_entries,
                 this->begin_bits + this->log_num_buckets);
@@ -305,13 +318,13 @@ private:
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
                       << std::endl;
-            b.file.Read(0, this->memory_start, bucket_entries * this->entry_size);
-            QuickSort::Sort(this->memory_start, this->entry_size, bucket_entries, this->begin_bits);
+            b.underlying_file.Read(0, memory_start_.get(), bucket_entries * this->entry_size);
+            QuickSort::Sort(memory_start_.get(), this->entry_size, bucket_entries, this->begin_bits);
         }
 
         // Deletes the bucket file
         std::string filename = b.file.GetFileName();
-        b.file.Close();
+        b.underlying_file.Close();
         fs::remove(fs::path(filename));
 
         this->final_position_start = this->final_position_end;

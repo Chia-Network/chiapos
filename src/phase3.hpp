@@ -117,7 +117,6 @@ void WriteParkToFile(
 // backpropagation step happened, so there will be no more dropped entries. See the design
 // document for more details on the algorithm.
 Phase3Results RunPhase3(
-    uint8_t *memory,
     uint8_t k,
     FileDisk &tmp2_disk /*filename*/,
     Phase2Results res2,
@@ -181,26 +180,16 @@ Phase3Results RunPhase3(
 
         uint64_t left_reader = 0;
         uint64_t right_reader = 0;
-        // The memory will be used like this, with most memory allocated towards the SortManager,
-        // since it needs it
-        // [---------------------------SM/LR---------------------|----------RW--------|---RR---]
-        uint64_t sort_manager_buf_size = floor(kMemSortProportion * memory_size);
-        uint64_t right_writer_buf_size = 3 * (memory_size - sort_manager_buf_size) / 4;
-        uint64_t right_reader_buf_size =
-            memory_size - sort_manager_buf_size - right_writer_buf_size;
-        uint8_t *right_writer_buf = &(memory[sort_manager_buf_size]);
-        uint8_t *right_reader_buf = &(memory[sort_manager_buf_size + right_writer_buf_size]);
         uint64_t left_reader_count = 0;
         uint64_t right_reader_count = 0;
         uint64_t total_r_entries = 0;
 
         if (table_index > 1) {
-            L_sort_manager->ChangeMemory(memory, sort_manager_buf_size);
+            L_sort_manager->FreeMemory();
         }
 
         R_sort_manager = std::make_unique<SortManager>(
-            right_writer_buf,
-            right_writer_buf_size,
+            memory_size / 2,
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,
@@ -241,6 +230,7 @@ Phase3Results RunPhase3(
                         if (right_reader_count == res2.table_sizes[table_index + 1]) {
                             end_of_right_table = true;
                             end_of_table_pos = current_pos;
+                            right_disk.FreeMemory();
                             break;
                         }
                         // The right entries are in the format from backprop, (sort_key, pos,
@@ -360,14 +350,7 @@ Phase3Results RunPhase3(
 
         Timer computation_pass_2_timer;
 
-        // The memory will be used like this, with most memory allocated towards the
-        // LeftSortManager, since it needs it
-        // [---------------------------LSM/RR-----------------------------------|---------RSM/RW---------]
         right_reader = 0;
-        right_reader_buf_size = floor(kMemSortProportionLinePoint * memory_size);
-        right_writer_buf_size = memory_size - right_reader_buf_size;
-        right_reader_buf = &(memory[0]);
-        right_writer_buf = &(memory[right_reader_buf_size]);
         right_reader_count = 0;
         uint64_t final_table_writer = final_table_begin_pointers[table_index];
 
@@ -380,10 +363,9 @@ Phase3Results RunPhase3(
 
         // L sort manager will be used for the writer, and R sort manager will be used for the
         // reader
-        R_sort_manager->ChangeMemory(right_reader_buf, right_reader_buf_size);
+        R_sort_manager->FreeMemory();
         L_sort_manager = std::make_unique<SortManager>(
-            right_writer_buf,
-            right_writer_buf_size,
+            memory_size / 2,
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,
@@ -500,9 +482,12 @@ Phase3Results RunPhase3(
         final_table_writer += 8;
 
         table_timer.PrintElapsed("Total compress table time:");
+
+        left_disk.FreeMemory();
+        right_disk.FreeMemory();
     }
 
-    L_sort_manager->ChangeMemory(memory, memory_size);
+    L_sort_manager->FreeMemory();
     park_buffer.reset();
 
     // These results will be used to write table P7 and the checkpoint tables in phase 4.

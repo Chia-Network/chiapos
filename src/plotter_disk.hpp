@@ -200,9 +200,6 @@ public:
 
             assert(id_len == kIdLen);
 
-            // Memory to be used for sorting and buffers
-            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
-
             std::cout << std::endl
                       << "Starting phase 1/4: Forward Propagation into tmp files... "
                       << Timer::GetNow();
@@ -210,7 +207,6 @@ public:
             Timer p1;
             Timer all_phases;
             std::vector<uint64_t> table_sizes = RunPhase1(
-                memory.get(),
                 tmp_1_disks,
                 k,
                 id,
@@ -227,6 +223,9 @@ public:
                       << "Starting phase 2/4: Backpropagation into tmp files... "
                       << Timer::GetNow();
 
+            // Memory to be used for sorting and buffers
+            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
+
             Timer p2;
             Phase2Results res2 = RunPhase2(
                 memory.get(),
@@ -241,6 +240,8 @@ public:
                 log_num_buckets);
             p2.PrintElapsed("Time for phase 2 =");
 
+            memory.reset();
+
             // Now we open a new file, where the final contents of the plot will be stored.
             uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
@@ -249,10 +250,9 @@ public:
                       << " ... " << Timer::GetNow();
             Timer p3;
             Phase3Results res = RunPhase3(
-                memory.get(),
                 k,
                 tmp2_disk,
-                res2,
+                std::move(res2),
                 id,
                 tmp_dirname,
                 filename,
