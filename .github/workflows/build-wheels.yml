@@ -47,7 +47,7 @@ jobs:
     - name: Lint source with flake8
       run: |
         pip install flake8
-        flake8 tests setup.py
+        flake8 setup.py
 
     - name: Build source distribution on MacOS
       if: startsWith(matrix.os, 'macos')
