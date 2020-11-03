@@ -112,12 +112,8 @@ public:
         b.size += 1;
     }
 
-    uint8_t *ReadEntry(uint64_t position, int quicksort = 0)
+    uint8_t *ReadEntry(uint64_t position)
     {
-        assert((quicksort == 0) == (strategy_ == strategy_t::uniform));
-        assert((quicksort == 1) == (strategy_ == strategy_t::quicksort));
-        assert((quicksort == 2) == (strategy_ == strategy_t::quicksort_last));
-
         if (position < this->final_position_start) {
             if (!(position >= this->prev_bucket_position_start)) {
                 throw InvalidStateException("Invalid prev bucket start");
@@ -126,7 +122,7 @@ public:
         }
 
         while (position >= this->final_position_end) {
-            SortBucket(quicksort);
+            SortBucket();
         }
         if (!(this->final_position_end > position)) {
             throw InvalidValueException("Position too large");
@@ -147,12 +143,8 @@ public:
             this->next_bucket_to_sort < buckets_.size());
     }
 
-    void TriggerNewBucket(uint64_t position, bool quicksort)
+    void TriggerNewBucket(uint64_t position)
     {
-        assert((quicksort == false) == (strategy_ == strategy_t::uniform));
-        assert((quicksort == true) == (strategy_ == strategy_t::quicksort
-            || strategy_ == strategy_t::quicksort_last));
-
         if (!(position <= this->final_position_end)) {
             throw InvalidValueException("Triggering bucket too late");
         }
@@ -167,7 +159,7 @@ public:
             prev_bucket_buf_.get(),
             this->memory_start + position - this->final_position_start,
             cache_size);
-        SortBucket(quicksort);
+        SortBucket();
         this->prev_bucket_position_start = position;
     }
 
@@ -261,12 +253,8 @@ private:
         b.size = 0;
     }
 
-    void SortBucket(int quicksort)
+    void SortBucket()
     {
-        assert((quicksort == 0) == (strategy_ == strategy_t::uniform));
-        assert((quicksort == 1) == (strategy_ == strategy_t::quicksort));
-        assert((quicksort == 2) == (strategy_ == strategy_t::quicksort_last));
-
         this->done = true;
         if (next_bucket_to_sort >= buckets_.size()) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
@@ -292,7 +280,9 @@ private:
         bool const last_bucket = (bucket_i == buckets_.size() - 1)
             || buckets_[bucket_i + 1].write_pointer == 0;
 
-        bool const force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
+        bool const force_quicksort = (strategy_ == strategy_t::quicksort)
+            || (strategy_ == strategy_t::quicksort_last && last_bucket);
+
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_len_memory) <= total memory available
         if (!force_quicksort &&

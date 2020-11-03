@@ -83,7 +83,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
     // We read each table7 entry, which is sorted by f7, but we don't need f7 anymore. Instead,
     // we will just store pos6, and the deltas in table C3, and checkpoints in tables C1 and C2.
     for (uint64_t f7_position = 0; f7_position < res.final_entries_written; f7_position++) {
-        right_entry_buf = res.table7_sm->ReadEntry(plot_file_reader, 1);
+        right_entry_buf = res.table7_sm->ReadEntry(plot_file_reader);
 
         plot_file_reader += right_entry_size_bytes;
         uint64_t entry_y = Util::SliceInt64FromBytes(right_entry_buf, 0, k);
