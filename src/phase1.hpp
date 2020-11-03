@@ -617,7 +617,7 @@ std::vector<uint64_t> RunPhase1(
     uint32_t num_buckets,
     uint32_t log_num_buckets,
     uint32_t stripe_size,
-    uint8_t num_threads)
+    uint8_t const num_threads)
 {
     std::cout << "Computing table 1" << std::endl;
     globals.stripe_size = stripe_size;
@@ -645,8 +645,8 @@ std::vector<uint64_t> RunPhase1(
 
     {
         // Start of parallel execution
-        THREADF1DATA* td = new THREADF1DATA[num_threads];
-        auto* mutex = new Sem::type[num_threads];
+        auto td = std::make_unique<THREADF1DATA[]>(num_threads);
+        auto mutex = std::make_unique<Sem::type[]>(num_threads);
 
         std::vector<std::thread> threads;
 
@@ -654,28 +654,25 @@ std::vector<uint64_t> RunPhase1(
             mutex[i] = Sem::Create();
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
             td[i].index = i;
             td[i].mine = &mutex[i];
-            td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
+            td[i].theirs = &mutex[(num_threads + i - 1) % num_threads];
 
             td[i].k = k;
             td[i].id = id;
 
             threads.emplace_back(F1thread, &td[i]);
         }
-        Sem::Post(&mutex[globals.num_threads - 1]);
+        Sem::Post(&mutex[num_threads - 1]);
 
         for (auto& t : threads) {
             t.join();
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
             Sem::Destroy(mutex[i]);
         }
-
-        delete[] td;
-        delete[] mutex;
 
         // end of parallel execution
     }
@@ -744,8 +741,8 @@ std::vector<uint64_t> RunPhase1(
 
         Timer computation_pass_timer;
 
-        THREADDATA* td = new THREADDATA[num_threads];
-        auto* mutex = new Sem::type[num_threads];
+        auto td = std::make_unique<THREADDATA[]>(num_threads);
+        auto mutex = std::make_unique<Sem::type[]>(num_threads);
 
         std::vector<std::thread> threads;
 
@@ -753,10 +750,10 @@ std::vector<uint64_t> RunPhase1(
             mutex[i] = Sem::Create();
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
             td[i].index = i;
             td[i].mine = &mutex[i];
-            td[i].theirs = &mutex[(globals.num_threads + i - 1) % globals.num_threads];
+            td[i].theirs = &mutex[(num_threads + i - 1) % num_threads];
 
             td[i].prevtableentries = prevtableentries;
             td[i].right_entry_size_bytes = right_entry_size_bytes;
@@ -770,13 +767,13 @@ std::vector<uint64_t> RunPhase1(
 
             threads.emplace_back(phase1_thread, &td[i]);
         }
-        Sem::Post(&mutex[globals.num_threads - 1]);
+        Sem::Post(&mutex[num_threads - 1]);
 
         for (auto& t : threads) {
             t.join();
         }
 
-        for (int i = 0; i < globals.num_threads; i++) {
+        for (int i = 0; i < num_threads; i++) {
             Sem::Destroy(mutex[i]);
         }
 
@@ -808,9 +805,6 @@ std::vector<uint64_t> RunPhase1(
 
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
-
-        delete[] td;
-        delete[] mutex;
     }
     table_sizes[0] = 0;
     globals.R_sort_manager.reset();
