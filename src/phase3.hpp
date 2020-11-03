@@ -312,7 +312,7 @@ Phase3Results RunPhase3(
                             left_reader_buf +
                             (left_reader_count % left_reader_buf_entries) * left_entry_size_bytes;
                     } else {
-                        left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader, 1);
+                        left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader);
                         left_reader += left_entry_size_bytes;
                     }
                     left_reader_count++;
@@ -426,7 +426,7 @@ Phase3Results RunPhase3(
         Bits right_entry_bits;
         int added_to_cache = 0;
         for (uint64_t index = 0; index < total_r_entries; index++) {
-            right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader, 2);
+            right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader);
             right_reader += right_entry_size_bytes;
             right_reader_count++;
 

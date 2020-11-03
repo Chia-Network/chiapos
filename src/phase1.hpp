@@ -226,7 +226,7 @@ void* phase1_thread(THREADDATA* ptd)
             if (!first_thread) {
                 Sem::Wait(ptd->theirs);
             }
-            globals.L_sort_manager->TriggerNewBucket(left_reader, 0);
+            globals.L_sort_manager->TriggerNewBucket(left_reader);
         }
         if (!last_thread) {
             // Do not post if we are the last thread, because first thread has already
@@ -740,7 +740,7 @@ std::vector<uint64_t> RunPhase1(
             0,
             globals.stripe_size);
 
-        globals.L_sort_manager->TriggerNewBucket(0, 0);
+        globals.L_sort_manager->TriggerNewBucket(0);
 
         Timer computation_pass_timer;
 
