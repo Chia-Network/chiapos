@@ -36,6 +36,13 @@ namespace fs = ghc::filesystem;
 #include "./uniformsort.hpp"
 #include "exceptions.hpp"
 
+enum class strategy_t : uint8_t
+{
+    uniform,
+    quicksort,
+    quicksort_last,
+};
+
 class SortManager {
 public:
     SortManager(
@@ -47,7 +54,8 @@ public:
         const std::string &tmp_dirname,
         const std::string &filename,
         uint32_t begin_bits,
-        uint64_t const stripe_size)
+        uint64_t const stripe_size,
+        strategy_t const sort_strategy = strategy_t::uniform)
         : memory_start(memory)
         , memory_size(memory_size)
         , entry_size(entry_size)
@@ -59,6 +67,7 @@ public:
         , prev_bucket_buf_(new uint8_t[prev_bucket_buf_size]())
         // 7 bytes head-room for SliceInt64FromBytes()
         , entry_buf_(new uint8_t[entry_size + 7])
+        , strategy_(sort_strategy)
     {
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> bucket_filenames = std::vector<fs::path>();
@@ -105,6 +114,10 @@ public:
 
     uint8_t *ReadEntry(uint64_t position, int quicksort = 0)
     {
+        assert((quicksort == 0) == (strategy_ == strategy_t::uniform));
+        assert((quicksort == 1) == (strategy_ == strategy_t::quicksort));
+        assert((quicksort == 2) == (strategy_ == strategy_t::quicksort_last));
+
         if (position < this->final_position_start) {
             if (!(position >= this->prev_bucket_position_start)) {
                 throw InvalidStateException("Invalid prev bucket start");
@@ -136,6 +149,10 @@ public:
 
     void TriggerNewBucket(uint64_t position, bool quicksort)
     {
+        assert((quicksort == false) == (strategy_ == strategy_t::uniform));
+        assert((quicksort == true) == (strategy_ == strategy_t::quicksort
+            || strategy_ == strategy_t::quicksort_last));
+
         if (!(position <= this->final_position_end)) {
             throw InvalidValueException("Triggering bucket too late");
         }
@@ -226,6 +243,7 @@ private:
     uint64_t final_position_end = 0;
     uint64_t next_bucket_to_sort = 0;
     std::unique_ptr<uint8_t[]> entry_buf_;
+    strategy_t strategy_;
 
     void FlushTable(uint16_t bucket_i)
     {
@@ -245,6 +263,10 @@ private:
 
     void SortBucket(int quicksort)
     {
+        assert((quicksort == 0) == (strategy_ == strategy_t::uniform));
+        assert((quicksort == 1) == (strategy_ == strategy_t::quicksort));
+        assert((quicksort == 2) == (strategy_ == strategy_t::quicksort_last));
+
         this->done = true;
         if (next_bucket_to_sort >= buckets_.size()) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
