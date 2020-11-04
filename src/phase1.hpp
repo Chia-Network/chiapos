@@ -553,7 +553,7 @@ void* F1thread(THREADF1DATA* ptd)
 
     uint64_t right_buf_entries = 1 << (kBatchSizes);
 
-    uint64_t* f1_entries = (uint64_t*)malloc((1 << kBatchSizes) * sizeof(*f1_entries));
+    std::unique_ptr<uint64_t[]> f1_entries(new uint64_t[(1U << kBatchSizes)]);
 
     F1Calculator f1(k, ptd->id);
 
@@ -572,7 +572,7 @@ void* F1thread(THREADF1DATA* ptd)
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
-        f1.CalculateBuckets(x, loopcount, f1_entries);
+        f1.CalculateBuckets(x, loopcount, f1_entries.get());
         for (uint32_t i = 0; i < loopcount; i++) {
             uint8_t to_write[16];
             uint128_t entry;
@@ -594,8 +594,6 @@ void* F1thread(THREADF1DATA* ptd)
 
         Sem::Post(ptd->mine);
     }
-
-    free(f1_entries);
 
     return 0;
 }
