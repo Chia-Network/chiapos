@@ -54,10 +54,12 @@ struct Disk {
 };
 
 #if ENABLE_LOGGING
+#include <mutex>
 #include <unordered_map>
 #include <cinttypes>
 
-enum class op_t { read, write};
+enum class op_t : int { read, write};
+
 void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t length)
 {
     static std::mutex m;
@@ -90,7 +92,7 @@ void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t
         , std::chrono::duration_cast<std::chrono::milliseconds>(timestamp).count()
         , offset
         , offset + length
-        , op
+        , int(op)
         , index);
     ::write(fd, buffer, len);
     ::close(fd);
