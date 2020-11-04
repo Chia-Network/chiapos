@@ -70,15 +70,20 @@ void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t
 
     std::unique_lock<std::mutex> l(m);
 
+    char buffer[512];
+
     int const index = [&] {
         auto it = file_index.find(filename.string());
         if (it != file_index.end()) return it->second;
         file_index[filename.string()] = next_file;
+
+        int const len = std::snprintf(buffer, sizeof(buffer)
+            , "# %d %s\n", next_file, filename.string().c_str());
+        ::write(fd, buffer, len);
         return next_file++;
     }();
 
     // timestamp (ms), start-offset, end-offset, operation (0 = read, 1 = write), file_index
-    char buffer[512];
     int const len = std::snprintf(buffer, sizeof(buffer)
         , "%" PRId64 "\t%" PRIu64 "\t%" PRIu64 "\t%d\t%d\n"
         , std::chrono::duration_cast<std::chrono::milliseconds>(timestamp).count()
