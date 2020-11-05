@@ -31,8 +31,8 @@ jobs:
         cd build
         cmake ../
         cmake --build . -- -j 6
-        ctest -j 6
-        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6
+        ctest -j 6 --output-on-failure
+        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
 
     - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
       if: startsWith(matrix.os, 'ubuntu')
