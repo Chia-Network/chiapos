@@ -861,3 +861,45 @@ TEST_CASE("bitfield_index-use index")
     CHECK(idx.lookup(1048576 - 3, 1) == std::pair<uint64_t, uint64_t>{0,1});
     CHECK(idx.lookup(1048576 - 2, 1) == std::pair<uint64_t, uint64_t>{1,1});
 }
+
+TEST_CASE("bitfield_index edge-cases")
+{
+    bitfield b(1048576);
+    CHECK(b.size() == 1048576);
+    b.set(0);
+    b.set(bitfield_index::kIndexBucket);
+    b.set(bitfield_index::kIndexBucket * 2);
+    b.set(1048576 - 1);
+    bitfield_index const idx(b);
+    CHECK(idx.lookup(0, 0) == std::pair<uint64_t, uint64_t>{0,0});
+    CHECK(idx.lookup(0, bitfield_index::kIndexBucket) == std::pair<uint64_t, uint64_t>{0,1});
+    CHECK(idx.lookup(0, bitfield_index::kIndexBucket * 2) == std::pair<uint64_t, uint64_t>{0,2});
+    CHECK(idx.lookup(0, 1048576 - 1) == std::pair<uint64_t, uint64_t>{0,3});
+
+    CHECK(idx.lookup(bitfield_index::kIndexBucket, 0) == std::pair<uint64_t, uint64_t>{1,0});
+    CHECK(idx.lookup(bitfield_index::kIndexBucket, bitfield_index::kIndexBucket) == std::pair<uint64_t, uint64_t>{1,1});
+    CHECK(idx.lookup(bitfield_index::kIndexBucket, 1048576 - 1 - bitfield_index::kIndexBucket)
+		== std::pair<uint64_t, uint64_t>{1,2});
+
+	CHECK(idx.lookup(bitfield_index::kIndexBucket * 2, 1048576 - 1 - bitfield_index::kIndexBucket * 2)
+		== std::pair<uint64_t, uint64_t>{2,1});
+    CHECK(idx.lookup(1048576 - 1, 0) == std::pair<uint64_t, uint64_t>{3,0});
+}
+
+void test_bitfield_size(int const size)
+{
+    bitfield b(size);
+    b.set(0);
+    b.set(size - 1);
+    bitfield_index const idx(b);
+    CHECK(idx.lookup(0, 0) == std::pair<uint64_t, uint64_t>{0,0});
+    CHECK(idx.lookup(0, size - 1) == std::pair<uint64_t, uint64_t>{0,1});
+    CHECK(idx.lookup(size - 1, 0) == std::pair<uint64_t, uint64_t>{1,0});
+}
+
+TEST_CASE("bitfield_index edge-sizes")
+{
+	test_bitfield_size(bitfield_index::kIndexBucket - 1);
+	test_bitfield_size(bitfield_index::kIndexBucket);
+	test_bitfield_size(bitfield_index::kIndexBucket + 1);
+}
