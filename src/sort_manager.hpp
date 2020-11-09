@@ -30,12 +30,10 @@
 #include "../lib/include/filesystem.hpp"
 namespace fs = ghc::filesystem;
 #else
-#ifdef __cpp_lib_filesystem
+#if __has_include(<filesystem>)
 #include <filesystem>
-#elif __cpp_lib_experimental_filesystem
-#include <experimental/filesystem>
 #else
-#error "no filesystem support ='("
+#include <experimental/filesystem>
 #endif
 #endif
 
