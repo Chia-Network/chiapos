@@ -34,6 +34,7 @@
 #include <vector>
 #include <thread>
 #include <memory>
+#include <mutex>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
@@ -62,14 +63,6 @@ struct THREADDATA {
     uint64_t prevtableentries;
     uint32_t compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks;
-};
-
-struct THREADF1DATA {
-    int index;
-    Sem::type* mine;
-    Sem::type* theirs;
-    uint8_t k;
-    const uint8_t* id;
 };
 
 struct GlobalData {
@@ -538,25 +531,23 @@ void* phase1_thread(THREADDATA* ptd)
     return 0;
 }
 
-void* F1thread(THREADF1DATA* ptd)
+void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* smm)
 {
-    uint8_t k = ptd->k;
-    uint32_t entry_size_bytes = 16;
-
-    uint64_t max_value = ((uint64_t)1 << (k));
-
-    uint64_t right_buf_entries = 1 << (kBatchSizes);
+    uint32_t const entry_size_bytes = 16;
+    uint64_t const max_value = ((uint64_t)1 << (k));
+    uint64_t const right_buf_entries = 1 << (kBatchSizes);
 
     std::unique_ptr<uint64_t[]> f1_entries(new uint64_t[(1U << kBatchSizes)]);
 
-    F1Calculator f1(k, ptd->id);
+    F1Calculator f1(k, id);
 
     std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * entry_size_bytes]);
 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
-    for (uint64_t lp = ptd->index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + globals.num_threads) {  // globals.num_threads) {
+    for (uint64_t lp = index; lp <= (((uint64_t)1) << (k - kBatchSizes));
+         lp = lp + globals.num_threads)
+    {
         // For each pair x, y in the batch
 
         uint64_t right_writer_count = 0;
@@ -579,14 +570,12 @@ void* F1thread(THREADF1DATA* ptd)
             x++;
         }
 
-        Sem::Wait(ptd->theirs);
+        std::lock_guard<std::mutex> l(*smm);
 
         // Write it out
         for (uint32_t i = 0; i < right_writer_count; i++) {
             globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
         }
-
-        Sem::Post(ptd->mine);
     }
 
     return 0;
@@ -632,38 +621,18 @@ std::vector<uint64_t> RunPhase1(
     // These are used for sorting on disk. The sort on disk code needs to know how
     // many elements are in each bucket.
     std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
+    std::mutex sort_manager_mutex;
 
     {
         // Start of parallel execution
-        auto td = std::make_unique<THREADF1DATA[]>(num_threads);
-        auto mutex = std::make_unique<Sem::type[]>(num_threads);
-
         std::vector<std::thread> threads;
-
         for (int i = 0; i < num_threads; i++) {
-            mutex[i] = Sem::Create();
+            threads.emplace_back(F1thread, i, k, id, &sort_manager_mutex);
         }
-
-        for (int i = 0; i < num_threads; i++) {
-            td[i].index = i;
-            td[i].mine = &mutex[i];
-            td[i].theirs = &mutex[(num_threads + i - 1) % num_threads];
-
-            td[i].k = k;
-            td[i].id = id;
-
-            threads.emplace_back(F1thread, &td[i]);
-        }
-        Sem::Post(&mutex[num_threads - 1]);
 
         for (auto& t : threads) {
             t.join();
         }
-
-        for (int i = 0; i < num_threads; i++) {
-            Sem::Destroy(mutex[i]);
-        }
-
         // end of parallel execution
     }
 
