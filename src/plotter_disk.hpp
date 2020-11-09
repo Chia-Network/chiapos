@@ -42,7 +42,6 @@
 namespace fs = ghc::filesystem;
 #else
 #include <filesystem>
-namespace fs = std::filesystem;
 #endif
 
 #include "calculate_bucket.hpp"
