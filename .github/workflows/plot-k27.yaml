@@ -39,7 +39,10 @@ jobs:
         cd build
         cmake ../
         cmake --build . -- -j 6
-        ./ProofOfSpace -k 27 create
+        /usr/bin/time --output=resource-usage.txt --format="%M" ./ProofOfSpace -k 27 create
+        MAX_RESIDENT=$(cat resource-usage.txt)
+        echo "ProofOfSpace used $MAX_RESIDENT kiB of memory"
+        if [ $MAX_RESIDENT -gt 3000000 ]; then echo "that's too much memory!"; exit 1; fi
         ./ProofOfSpace check -f plot.dat
         EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
         SHACHECK=$(sha256sum plot.dat)
