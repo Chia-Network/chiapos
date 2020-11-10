@@ -20,49 +20,15 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
 
-#include "./util.hpp"
+#include "util.hpp"
 
-class QuickSort {
-public:
-    inline static void Sort(
-        uint8_t *memory,
-        uint32_t entry_len,
-        uint64_t num_entries,
-        uint32_t bits_begin)
-    {
-        uint64_t memory_len = (uint64_t)entry_len * num_entries;
-        uint8_t *pivot_space = new uint8_t[entry_len];
-        SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries, pivot_space);
-        delete[] pivot_space;
-    }
-
-private:
-    /*
-     * Like memcmp, but only compares starting at a certain bit.
-     */
-    inline static int MemCmpBits(
-        uint8_t *left_arr,
-        uint8_t *right_arr,
-        uint32_t len,
-        uint32_t bits_begin)
-    {
-        uint32_t start_byte = bits_begin / 8;
-        uint8_t mask = ((1 << (8 - (bits_begin % 8))) - 1);
-        if ((left_arr[start_byte] & mask) != (right_arr[start_byte] & mask)) {
-            return (left_arr[start_byte] & mask) - (right_arr[start_byte] & mask);
-        }
-
-        for (uint32_t i = start_byte + 1; i < len; i++) {
-            if (left_arr[i] != right_arr[i])
-                return left_arr[i] - right_arr[i];
-        }
-        return 0;
-    }
+namespace QuickSort {
 
     inline static void SortInner(
         uint8_t *memory,
@@ -78,7 +44,7 @@ private:
                 uint64_t j = i;
                 memcpy(pivot_space, memory + i * L, L);
                 while (j > begin &&
-                       MemCmpBits(memory + (j - 1) * L, pivot_space, L, bits_begin) > 0) {
+                       Util::MemCmpBits(memory + (j - 1) * L, pivot_space, L, bits_begin) > 0) {
                     memcpy(memory + j * L, memory + (j - 1) * L, L);
                     j--;
                 }
@@ -95,7 +61,7 @@ private:
 
         while (lo < hi) {
             if (left_side) {
-                if (MemCmpBits(memory + lo * L, pivot_space, L, bits_begin) < 0) {
+                if (Util::MemCmpBits(memory + lo * L, pivot_space, L, bits_begin) < 0) {
                     ++lo;
                 } else {
                     memcpy(memory + hi * L, memory + lo * L, L);
@@ -103,7 +69,7 @@ private:
                     left_side = false;
                 }
             } else {
-                if (MemCmpBits(memory + hi * L, pivot_space, L, bits_begin) > 0) {
+                if (Util::MemCmpBits(memory + hi * L, pivot_space, L, bits_begin) > 0) {
                     --hi;
                 } else {
                     memcpy(memory + lo * L, memory + hi * L, L);
@@ -121,6 +87,18 @@ private:
             SortInner(memory, memory_len, L, bits_begin, begin, lo, pivot_space);
         }
     }
-};
+
+    inline void Sort(
+        uint8_t *const memory,
+        uint32_t const entry_len,
+        uint64_t const num_entries,
+        uint32_t const bits_begin)
+    {
+        uint64_t const memory_len = (uint64_t)entry_len * num_entries;
+        auto const pivot_space = std::make_unique<uint8_t[]>(entry_len);
+        SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries, pivot_space.get());
+    }
+
+}
 
 #endif  // SRC_CPP_QUICKSORT_HPP_
