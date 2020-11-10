@@ -81,11 +81,11 @@ struct GlobalData {
 GlobalData globals;
 
 PlotEntry GetLeftEntry(
-    uint8_t table_index,
-    uint8_t* left_buf,
-    uint8_t k,
-    uint8_t metadata_size,
-    uint8_t pos_size)
+    uint8_t const table_index,
+    uint8_t const* const left_buf,
+    uint8_t const k,
+    uint8_t const metadata_size,
+    uint8_t const pos_size)
 {
     PlotEntry left_entry;
     left_entry.y = 0;
@@ -93,7 +93,7 @@ PlotEntry GetLeftEntry(
     left_entry.left_metadata = 0;
     left_entry.right_metadata = 0;
 
-    uint32_t ysize = (table_index == 7) ? k : k + kExtraBits;
+    uint32_t const ysize = (table_index == 7) ? k : k + kExtraBits;
 
     if (table_index == 1) {
         // For table 1, we only have y and metadata
@@ -123,14 +123,14 @@ PlotEntry GetLeftEntry(
 
 void* phase1_thread(THREADDATA* ptd)
 {
-    uint64_t right_entry_size_bytes = ptd->right_entry_size_bytes;
-    uint8_t k = ptd->k;
-    uint8_t table_index = ptd->table_index;
-    uint8_t metadata_size = ptd->metadata_size;
-    uint32_t entry_size_bytes = ptd->entry_size_bytes;
-    uint8_t pos_size = ptd->pos_size;
-    uint64_t prevtableentries = ptd->prevtableentries;
-    uint32_t compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
+    uint64_t const right_entry_size_bytes = ptd->right_entry_size_bytes;
+    uint8_t const k = ptd->k;
+    uint8_t const table_index = ptd->table_index;
+    uint8_t const metadata_size = ptd->metadata_size;
+    uint32_t const entry_size_bytes = ptd->entry_size_bytes;
+    uint8_t const pos_size = ptd->pos_size;
+    uint64_t const prevtableentries = ptd->prevtableentries;
+    uint32_t const compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks = ptd->ptmp_1_disks;
 
     // Streams to read and right to tables. We will have handles to two tables. We will
@@ -158,7 +158,7 @@ void* phase1_thread(THREADDATA* ptd)
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
         uint64_t pos = (stripe * globals.num_threads + ptd->index) * globals.stripe_size;
-        uint64_t endpos = pos + globals.stripe_size + 1;  // one y value overlap
+        uint64_t const endpos = pos + globals.stripe_size + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
@@ -279,10 +279,10 @@ void* phase1_thread(THREADDATA* ptd)
                         match_indexes = f.FindMatches(bucket_L, bucket_R);
 
                         // We mark entries as used if they took part in a match.
-                        for (auto& indeces : match_indexes) {
-                            bucket_L[std::get<0>(indeces)].used = true;
+                        for (auto [idx_L, idx_R] : match_indexes) {
+                            bucket_L[idx_L].used = true;
                             if (end_of_table) {
-                                bucket_R[std::get<1>(indeces)].used = true;
+                                bucket_R[idx_R].used = true;
                             }
                         }
                     }
@@ -350,12 +350,12 @@ void* phase1_thread(THREADDATA* ptd)
 
                     // Two vectors to keep track of things from previous iteration and from this
                     // iteration.
-                    current_entries_to_write.swap(future_entries_to_write);
+                    current_entries_to_write = std::move(future_entries_to_write);
                     future_entries_to_write.clear();
 
-                    for (auto& indeces : match_indexes) {
-                        PlotEntry& L_entry = bucket_L[std::get<0>(indeces)];
-                        PlotEntry& R_entry = bucket_R[std::get<1>(indeces)];
+                    for (auto [idx_L, idx_R] : match_indexes) {
+                        PlotEntry& L_entry = bucket_L[idx_L];
+                        PlotEntry& R_entry = bucket_R[idx_R];
 
                         if (bStripeStartPair)
                             matches++;
@@ -368,8 +368,7 @@ void* phase1_thread(THREADDATA* ptd)
                                 Bits(L_entry.y, k + kExtraBits),
                                 Bits(L_entry.left_metadata, metadata_size),
                                 Bits(R_entry.left_metadata, metadata_size));
-                            future_entries_to_write.push_back(
-                                std::make_tuple(L_entry, R_entry, f_output));
+                            future_entries_to_write.emplace_back(L_entry, R_entry, f_output);
                         } else {
                             // Metadata does not fit into 128 bits
                             const std::pair<Bits, Bits>& f_output = f.CalculateBucket(
@@ -378,8 +377,7 @@ void* phase1_thread(THREADDATA* ptd)
                                     Bits(L_entry.right_metadata, metadata_size - 128),
                                 Bits(R_entry.left_metadata, 128) +
                                     Bits(R_entry.right_metadata, metadata_size - 128));
-                            future_entries_to_write.push_back(
-                                std::make_tuple(L_entry, R_entry, f_output));
+                            future_entries_to_write.emplace_back(L_entry, R_entry, f_output);
                         }
                     }
 
@@ -396,11 +394,8 @@ void* phase1_thread(THREADDATA* ptd)
                             future_entries_to_write.end());
                     }
                     for (size_t i = 0; i < current_entries_to_write.size(); i++) {
-                        const auto& entry_tuple = current_entries_to_write[i];
-                        const PlotEntry& L_entry = std::get<0>(entry_tuple);
-                        const PlotEntry& R_entry = std::get<1>(entry_tuple);
+                        const auto& [L_entry, R_entry, f_output] = current_entries_to_write[i];
 
-                        const std::pair<Bits, Bits>& f_output = std::get<2>(entry_tuple);
                         // We only need k instead of k + kExtraBits bits for the last table
                         Bits new_entry = table_index + 1 == 7 ? std::get<0>(f_output).Slice(0, k)
                                                               : std::get<0>(f_output);
@@ -462,17 +457,17 @@ void* phase1_thread(THREADDATA* ptd)
                 if (y_bucket == bucket + 2) {
                     // We saw a bucket that is 2 more than the current, so we just set L = R, and R
                     // = [entry]
-                    bucket_L = bucket_R;
-                    bucket_R = std::vector<PlotEntry>();
+                    bucket_L = std::move(bucket_R);
+                    bucket_R.clear();
                     bucket_R.emplace_back(std::move(left_entry));
                     ++bucket;
                 } else {
                     // We saw a bucket that >2 more than the current, so we just set L = [entry],
                     // and R = []
                     bucket = y_bucket;
-                    bucket_L = std::vector<PlotEntry>();
+                    bucket_L.clear();
                     bucket_L.emplace_back(std::move(left_entry));
-                    bucket_R = std::vector<PlotEntry>();
+                    bucket_R.clear();
                 }
             }
             // Increase the read pointer in the left table, by one
@@ -485,11 +480,11 @@ void* phase1_thread(THREADDATA* ptd)
             Sem::Wait(ptd->theirs);
         }
 
-        uint32_t ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
-        uint32_t startbyte = ysize / 8;
-        uint32_t endbyte = (ysize + pos_size + 7) / 8 - 1;
-        uint64_t shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
-        uint64_t correction = (globals.left_writer_count - stripe_start_correction) << shiftamt;
+        uint32_t const ysize = (table_index + 1 == 7) ? k : k + kExtraBits;
+        uint32_t const startbyte = ysize / 8;
+        uint32_t const endbyte = (ysize + pos_size + 7) / 8 - 1;
+        uint64_t const shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
+        uint64_t const correction = (globals.left_writer_count - stripe_start_correction) << shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
@@ -553,7 +548,7 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
         uint64_t right_writer_count = 0;
         uint64_t x = lp * (1 << (kBatchSizes));
 
-        uint64_t loopcount = std::min(max_value - x, (uint64_t)1 << (kBatchSizes));
+        uint64_t const loopcount = std::min(max_value - x, (uint64_t)1 << (kBatchSizes));
 
         // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
         // to increase CPU efficency.
@@ -589,14 +584,14 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
 // f functions are computed, and a sort on disk happens for each table.
 std::vector<uint64_t> RunPhase1(
     std::vector<FileDisk>& tmp_1_disks,
-    uint8_t k,
-    const uint8_t* id,
-    std::string tmp_dirname,
-    std::string filename,
-    uint64_t memory_size,
-    uint32_t num_buckets,
-    uint32_t log_num_buckets,
-    uint32_t stripe_size,
+    uint8_t const k,
+    const uint8_t* const id,
+    std::string const tmp_dirname,
+    std::string const filename,
+    uint64_t const memory_size,
+    uint32_t const num_buckets,
+    uint32_t const log_num_buckets,
+    uint32_t const stripe_size,
     uint8_t const num_threads)
 {
     std::cout << "Computing table 1" << std::endl;
@@ -605,9 +600,8 @@ std::vector<uint64_t> RunPhase1(
     Timer f1_start_time;
     F1Calculator f1(k, id);
     uint64_t x = 0;
-    uint64_t prevtableentries = 0;
 
-    uint32_t t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
+    uint32_t const t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
     globals.L_sort_manager = std::make_unique<SortManager>(
         memory_size,
         num_buckets,
@@ -636,7 +630,7 @@ std::vector<uint64_t> RunPhase1(
         // end of parallel execution
     }
 
-    prevtableentries = 1ULL << k;
+    uint64_t prevtableentries = 1ULL << k;
     f1_start_time.PrintElapsed("F1 complete, time:");
     globals.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;
@@ -649,11 +643,11 @@ std::vector<uint64_t> RunPhase1(
     // the next table. This is the left table index.
     for (uint8_t table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
-        uint8_t metadata_size = kVectorLens[table_index + 1] * k;
+        uint8_t const metadata_size = kVectorLens[table_index + 1] * k;
 
         // Determines how many bytes the entries in our left and right tables will take up.
-        uint32_t entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, true);
-        uint32_t compressed_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
+        uint32_t const entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, true);
+        uint32_t const compressed_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, true);
 
         std::cout << "Computing table " << int{table_index + 1} << std::endl;
