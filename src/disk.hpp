@@ -29,9 +29,11 @@
 
 using namespace std::chrono_literals; // for operator""min;
 
-// Gulrak filesystem brings in Windows headers that cause some issues with std
+#ifdef _WIN32
+#include <windows.h>
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
+#endif
 
 #include "chia_filesystem.hpp"
 
@@ -103,7 +105,11 @@ struct FileDisk {
         filename_ = filename;
 
         // Opens the file for reading and writing
+#ifdef _WIN32
+        f_ = ::_wfopen(filename.c_str(), L"w+b");
+#else
         f_ = ::fopen(filename.c_str(), "w+b");
+#endif
         if (f_ == nullptr) {
             throw InvalidValueException(
                 "Could not open " + filename.string() + ": " + ::strerror(errno));
@@ -138,7 +144,7 @@ struct FileDisk {
         uint64_t amtread;
         do {
             if ((!bReading) || (begin != readPos)) {
-#ifdef WIN32
+#ifdef _WIN32
                 _fseeki64(f_, begin, SEEK_SET);
 #else
                 // fseek() takes a long as offset, make sure it's wide enough
@@ -167,7 +173,7 @@ struct FileDisk {
         uint64_t amtwritten;
         do {
             if ((bReading) || (begin != writePos)) {
-#ifdef WIN32
+#ifdef _WIN32
                 _fseeki64(f_, begin, SEEK_SET);
 #else
                 // fseek() takes a long as offset, make sure it's wide enough
@@ -198,7 +204,11 @@ struct FileDisk {
     {
         Close();
         fs::resize_file(filename_, new_size);
+#ifdef _WIN32
+        f_ = ::_wfopen(filename_.c_str(), L"r+b");
+#else
         f_ = ::fopen(filename_.c_str(), "r+b");
+#endif
         if (f_ == nullptr) {
             throw InvalidValueException(
                 "Could not open " + filename_.string() + ": " + ::strerror(errno));
