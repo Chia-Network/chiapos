@@ -33,9 +33,7 @@ using namespace std::chrono_literals; // for operator""min;
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
 
-#include "../lib/include/filesystem.hpp"
-
-namespace fs = ghc::filesystem;
+#include "chia_filesystem.hpp"
 
 #include "./bits.hpp"
 #include "./util.hpp"

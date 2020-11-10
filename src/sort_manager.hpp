@@ -25,17 +25,7 @@
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
 
-#ifdef __APPLE__
-// std::filesystem is not supported on Mojave
-#include "../lib/include/filesystem.hpp"
-namespace fs = ghc::filesystem;
-#else
-#if __has_include(<filesystem>)
-#include <filesystem>
-#else
-#include <experimental/filesystem>
-#endif
-#endif
+#include "chia_filesystem.hpp"
 
 #include "./bits.hpp"
 #include "./calculate_bucket.hpp"
