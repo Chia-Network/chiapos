@@ -23,13 +23,15 @@ namespace fs = ghc::filesystem;
 #ifdef __has_include
 #if __has_include(<filesystem>)
 #include <filesystem>
+namespace fs = std::filesystem;
 #else
 #include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
 #endif
 #else
 #include <filesystem>
-#endif
 namespace fs = std::filesystem;
+#endif
 #endif
 
 #endif // SRC_CPP_CHIA_FILESYSTEM_HPP_
