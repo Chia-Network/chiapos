@@ -29,6 +29,7 @@ namespace fs = ghc::filesystem;
 #else
 #include <filesystem>
 #endif
+namespace fs = std::filesystem
 #endif
 
 #endif // SRC_CPP_CHIA_FILESYSTEM_HPP_
