@@ -21,8 +21,6 @@
 #include <string>
 #include <vector>
 
-#define BUF_SIZE 262144
-
 // Gulrak filesystem brings in Windows headers that cause some issues with std
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
@@ -30,21 +28,31 @@
 #include "./disk.hpp"
 #include "./util.hpp"
 
-class UniformSort {
-public:
-    inline static void SortToMemory(
-        FileDisk &input_disk,
-        uint64_t input_disk_begin,
-        uint8_t *memory,
-        uint32_t entry_len,
-        uint64_t num_entries,
-        uint32_t bits_begin)
+namespace UniformSort {
+
+    inline int64_t const BUF_SIZE = 262144;
+
+    inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t entry_len)
     {
-        uint32_t entry_len_memory = entry_len - bits_begin / 8;
-        uint64_t memory_len = Util::RoundSize(num_entries) * entry_len_memory;
-        auto swap_space = new uint8_t[entry_len];
-        auto buffer = new uint8_t[BUF_SIZE];
-        auto common_prefix = new uint8_t[bits_begin / 8];
+        for (uint32_t i = 0; i < entry_len; i++)
+            if (memory[i] != 0)
+                return false;
+        return true;
+    }
+
+    inline void SortToMemory(
+        FileDisk &input_disk,
+        uint64_t const input_disk_begin,
+        uint8_t *const memory,
+        uint32_t const entry_len,
+        uint64_t const num_entries,
+        uint32_t const bits_begin)
+    {
+        uint32_t const entry_len_memory = entry_len - bits_begin / 8;
+        uint64_t const memory_len = Util::RoundSize(num_entries) * entry_len_memory;
+        auto const swap_space = std::make_unique<uint8_t[]>(entry_len);
+        auto const buffer = std::make_unique<uint8_t[]>(BUF_SIZE);
+        auto const common_prefix = std::make_unique<uint8_t[]>(bits_begin / 8);
         uint64_t bucket_length = 0;
         bool set_prefix = false;
         // The number of buckets needed (the smallest power of 2 greater than 2 * num_entries).
@@ -60,12 +68,12 @@ public:
                 // If read buffer is empty, read from disk and refill it.
                 buf_size = std::min((uint64_t)BUF_SIZE / entry_len, num_entries - i);
                 buf_ptr = 0;
-                input_disk.Read(read_pos, buffer, buf_size * entry_len);
+                input_disk.Read(read_pos, buffer.get(), buf_size * entry_len);
                 read_pos += buf_size * entry_len;
                 if (!set_prefix) {
                     // We don't store the common prefix of all entries in memory, instead just
                     // append it every time in write buffer.
-                    memcpy(common_prefix, buffer, bits_begin / 8);
+                    memcpy(common_prefix.get(), buffer.get(), bits_begin / 8);
                     set_prefix = true;
                 }
             }
@@ -73,23 +81,23 @@ public:
             // First unique bits in the entry give the expected position of it in the sorted array.
             // We take 'bucket_length' bits starting with the first unique one.
             uint64_t pos =
-                Util::ExtractNum(buffer + buf_ptr, entry_len, bits_begin, bucket_length) *
+                Util::ExtractNum(buffer.get() + buf_ptr, entry_len, bits_begin, bucket_length) *
                 entry_len_memory;
             // As long as position is occupied by a previous entry...
             while (!IsPositionEmpty(memory + pos, entry_len_memory) && pos < memory_len) {
                 // ...store there the minimum between the two and continue to push the higher one.
                 if (Util::MemCmpBits(
-                        memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory, 0) > 0) {
+                        memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory, 0) > 0) {
                     // We always store the entry without the common prefix.
-                    memcpy(swap_space, memory + pos, entry_len_memory);
-                    memcpy(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory);
-                    memcpy(buffer + buf_ptr + bits_begin / 8, swap_space, entry_len_memory);
+                    memcpy(swap_space.get(), memory + pos, entry_len_memory);
+                    memcpy(memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory);
+                    memcpy(buffer.get() + buf_ptr + bits_begin / 8, swap_space.get(), entry_len_memory);
                     swaps++;
                 }
                 pos += entry_len_memory;
             }
             // Push the entry in the first free spot.
-            memcpy(memory + pos, buffer + buf_ptr + bits_begin / 8, entry_len_memory);
+            memcpy(memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory);
             buf_ptr += entry_len;
         }
         uint64_t entries_written = 0;
@@ -99,7 +107,7 @@ public:
             if (!IsPositionEmpty(memory + pos, entry_len_memory)) {
                 // We've found an entry.
                 // Write first the common prefix of all entries.
-                memcpy(memory + entries_written * entry_len, common_prefix, bits_begin / 8);
+                memcpy(memory + entries_written * entry_len, common_prefix.get(), bits_begin / 8);
                 // Then the stored entry itself.
                 memcpy(
                     memory + entries_written * entry_len + bits_begin / 8,
@@ -110,19 +118,8 @@ public:
         }
 
         assert(entries_written == num_entries);
-        delete[] swap_space;
-        delete[] buffer;
-        delete[] common_prefix;
     }
 
-private:
-    inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t entry_len)
-    {
-        for (uint32_t i = 0; i < entry_len; i++)
-            if (memory[i] != 0)
-                return false;
-        return true;
-    }
-};
+}
 
 #endif  // SRC_CPP_UNIFORMSORT_HPP_
