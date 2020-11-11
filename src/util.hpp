@@ -35,6 +35,8 @@ template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
 #ifdef _WIN32
+#define _HAS_STD_BYTE 0
+#define NOMINMAX
 #include "windows.h"
 #include "processthreadsapi.h"
 #include "uint128_t.h"
@@ -125,7 +127,7 @@ public:
 private:
     std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
 #if _WIN32
-    FILETIME ft_[6];
+    FILETIME ft_[4];
 #else
     clock_t cpu_time_start_;
 #endif
