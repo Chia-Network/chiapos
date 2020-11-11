@@ -73,8 +73,9 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 
 class Timer {
 public:
-    Timer() : wall_clock_time_start_(std::chrono::steady_clock::now())
+    Timer()
     {
+        wall_clock_time_start_ = std::chrono::steady_clock::now();
 #if _WIN32
         ::GetProcessTimes(::GetCurrentProcess(), &ft_[3], &ft_[2], &ft_[1], &ft_[0]);
 #else
@@ -124,7 +125,7 @@ public:
 private:
     std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
 #if _WIN32
-    FILETIME ft_[4];
+    FILETIME ft_[6];
 #else
     clock_t cpu_time_start_;
 #endif
