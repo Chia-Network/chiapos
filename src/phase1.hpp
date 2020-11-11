@@ -40,8 +40,8 @@
 #define _HAS_STD_BYTE 0
 #define NOMINMAX
 
-#include "../lib/include/filesystem.hpp"
-namespace fs = ghc::filesystem;
+#include "chia_filesystem.hpp"
+
 #include "calculate_bucket.hpp"
 #include "entry_sizes.hpp"
 #include "exceptions.hpp"
