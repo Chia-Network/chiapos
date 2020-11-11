@@ -29,12 +29,6 @@
 
 using namespace std::chrono_literals; // for operator""min;
 
-#ifdef _WIN32
-#include <windows.h>
-#define _HAS_STD_BYTE 0
-#define NOMINMAX
-#endif
-
 #include "chia_filesystem.hpp"
 
 #include "./bits.hpp"

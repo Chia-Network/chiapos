@@ -22,10 +22,6 @@
 #include <vector>
 #include <memory>
 
-// Gulrak filesystem brings in Windows headers that cause some issues with std
-#define _HAS_STD_BYTE 0
-#define NOMINMAX
-
 #include "util.hpp"
 
 namespace QuickSort {

@@ -21,10 +21,6 @@
 #include <string>
 #include <vector>
 
-// Gulrak filesystem brings in Windows headers that cause some issues with std
-#define _HAS_STD_BYTE 0
-#define NOMINMAX
-
 #include "./disk.hpp"
 #include "./util.hpp"
 
