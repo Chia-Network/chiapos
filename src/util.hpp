@@ -35,10 +35,9 @@ template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
 #ifdef _WIN32
-#define _HAS_STD_BYTE 0
 #define NOMINMAX
-#include "windows.h"
-#include "processthreadsapi.h"
+#include <windows.h>
+#include <processthreadsapi.h>
 #include "uint128_t.h"
 #else
 // __uint__128_t is only available in 64 bit architectures and on certain
