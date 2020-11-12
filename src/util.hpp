@@ -35,6 +35,9 @@ template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
 #ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#include <processthreadsapi.h>
 #include "uint128_t.h"
 #else
 // __uint__128_t is only available in 64 bit architectures and on certain
@@ -71,7 +74,15 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 
 class Timer {
 public:
-    Timer() : wall_clock_time_start_(std::chrono::steady_clock::now()), cpu_time_start_(clock()) {}
+    Timer()
+    {
+        wall_clock_time_start_ = std::chrono::steady_clock::now();
+#if _WIN32
+        ::GetProcessTimes(::GetCurrentProcess(), &ft_[3], &ft_[2], &ft_[1], &ft_[0]);
+#else
+        cpu_time_start_ = clock();
+#endif
+    }
 
     static char *GetNow()
     {
@@ -87,8 +98,24 @@ public:
                                  end - this->wall_clock_time_start_)
                                  .count();
 
+#if _WIN32
+        FILETIME nowft_[6];
+        nowft_[0] = ft_[0];
+        nowft_[1] = ft_[1];
+
+        ::GetProcessTimes(::GetCurrentProcess(), &nowft_[5], &nowft_[4], &nowft_[3], &nowft_[2]);
+        ULARGE_INTEGER u[4];
+        for (size_t i = 0; i < 4; ++i) {
+            u[i].LowPart = nowft_[i].dwLowDateTime;
+            u[i].HighPart = nowft_[i].dwHighDateTime;
+        }
+        double user = (u[2].QuadPart - u[0].QuadPart) / 10000.0;
+        double kernel = (u[3].QuadPart - u[1].QuadPart) / 10000.0;
+        double cpu_time_ms = user + kernel;
+#else
         double cpu_time_ms =
             1000.0 * (static_cast<double>(clock()) - this->cpu_time_start_) / CLOCKS_PER_SEC;
+#endif
 
         double cpu_ratio = static_cast<int>(10000 * (cpu_time_ms / wall_clock_ms)) / 100.0;
 
@@ -98,7 +125,12 @@ public:
 
 private:
     std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
+#if _WIN32
+    FILETIME ft_[4];
+#else
     clock_t cpu_time_start_;
+#endif
+
 };
 
 namespace Util {
