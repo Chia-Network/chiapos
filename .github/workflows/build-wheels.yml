@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Cancel previous runs on the same branch
-      uses: styfle/cancel-workflow-action@0.5.0
+      uses: styfle/cancel-workflow-action@0.6.0
       with:
         access_token: ${{ github.token }}
 
@@ -42,7 +42,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-        pip install cibuildwheel==1.6.1
+        pip install cibuildwheel==1.6.4
 
     - name: Lint source with flake8
       run: |
@@ -65,7 +65,7 @@ jobs:
         python -m cibuildwheel --output-dir dist
       env:
         # build python 3.7 and 3.8
-        CIBW_BUILD: cp37-* cp38-*
+        CIBW_BUILD: cp37-* cp38-* cp-39*
         CIBW_SKIP: '*-manylinux_i686 *-win32'
         # we need boost
         CIBW_BUILD_VERBOSITY_LINUX: 0
