@@ -192,7 +192,6 @@ void* phase1_thread(THREADDATA* ptd)
             current_entries_to_write;
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
             future_entries_to_write;
-        std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
         std::vector<PlotEntry*> not_dropped;  // Pointers are stored to avoid copying entries
 
         if (pos == 0) {
@@ -267,6 +266,8 @@ void* phase1_thread(THREADDATA* ptd)
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
                 // happens in the next iteration of the loop, since we need to remap positions.
+                std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
+
                 if (!bucket_L.empty()) {
                     not_dropped.clear();
 
