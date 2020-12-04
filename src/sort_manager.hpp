@@ -128,6 +128,8 @@ public:
     {
         for (auto& b : buckets_) {
             b.file.FreeMemory();
+            // the underlying file will be re-opened again on-demand
+            b.underlying_file.Close();
         }
         prev_bucket_buf_.reset();
         memory_start_.reset();
@@ -229,7 +231,7 @@ private:
         BufferedDisk file;
     };
 
-    // Start of the whole memory array. This will be diveded into buckets
+    // The buffer we use to sort buckets in-memory
     std::unique_ptr<uint8_t[]> memory_start_;
     // Size of the whole memory array
     uint64_t memory_size_;
