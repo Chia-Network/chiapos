@@ -117,7 +117,7 @@ PlotEntry GetLeftEntry(
     return left_entry;
 }
 
-void* phase1_thread(THREADDATA* ptd)
+void phase1_thread(THREADDATA* ptd)
 {
     uint64_t const right_entry_size_bytes = ptd->right_entry_size_bytes;
     uint8_t const k = ptd->k;
@@ -292,10 +292,9 @@ void* phase1_thread(THREADDATA* ptd)
                     // Adds L_bucket entries that are used to not_dropped. They are used if they
                     // either matched with something to the left (in the previous iteration), or
                     // matched with something in bucket_R (in this iteration).
-                    for (size_t bucket_index = 0; bucket_index < bucket_L.size(); bucket_index++) {
-                        PlotEntry& L_entry = bucket_L[bucket_index];
+                    for (auto& L_entry : bucket_L) {
                         if (L_entry.used) {
-                            not_dropped.emplace_back(&bucket_L[bucket_index]);
+                            not_dropped.emplace_back(&L_entry);
                         }
                     }
                     if (end_of_table) {
@@ -303,9 +302,7 @@ void* phase1_thread(THREADDATA* ptd)
                         // iteration due to breaking from loop. Therefore to write the final
                         // bucket in this iteration, we have to add the R entries to the
                         // not_dropped list.
-                        for (size_t bucket_index = 0; bucket_index < bucket_R.size();
-                             bucket_index++) {
-                            PlotEntry& R_entry = bucket_R[bucket_index];
+                        for (auto& R_entry : bucket_R) {
                             if (R_entry.used) {
                                 not_dropped.emplace_back(&R_entry);
                             }
@@ -524,11 +521,9 @@ void* phase1_thread(THREADDATA* ptd)
         globals.matches += matches;
         Sem::Post(ptd->mine);
     }
-
-    return 0;
 }
 
-void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* smm)
+void F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* smm)
 {
     uint32_t const entry_size_bytes = 16;
     uint64_t const max_value = ((uint64_t)1 << (k));
@@ -574,8 +569,6 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
             globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
         }
     }
-
-    return 0;
 }
 
 // This is Phase 1, or forward propagation. During this phase, all of the 7 tables,
