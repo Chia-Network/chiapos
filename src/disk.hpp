@@ -132,6 +132,8 @@ struct FileDisk {
         if (f_ == nullptr) return;
         ::fclose(f_);
         f_ = nullptr;
+        readPos = 0;
+        writePos = 0;
     }
 
     ~FileDisk() { Close(); }
