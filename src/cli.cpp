@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) try {
                 uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                 proof.ToBytes(proof_data);
                 cout << "i: " << num << std::endl;
-                cout << "chalenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
+                cout << "challenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                 cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                 LargeBits quality =
                     verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);

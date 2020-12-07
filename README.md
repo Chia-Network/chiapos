@@ -34,8 +34,8 @@ cmake --build . -- -j 6
 ### CLI usage
 
 ```bash
-./ProofOfSpace -k 25 -f "plot.dat" -m "0x1234" generate
-./ProofOfSpace -k 25 -f "final-plot.dat" -m "0x4567" -t TMPDIR -2 SECOND_TMPDIR generate
+./ProofOfSpace -k 25 -f "plot.dat" -m "0x1234" create
+./ProofOfSpace -k 25 -f "final-plot.dat" -m "0x4567" -t TMPDIR -2 SECOND_TMPDIR create
 ./ProofOfSpace -f "plot.dat" prove <32 byte hex challenge>
 ./ProofOfSpace -k 25 verify <hex proof> <32 byte hex challenge>
 ./ProofOfSpace -f "plot.dat" check <iterations>
@@ -44,7 +44,7 @@ cmake --build . -- -j 6
 ### Benchmark
 
 ```bash
-time ./ProofOfSpace -k 25 generate
+time ./ProofOfSpace -k 25 create
 ```
 
 
@@ -55,7 +55,7 @@ Attacks that can provide significant space savings for the final file.
 
 
 ```bash
-./HellmanAttacks -k 18 -f "plot.dat" -m "0x1234" generate
+./HellmanAttacks -k 18 -f "plot.dat" -m "0x1234" create
 ./HellmanAttacks -f "plot.dat" check <iterations>
 ```
 
