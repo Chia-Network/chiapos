@@ -235,6 +235,16 @@ Phase2Results RunPhase2(
         }
         current_bitfield.swap(next_bitfield);
         next_bitfield.clear();
+
+        // The files for Table 1 and 7 are re-used, overwritten and passed on to
+        // the next phase. However, table 2 through 6 are all written to sort
+        // managers that are passed on to the next phase. At this point, we have
+        // to delete the input files for table 2-6 to save disk space.
+        // This loop doesn't cover table 1, it's handled below with the
+        // FilteredDisk wrapper.
+        if (table_index != 7) {
+            tmp_1_disks[table_index].Truncate(0);
+        }
     }
 
     // lazy-compact table 1 based on current_bitfield
