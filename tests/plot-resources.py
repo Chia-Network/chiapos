@@ -12,6 +12,13 @@ homedir = "."
 tempdir = "plots/temp"
 finaldir = "plots/final"
 
+"""
+This script polls time, memory and temporary directory space used while
+running ./ProofOfSpace from the C++ binary build of chiapos. It assumes
+you are in the chiapos/build directory. If plotting large plots you should
+ln -s a temp and final directory into chiapos/build/plots.
+It takes one argument to specify the k size to plot.
+"""
 
 def kill_everything(pid):
     parent = psutil.Process(pid)
@@ -76,7 +83,7 @@ def run_ProofOfSpace(k_size):
             # out_script, err = pro.communicate(timeout=43200)  # 12 hour time out
             while pro.poll() is None:
                 std_output = pro.stdout.readline().rstrip()
-                print(std_output.decode())
+                print(std_output.decode(), flush=True)
         except subprocess.TimeoutExpired:
             kill_everything(pro.pid)
             plot_out += (
@@ -91,7 +98,7 @@ def run_ProofOfSpace(k_size):
             plot_out += "Error running: "
             plot_out += str(e)
             return plot_out
-        print(f"Finished k={k_size}")
+        print(f"Finished k={k_size}", flush=True)
         end = time.time()
         bPollSpace = False
         plot_out += "\nTotal time for ProofOfSpace: " + str(end - start) + " seconds\n"
@@ -108,7 +115,7 @@ def run_ProofOfSpace(k_size):
         except Exception as e:
             plot_out += "Total plot size: error" + str(e)
         start = time.time()
-        print("Checking plot\n")
+        print("Checking plot\n", flush=True)
         cmd = "exec ./ProofOfSpace check -f " + finaldir + "/plot.dat 100"
         try:
             pro = subprocess.Popen(
@@ -130,7 +137,7 @@ def run_ProofOfSpace(k_size):
             out += "Error running: "
             out += str(e)
             return out
-        print("Finished checking plot")
+        print("Finished checking plot", flush=True)
         end = time.time()
         out += "Run Output: " + out_script.decode() + "\n"
         if len(err) > 1:
@@ -147,7 +154,7 @@ def run_ProofOfSpace(k_size):
 def Main():
     if 22 <= int(sys.argv[1]) <= 50:
         final_output = run_ProofOfSpace(sys.argv[1])
-        print(final_output)
+        print(final_output, flush=True)
     else:
         print("Please specify a k size between 22 and 50")
 

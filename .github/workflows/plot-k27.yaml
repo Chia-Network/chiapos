@@ -47,9 +47,10 @@ jobs:
         mkdir plots
         mkdir plots/temp
         mkdir plots/final
-        pip install wheel psutil
+        pip install wheel
+        pip install psutil
         python ../tests/plot-resources.py 27
-        EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
+        EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plots/final/plot.dat"
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
         if [ "$SHACHECK" != "$EXPECTED_SHA" ]; then echo "Sha256sum does not match"; exit 1; else echo "Sha256sum matches 0x1f144aa1...163a"; fi
