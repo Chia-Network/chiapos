@@ -44,12 +44,11 @@ jobs:
         cd build
         cmake ../
         cmake --build . -- -j 6
-        cd ..
         mkdir plots
         mkdir plots/temp
         mkdir plots/final
-        pip install psutil
-        python tests/plot-resources.py 27
+        pip install wheel psutil
+        python ../tests/plot-resources.py 27
         EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
