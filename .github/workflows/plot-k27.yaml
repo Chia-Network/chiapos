@@ -39,7 +39,7 @@ jobs:
         cd build
         cmake ../
         cmake --build . -- -j 6
-        cd .../../
+        cd ..
         mkdir plots
         mkdir plots/temp
         mkdir plots/final
