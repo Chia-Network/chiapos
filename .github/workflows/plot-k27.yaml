@@ -33,6 +33,11 @@ jobs:
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
 
+    - uses: actions/setup-python@v2
+      name: Install Python
+      with:
+        python-version: '3.8'
+
     - name: cmake, Plot k=27
       run: |
         mkdir build
@@ -43,8 +48,8 @@ jobs:
         mkdir plots
         mkdir plots/temp
         mkdir plots/final
-        pip3 install psutil
-        python3 tests/plot-resources.py 27
+        pip install psutil
+        python tests/plot-resources.py 27
         EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
