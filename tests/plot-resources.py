@@ -8,7 +8,6 @@ import shutil
 import psutil
 
 
-homedir = "."
 tempdir = "plots/temp"
 finaldir = "plots/final"
 
@@ -36,8 +35,10 @@ def pollSpace():
     global pollDisk
     global pollMem
 
+    tempdirpath = os.getcwd() + "/" + tempdir
+    print("Temporary directory path is " + tempdirpath)
     while bPollSpace:
-        total, used, free = shutil.disk_usage(tempdir)
+        total, used, free = shutil.disk_usage(tempdirpath)
         if used > pollDisk:
             pollDisk = used
 
@@ -52,9 +53,6 @@ def pollSpace():
 
 
 def run_ProofOfSpace(k_size):
-    POSPath = homedir
-    os.chdir(POSPath)
-    print("Changing dir to", POSPath)
     if os.path.isfile("./ProofOfSpace"):
         global bPollSpace
         bPollSpace = True
@@ -66,9 +64,9 @@ def run_ProofOfSpace(k_size):
         cmd = (
             "exec ./ProofOfSpace create -k "
             + k_size
-            + " -r 2 "
-            + " -b 4608 "
-            + " -u 64 "
+            + " -r 2"
+#            + " -b 4608"
+            + " -u 64"
             + " -t "
             + tempdir
             + " -2 "
@@ -76,6 +74,7 @@ def run_ProofOfSpace(k_size):
             + " -d "
             + finaldir
         )
+        print("command is " + cmd)
         try:
             pro = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
