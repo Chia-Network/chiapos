@@ -45,7 +45,7 @@ def pollSpace():
 
 
 def run_ProofOfSpace(k_size):
-    POSPath = homedir + "/build"
+    POSPath = homedir
     os.chdir(POSPath)
     print("Changing dir to", POSPath)
     if os.path.isfile("./ProofOfSpace"):
