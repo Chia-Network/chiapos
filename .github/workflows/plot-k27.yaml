@@ -43,6 +43,7 @@ jobs:
         mkdir plots
         mkdir plots/temp
         mkdir plots/final
+        pip3 install psutil
         python3 tests/plot-resources.py 27
         EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plot.dat"
         SHACHECK=$(sha256sum plots/final/plot.dat)
