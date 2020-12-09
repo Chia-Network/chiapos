@@ -19,6 +19,7 @@ ln -s a temp and final directory into chiapos/build/plots.
 It takes one argument to specify the k size to plot.
 """
 
+
 def kill_everything(pid):
     parent = psutil.Process(pid)
     for child in parent.children(recursive=True):
@@ -65,7 +66,7 @@ def run_ProofOfSpace(k_size):
             "exec ./ProofOfSpace create -k "
             + k_size
             + " -r 2"
-#            + " -b 4608"
+            + " -b 4608"
             + " -u 64"
             + " -t "
             + tempdir
@@ -74,7 +75,6 @@ def run_ProofOfSpace(k_size):
             + " -d "
             + finaldir
         )
-        print("command is " + cmd)
         try:
             pro = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
