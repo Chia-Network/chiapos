@@ -149,9 +149,9 @@ Phase2Results RunPhase2(
             uint16_t(entry_size),
             tmp_dirname,
             filename + ".p2.t" + std::to_string(table_index),
-            uint32_t(k + 1),
+            uint32_t(k) + 1,
             0,
-            strategy_t::quicksort);
+            strategy_t::quicksort_last);
 
         // as we scan the table for the second time, we'll also need to remap
         // the positions and offsets based on the next_bitfield.

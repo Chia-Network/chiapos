@@ -35,6 +35,10 @@ enum class strategy_t : uint8_t
 {
     uniform,
     quicksort,
+
+    // the quicksort_last strategy is important because uniform sort performs
+    // really poorly on data that isn't actually uniformly distributed. The last
+    // buckets are often not uniformly distributed.
     quicksort_last,
 };
 
