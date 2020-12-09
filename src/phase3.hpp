@@ -373,7 +373,7 @@ Phase3Results RunPhase3(
             filename + ".p3s.t" + std::to_string(table_index + 1),
             0,
             0,
-            strategy_t::quicksort);
+            strategy_t::quicksort_last);
 
         std::vector<uint8_t> park_deltas;
         std::vector<uint64_t> park_stubs;
