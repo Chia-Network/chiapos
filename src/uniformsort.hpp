@@ -28,7 +28,7 @@ namespace UniformSort {
 
     inline int64_t const BUF_SIZE = 262144;
 
-    inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t entry_len)
+    inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t const entry_len)
     {
         for (uint32_t i = 0; i < entry_len; i++)
             if (memory[i] != 0)
@@ -44,16 +44,13 @@ namespace UniformSort {
         uint64_t const num_entries,
         uint32_t const bits_begin)
     {
-        uint32_t const entry_len_memory = entry_len - bits_begin / 8;
-        uint64_t const memory_len = Util::RoundSize(num_entries) * entry_len_memory;
+        uint64_t const memory_len = Util::RoundSize(num_entries) * entry_len;
         auto const swap_space = std::make_unique<uint8_t[]>(entry_len);
         auto const buffer = std::make_unique<uint8_t[]>(BUF_SIZE);
-        auto const common_prefix = std::make_unique<uint8_t[]>(bits_begin / 8);
         uint64_t bucket_length = 0;
-        bool set_prefix = false;
         // The number of buckets needed (the smallest power of 2 greater than 2 * num_entries).
         while ((1ULL << bucket_length) < 2 * num_entries) bucket_length++;
-        memset(memory, 0, sizeof(memory[0]) * memory_len);
+        memset(memory, 0, memory_len);
 
         uint64_t read_pos = input_disk_begin;
         uint64_t buf_size = 0;
@@ -66,49 +63,40 @@ namespace UniformSort {
                 buf_ptr = 0;
                 input_disk.Read(read_pos, buffer.get(), buf_size * entry_len);
                 read_pos += buf_size * entry_len;
-                if (!set_prefix) {
-                    // We don't store the common prefix of all entries in memory, instead just
-                    // append it every time in write buffer.
-                    memcpy(common_prefix.get(), buffer.get(), bits_begin / 8);
-                    set_prefix = true;
-                }
             }
             buf_size--;
             // First unique bits in the entry give the expected position of it in the sorted array.
             // We take 'bucket_length' bits starting with the first unique one.
             uint64_t pos =
                 Util::ExtractNum(buffer.get() + buf_ptr, entry_len, bits_begin, bucket_length) *
-                entry_len_memory;
+                entry_len;
             // As long as position is occupied by a previous entry...
-            while (!IsPositionEmpty(memory + pos, entry_len_memory) && pos < memory_len) {
+            while (!IsPositionEmpty(memory + pos, entry_len) && pos < memory_len) {
                 // ...store there the minimum between the two and continue to push the higher one.
                 if (Util::MemCmpBits(
-                        memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory, 0) > 0) {
-                    // We always store the entry without the common prefix.
-                    memcpy(swap_space.get(), memory + pos, entry_len_memory);
-                    memcpy(memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory);
-                    memcpy(buffer.get() + buf_ptr + bits_begin / 8, swap_space.get(), entry_len_memory);
+                        memory + pos, buffer.get() + buf_ptr, entry_len, bits_begin) > 0) {
+                    memcpy(swap_space.get(), memory + pos, entry_len);
+                    memcpy(memory + pos, buffer.get() + buf_ptr, entry_len);
+                    memcpy(buffer.get() + buf_ptr, swap_space.get(), entry_len);
                     swaps++;
                 }
-                pos += entry_len_memory;
+                pos += entry_len;
             }
             // Push the entry in the first free spot.
-            memcpy(memory + pos, buffer.get() + buf_ptr + bits_begin / 8, entry_len_memory);
+            memcpy(memory + pos, buffer.get() + buf_ptr, entry_len);
             buf_ptr += entry_len;
         }
         uint64_t entries_written = 0;
         // Search the memory buffer for occupied entries.
         for (uint64_t pos = 0; entries_written < num_entries && pos < memory_len;
-             pos += entry_len_memory) {
-            if (!IsPositionEmpty(memory + pos, entry_len_memory)) {
+             pos += entry_len) {
+            if (!IsPositionEmpty(memory + pos, entry_len)) {
                 // We've found an entry.
-                // Write first the common prefix of all entries.
-                memcpy(memory + entries_written * entry_len, common_prefix.get(), bits_begin / 8);
-                // Then the stored entry itself.
+                // write the stored entry itself.
                 memcpy(
-                    memory + entries_written * entry_len + bits_begin / 8,
+                    memory + entries_written * entry_len,
                     memory + pos,
-                    entry_len_memory);
+                    entry_len);
                 entries_written++;
             }
         }
