@@ -43,11 +43,9 @@ def pollSpace():
 
     tempdirpath = os.getcwd() + "/" + tempdir
     print("Temporary directory path is " + tempdirpath)
+    used = 0
     while bPollSpace:
-        try:
-            used = get_size(tempdirpath)
-        except used.TempFileDeleted:
-            print("A temp file was deleted while polling. Skipping.")
+        used = get_size(tempdirpath)
         if used > pollDisk:
             pollDisk = used
 
