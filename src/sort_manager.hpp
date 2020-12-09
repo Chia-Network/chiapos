@@ -51,9 +51,9 @@ public:
         uint64_t const stripe_size,
         strategy_t const sort_strategy = strategy_t::uniform)
         : memory_size_(memory_size)
-        , entry_size(entry_size)
-        , begin_bits(begin_bits)
-        , log_num_buckets(log_num_buckets)
+        , entry_size_(entry_size)
+        , begin_bits_(begin_bits)
+        , log_num_buckets_(log_num_buckets)
         , prev_bucket_buf_size(
             2 * (stripe_size + 10 * (kBC / pow(2, kExtraBits))) * entry_size)
         // 7 bytes head-room for SliceInt64FromBytes()
@@ -90,15 +90,15 @@ public:
             throw InvalidValueException("Already finished.");
         }
         uint64_t const bucket_index =
-            Util::ExtractNum(entry, this->entry_size, this->begin_bits, this->log_num_buckets);
+            Util::ExtractNum(entry, entry_size_, begin_bits_, log_num_buckets_);
         bucket_t& b = buckets_[bucket_index];
-        b.file.Write(b.write_pointer, entry, entry_size);
-        b.write_pointer += entry_size;
+        b.file.Write(b.write_pointer, entry, entry_size_);
+        b.write_pointer += entry_size_;
     }
 
     uint8_t const* Read(uint64_t begin, uint64_t length) override
     {
-        assert(length <= entry_size);
+        assert(length <= entry_size_);
         return ReadEntry(begin);
     }
 
@@ -236,11 +236,11 @@ private:
     // Size of the whole memory array
     uint64_t memory_size_;
     // Size of each entry
-    uint16_t entry_size;
+    uint16_t entry_size_;
     // Bucket determined by the first "log_num_buckets" bits starting at "begin_bits"
-    uint32_t begin_bits;
+    uint32_t begin_bits_;
     // Log of the number of buckets; num bits to use to determine bucket
-    uint32_t log_num_buckets;
+    uint32_t log_num_buckets_;
 
     std::vector<bucket_t> buckets_;
 
@@ -270,13 +270,13 @@ private:
         }
         uint64_t const bucket_i = this->next_bucket_to_sort;
         bucket_t& b = buckets_[bucket_i];
-        uint64_t const bucket_entries = b.write_pointer / this->entry_size;
-        uint64_t const entries_fit_in_memory = this->memory_size_ / this->entry_size;
+        uint64_t const bucket_entries = b.write_pointer / entry_size_;
+        uint64_t const entries_fit_in_memory = this->memory_size_ / entry_size_;
 
-        uint32_t entry_len_memory = this->entry_size - this->begin_bits / 8;
+        uint32_t entry_len_memory = entry_size_ - begin_bits_ / 8;
 
-        double const have_ram = entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
-        double const qs_ram = entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0);
+        double const have_ram = entry_size_ * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
+        double const qs_ram = entry_size_ * bucket_entries / (1024.0 * 1024.0 * 1024.0);
         double const u_ram =
             Util::RoundSize(bucket_entries) * entry_len_memory / (1024.0 * 1024.0 * 1024.0);
 
@@ -303,9 +303,9 @@ private:
                 b.underlying_file,
                 0,
                 memory_start_.get(),
-                this->entry_size,
+                entry_size_,
                 bucket_entries,
-                this->begin_bits + this->log_num_buckets);
+                begin_bits_ + log_num_buckets_);
         } else {
             // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)?
             // Perform quicksort if so (SortInMemory algorithm won't always perform well), or if we
@@ -314,8 +314,8 @@ private:
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
                       << std::endl;
-            b.underlying_file.Read(0, memory_start_.get(), bucket_entries * this->entry_size);
-            QuickSort::Sort(memory_start_.get(), this->entry_size, bucket_entries, this->begin_bits);
+            b.underlying_file.Read(0, memory_start_.get(), bucket_entries * entry_size_);
+            QuickSort::Sort(memory_start_.get(), entry_size_, bucket_entries, begin_bits_ + log_num_buckets_);
         }
 
         // Deletes the bucket file
