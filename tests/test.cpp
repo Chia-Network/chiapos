@@ -766,17 +766,15 @@ TEST_CASE("Sort on disk")
         }
 
         const uint32_t memory_len = Util::RoundSize(iters) * size;
-        uint8_t* memory = new uint8_t[memory_len];
-        UniformSort::SortToMemory(disk, begin, memory, size, iters, 16);
+        auto memory = std::make_unique<uint8_t[]>(memory_len);
+        UniformSort::SortToMemory(disk, begin, memory.get(), size, iters, 16);
 
         sort(input.begin(), input.end());
         uint8_t buf[size];
         for (uint32_t i = 0; i < iters; i++) {
             input[i].ToBytes(buf);
-            REQUIRE(memcmp(buf, memory + i * size, size) == 0);
+            REQUIRE(memcmp(buf, memory.get() + i * size, size) == 0);
         }
-
-        delete[] memory;
     }
 }
 
