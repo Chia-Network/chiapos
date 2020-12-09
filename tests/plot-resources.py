@@ -45,14 +45,10 @@ def pollSpace():
     print("Temporary directory path is " + tempdirpath)
     used = 0
     while bPollSpace:
-<<<<<<< Updated upstream
-        used = get_size(tempdirpath)
-=======
         try:
             used = get_size(tempdirpath)
-    except used.TempFileDeleted:
-    print("A temp file was deleted while polling. Skipping.")
->>>>>>> Stashed changes
+        except used.TempFileDeleted:
+            print("A temp file was deleted while polling. Skipping.")
         if used > pollDisk:
             pollDisk = used
 
