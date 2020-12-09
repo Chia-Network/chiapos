@@ -4,8 +4,8 @@ import subprocess
 import time
 import os
 import threading
-import shutil
 import psutil
+from pathlib import Path
 
 
 tempdir = "plots/temp"
@@ -27,6 +27,11 @@ def kill_everything(pid):
     parent.kill()
 
 
+#  Note that this is dangerous when there are subfolders
+def get_size(path):
+    return sum(p.stat().st_size for p in Path(path).rglob("*"))
+
+
 bPollSpace = False
 pollDisk = 0
 pollMem = 0
@@ -39,7 +44,7 @@ def pollSpace():
     tempdirpath = os.getcwd() + "/" + tempdir
     print("Temporary directory path is " + tempdirpath)
     while bPollSpace:
-        total, used, free = shutil.disk_usage(tempdirpath)
+        used = get_size(tempdirpath)
         if used > pollDisk:
             pollDisk = used
 
