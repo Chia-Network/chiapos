@@ -765,7 +765,7 @@ TEST_CASE("Sort on disk")
             input.emplace_back(Bits(hash.data(), size, size * 8));
         }
 
-        const uint32_t memory_len = Util::RoundSize(iters) * 30;
+        const uint32_t memory_len = Util::RoundSize(iters) * size;
         uint8_t* memory = new uint8_t[memory_len];
         UniformSort::SortToMemory(disk, begin, memory, size, iters, 16);
 
