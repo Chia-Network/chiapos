@@ -266,20 +266,23 @@ void* phase1_thread(THREADDATA* ptd)
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
                 // happens in the next iteration of the loop, since we need to remap positions.
-                std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
+                // std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
+                uint16_t idx_L[10000];
+                uint16_t idx_R[10000];
+                uint32_t idx_count=0;
 
                 if (!bucket_L.empty()) {
                     not_dropped.clear();
 
                     if (!bucket_R.empty()) {
                         // Compute all matches between the two buckets and save indeces.
-                        match_indexes = f.FindMatches(bucket_L, bucket_R);
-
+                        f.FindMatches(bucket_L, bucket_R, idx_L, idx_R, idx_count);
+//std::cout << "matches " << idx_count << std::endl;
                         // We mark entries as used if they took part in a match.
-                        for (auto [idx_L, idx_R] : match_indexes) {
-                            bucket_L[idx_L].used = true;
+                        for (uint32_t i=0; i < idx_count; i++) {
+                            bucket_L[idx_L[i]].used = true;
                             if (end_of_table) {
-                                bucket_R[idx_R].used = true;
+                                bucket_R[idx_R[i]].used = true;
                             }
                         }
                     }
@@ -350,9 +353,9 @@ void* phase1_thread(THREADDATA* ptd)
                     current_entries_to_write = std::move(future_entries_to_write);
                     future_entries_to_write.clear();
 
-                    for (auto [idx_L, idx_R] : match_indexes) {
-                        PlotEntry& L_entry = bucket_L[idx_L];
-                        PlotEntry& R_entry = bucket_R[idx_R];
+                    for (uint32_t i=0; i < idx_count; i++) {
+                        PlotEntry& L_entry = bucket_L[idx_L[i]];
+                        PlotEntry& R_entry = bucket_R[idx_R[i]];
 
                         if (bStripeStartPair)
                             matches++;
