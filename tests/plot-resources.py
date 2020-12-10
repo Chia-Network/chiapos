@@ -75,7 +75,7 @@ def run_ProofOfSpace(k_size):
         cmd = (
             "exec ./ProofOfSpace create -k "
             + k_size
-            + " -r 1"
+            + " -r 2"
             + " -b 4608"
             + " -u 64"
             + " -t "
