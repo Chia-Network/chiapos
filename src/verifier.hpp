@@ -101,7 +101,9 @@ public:
                 if (cdiff != 1) {
                     return LargeBits();
                 } else {
-                    if(f.FindMatches(bucket_L, bucket_R, NULL, NULL) != 1) {
+                    int32_t idx_count = 0;
+                    f.FindMatches(bucket_L, bucket_R, NULL, NULL, idx_count);
+                    if(idx_count != 1) {
                         return LargeBits();
                     }
                 }
