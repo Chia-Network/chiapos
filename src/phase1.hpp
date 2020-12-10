@@ -266,7 +266,6 @@ void* phase1_thread(THREADDATA* ptd)
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
                 // happens in the next iteration of the loop, since we need to remap positions.
-                // std::vector<std::pair<uint16_t, uint16_t>> match_indexes;
                 uint16_t idx_L[10000];
                 uint16_t idx_R[10000];
                 uint32_t idx_count=0;
@@ -276,8 +275,7 @@ void* phase1_thread(THREADDATA* ptd)
 
                     if (!bucket_R.empty()) {
                         // Compute all matches between the two buckets and save indeces.
-                        f.FindMatches(bucket_L, bucket_R, idx_L, idx_R, idx_count);
-//std::cout << "matches " << idx_count << std::endl;
+                        idx_count = f.FindMatches(bucket_L, bucket_R, idx_L, idx_R);
                         // We mark entries as used if they took part in a match.
                         for (uint32_t i=0; i < idx_count; i++) {
                             bucket_L[idx_L[i]].used = true;
