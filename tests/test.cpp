@@ -448,11 +448,15 @@ TEST_CASE("F functions")
                 right_bucket.end(),
                 [](const PlotEntry& a, const PlotEntry& b) -> bool { return a.y > b.y; });
 
-            vector<pair<uint16_t, uint16_t>> matches = f2.FindMatches(left_bucket, right_bucket);
-            for (auto match : matches) {
-                REQUIRE(CheckMatch(left_bucket[match.first].y, right_bucket[match.second].y));
+            uint16_t idx_L[10000];
+            uint16_t idx_R[10000];
+            uint32_t idx_count=0;
+
+            f2.FindMatches(left_bucket, right_bucket, idx_L, idx_R, idx_count);
+            for(uint32_t i=0; i < idx_count; i++) {
+                REQUIRE(CheckMatch(left_bucket[idx_L[i]].y, right_bucket[idx_R[i]].y));
             }
-            total_matches += matches.size();
+            total_matches += idx_count;
         }
         REQUIRE(total_matches > (1 << k) / 2);
         REQUIRE(total_matches < (1 << k) * 2);
