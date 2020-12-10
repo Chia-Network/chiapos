@@ -268,7 +268,7 @@ void* phase1_thread(THREADDATA* ptd)
                 // happens in the next iteration of the loop, since we need to remap positions.
                 uint16_t idx_L[10000];
                 uint16_t idx_R[10000];
-                uint32_t idx_count=0;
+                int32_t idx_count=0;
 
                 if (!bucket_L.empty()) {
                     not_dropped.clear();
@@ -276,8 +276,12 @@ void* phase1_thread(THREADDATA* ptd)
                     if (!bucket_R.empty()) {
                         // Compute all matches between the two buckets and save indeces.
                         idx_count = f.FindMatches(bucket_L, bucket_R, idx_L, idx_R);
+                        if(idx_count >= 10000) {
+                            std::cout << "sanity check: idx_count exceeded 10000!" << std::endl;
+                            exit(0);
+                        }
                         // We mark entries as used if they took part in a match.
-                        for (uint32_t i=0; i < idx_count; i++) {
+                        for (int32_t i=0; i < idx_count; i++) {
                             bucket_L[idx_L[i]].used = true;
                             if (end_of_table) {
                                 bucket_R[idx_R[i]].used = true;
@@ -351,7 +355,7 @@ void* phase1_thread(THREADDATA* ptd)
                     current_entries_to_write = std::move(future_entries_to_write);
                     future_entries_to_write.clear();
 
-                    for (uint32_t i=0; i < idx_count; i++) {
+                    for (int32_t i=0; i < idx_count; i++) {
                         PlotEntry& L_entry = bucket_L[idx_L[i]];
                         PlotEntry& R_entry = bucket_R[idx_R[i]];
 

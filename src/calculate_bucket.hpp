@@ -276,13 +276,13 @@ public:
     // bucket length, we can store all the R values and lookup each of our 32 candidates to see if
     // any R value matches. This function can be further optimized by removing the inner loop, and
     // being more careful with memory allocation.
-    inline uint32_t FindMatches(
+    inline int32_t FindMatches(
         const std::vector<PlotEntry>& bucket_L,
         const std::vector<PlotEntry>& bucket_R,
         uint16_t *idx_L,
         uint16_t *idx_R)
     {
-        uint32_t idx_count = 0;
+        int32_t idx_count = 0;
         uint16_t parity = (bucket_L[0].y / kBC) % 2;
 
         for (size_t i = 0; i < rmap_clean.size(); i++) {
