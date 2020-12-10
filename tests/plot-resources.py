@@ -47,8 +47,9 @@ def pollSpace():
     while bPollSpace:
         try:
             used = get_size(tempdirpath)
-        except used.TempFileDeleted:
-            print("A temp file was deleted while polling. Skipping.")
+        except FileNotFoundError:
+            print("A temp file was deleted while polling the temp directory. Skipping.")
+            pass
         if used > pollDisk:
             pollDisk = used
 
@@ -74,7 +75,7 @@ def run_ProofOfSpace(k_size):
         cmd = (
             "exec ./ProofOfSpace create -k "
             + k_size
-            + " -r 2"
+            + " -r 1"
             + " -b 4608"
             + " -u 64"
             + " -t "
