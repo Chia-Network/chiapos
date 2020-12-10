@@ -100,8 +100,13 @@ public:
                 uint64_t cdiff = r_plot_entry.y / kBC - l_plot_entry.y / kBC;
                 if (cdiff != 1) {
                     return LargeBits();
-                } else if (f.FindMatches(bucket_L, bucket_R).size() != 1) {
-                    return LargeBits();
+                } else {
+                    uint32_t idx_count = 0;
+
+                    f.FindMatches(bucket_L, bucket_R, NULL, NULL, idx_count);
+                    if(idx_count != 1) {
+                        return LargeBits();
+                    }
                 }
 
                 std::pair<Bits, Bits> results =

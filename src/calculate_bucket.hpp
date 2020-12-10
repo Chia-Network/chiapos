@@ -276,11 +276,14 @@ public:
     // bucket length, we can store all the R values and lookup each of our 32 candidates to see if
     // any R value matches. This function can be further optimized by removing the inner loop, and
     // being more careful with memory allocation.
-    inline std::vector<std::pair<uint16_t, uint16_t>> FindMatches(
+    inline void FindMatches(
         const std::vector<PlotEntry>& bucket_L,
-        const std::vector<PlotEntry>& bucket_R)
+        const std::vector<PlotEntry>& bucket_R,
+        uint16_t *idx_L,
+        uint16_t *idx_R,
+        uint32_t &idx_count)
     {
-        std::vector<std::pair<uint16_t, uint16_t>> matches;
+        //std::vector<std::pair<uint16_t, uint16_t>> matches;
         uint16_t parity = (bucket_L[0].y / kBC) % 2;
 
         for (size_t i = 0; i < rmap_clean.size(); i++) {
@@ -306,12 +309,14 @@ public:
             for (uint8_t i = 0; i < kExtraBitsPow; i++) {
                 uint16_t r_target = L_targets[parity][r][i];
                 for (size_t j = 0; j < rmap[r_target].count; j++) {
-                    matches.push_back(std::make_pair(pos_L, rmap[r_target].pos + j));
+                    if(idx_L != NULL) {
+                        idx_L[idx_count]=pos_L;
+                        idx_R[idx_count]=rmap[r_target].pos + j;
+                    }
+                    idx_count++;
                 }
             }
         }
-
-        return matches;
     }
 
 private:
