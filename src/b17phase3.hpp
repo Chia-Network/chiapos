@@ -34,76 +34,6 @@ struct b17Phase3Results {
     std::unique_ptr<b17SortManager> table7_sm;
 };
 
-// This writes a number of entries into a file, in the final, optimized format. The park
-// contains a checkpoint value (which is a 2k bits line point), as well as EPP (entries per
-// park) entries. These entries are each divided into stub and delta section. The stub bits are
-// encoded as is, but the delta bits are optimized into a variable encoding scheme. Since we
-// have many entries in each park, we can approximate how much space each park with take. Format
-// is: [2k bits of first_line_point]  [EPP-1 stubs] [Deltas size] [EPP-1 deltas]....
-// [first_line_point] ...
-void b17WriteParkToFile(
-    FileDisk &final_disk,
-    uint64_t table_start,
-    uint64_t park_index,
-    uint32_t park_size_bytes,
-    uint128_t first_line_point,
-    const std::vector<uint8_t> &park_deltas,
-    const std::vector<uint64_t> &park_stubs,
-    uint8_t k,
-    uint8_t table_index,
-    uint8_t *park_buffer,
-    uint64_t park_buffer_size)
-{
-    // Parks are fixed size, so we know where to start writing. The deltas will not go over
-    // into the next park.
-    uint64_t writer = table_start + park_index * park_size_bytes;
-    uint8_t *index = park_buffer;
-
-    Bits first_line_point_bits(first_line_point, 2 * k);
-    first_line_point_bits.ToBytes(index);
-    index += EntrySizes::CalculateLinePointSize(k);
-
-    // We use ParkBits instead of Bits since it allows storing more data
-    ParkBits park_stubs_bits;
-    for (uint64_t stub : park_stubs) {
-        park_stubs_bits.AppendValue(stub, (k - kStubMinusBits));
-    }
-    uint32_t stubs_size = EntrySizes::CalculateStubsSize(k);
-    uint32_t stubs_valid_size = cdiv(park_stubs_bits.GetSize(), 8);
-    park_stubs_bits.ToBytes(index);
-    memset(index + stubs_valid_size, 0, stubs_size - stubs_valid_size);
-    index += stubs_size;
-
-    // The stubs are random so they don't need encoding. But deltas are more likely to
-    // be small, so we can compress them
-    double R = kRValues[table_index - 1];
-    uint8_t *deltas_start = index + 2;
-    size_t deltas_size = Encoding::ANSEncodeDeltas(park_deltas, R, deltas_start);
-
-    if (!deltas_size) {
-        // Uncompressed
-        deltas_size = park_deltas.size();
-        Util::IntToTwoBytesLE(index, deltas_size | 0x8000);
-        memcpy(deltas_start, park_deltas.data(), deltas_size);
-    } else {
-        // Compressed
-        Util::IntToTwoBytesLE(index, deltas_size);
-    }
-
-    index += 2 + deltas_size;
-
-    if ((uint32_t)(index - park_buffer) > park_buffer_size) {
-        std::cout << "index-park_buffer " << index - park_buffer << " park_buffer_size "
-                  << park_buffer_size << std::endl;
-        throw InvalidStateException(
-            "Overflowed park buffer, writing " + std::to_string(index - park_buffer) +
-            " bytes. Space: " + std::to_string(park_buffer_size));
-    }
-    memset(index, 0x00, park_size_bytes - (index - park_buffer));
-
-    final_disk.Write(writer, (uint8_t *)park_buffer, park_size_bytes);
-}
-
 // Compresses the plot file tables into the final file. In order to do this, entries must be
 // reorganized from the (pos, offset) bucket sorting order, to a more free line_point sorting
 // order. In (pos, offset ordering), we store two pointers two the previous table, (x, y) which
@@ -446,7 +376,7 @@ b17Phase3Results b17RunPhase3(
             // Every EPP entries, writes a park
             if (index % kEntriesPerPark == 0) {
                 if (index != 0) {
-                    b17WriteParkToFile(
+                    WriteParkToFile(
                         tmp2_disk,
                         final_table_begin_pointers[table_index],
                         park_index,
@@ -493,7 +423,7 @@ b17Phase3Results b17RunPhase3(
 
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
-            b17WriteParkToFile(
+            WriteParkToFile(
                 tmp2_disk,
                 final_table_begin_pointers[table_index],
                 park_index,
