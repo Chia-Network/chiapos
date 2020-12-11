@@ -39,11 +39,16 @@
 #include "exceptions.hpp"
 #include "phase1.hpp"
 #include "phase2.hpp"
+#include "b17phase2.hpp"
 #include "phase3.hpp"
+#include "b17phase3.hpp"
 #include "phase4.hpp"
+#include "b17phase4.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
 #include "util.hpp"
+
+#define B17PHASE23
 
 class DiskPlotter {
 public:
@@ -63,7 +68,8 @@ public:
         uint32_t buf_megabytes_input = 0,
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
-        uint8_t num_threads_input = 0)
+        uint8_t num_threads_input = 0,
+        bool disablebitfield = false)
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
@@ -215,6 +221,62 @@ public:
                 num_threads);
             p1.PrintElapsed("Time for phase 1 =");
 
+            uint64_t finalsize=0;
+
+            if(disablebitfield)
+            { 
+            // Memory to be used for sorting and buffers
+            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
+
+            std::cout << std::endl
+                      << "Starting phase 2/4: Backpropagation into tmp files... "
+                      << Timer::GetNow();
+
+            Timer p2;
+            std::vector<uint64_t> backprop_table_sizes = b17RunPhase2(
+                memory.get(),
+                tmp_1_disks,
+                table_sizes,
+                k,
+                id,
+                tmp_dirname,
+                filename,
+                memory_size,
+                num_buckets,
+                log_num_buckets);
+            p2.PrintElapsed("Time for phase 2 =");
+
+            // Now we open a new file, where the final contents of the plot will be stored.
+            uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
+
+            std::cout << std::endl
+                      << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
+                      << " ... " << Timer::GetNow();
+            Timer p3;
+            b17Phase3Results res = b17RunPhase3(
+                memory.get(),
+                k,
+                tmp2_disk,
+                tmp_1_disks,
+                backprop_table_sizes,
+                id,
+                tmp_dirname,
+                filename,
+                header_size,
+                memory_size,
+                num_buckets,
+                log_num_buckets);
+            p3.PrintElapsed("Time for phase 3 =");
+
+            std::cout << std::endl
+                      << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
+                      << " ... " << Timer::GetNow();
+            Timer p4;
+            b17RunPhase4(k, k + 1, tmp2_disk, res);
+            p4.PrintElapsed("Time for phase 4 =");
+            finalsize = res.final_table_begin_pointers[11];
+            }
+            else {
             std::cout << std::endl
                       << "Starting phase 2/4: Backpropagation into tmp files... "
                       << Timer::GetNow();
@@ -258,6 +320,8 @@ public:
             Timer p4;
             RunPhase4(k, k + 1, tmp2_disk, res);
             p4.PrintElapsed("Time for phase 4 =");
+            finalsize = res.final_table_begin_pointers[11];
+            }
 
             // The total number of bytes used for sort is saved to table_sizes[0]. All other
             // elements in table_sizes represent the total number of entries written by the end of
@@ -273,7 +337,7 @@ public:
                       << std::endl;
 
             std::cout << "Final File size: "
-                      << static_cast<double>(res.final_table_begin_pointers[11]) /
+                      << static_cast<double>(finalsize) /
                              (1024 * 1024 * 1024)
                       << " GiB" << std::endl;
             all_phases.PrintElapsed("Total time =");
