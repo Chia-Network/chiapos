@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) try {
         "f, file", "Filename", cxxopts::value<string>(filename))(
         "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
         "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
-        "e, bitfield", "disable bitfield", cxxopts::value<bool>(disablebitfield))(
+        "e, disablebitfield", "disable bitfield", cxxopts::value<bool>(disablebitfield))(
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
         cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
