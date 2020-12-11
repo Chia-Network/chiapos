@@ -41,6 +41,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11-src)
 
+FetchContent_Declare(
+  uint128_t
+  GIT_REPOSITORY https://github.com/calccrypto/uint128_t.git
+  GIT_TAG        00714e6059d7d0d111b68a8fd9ee609094da3c0a
+)
+FetchContent_MakeAvailable(uint128_t)
+
 IF (MSVC)
 IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Oy")
@@ -115,9 +122,6 @@ add_executable(RunTests
 )
 
 find_package(Threads REQUIRED)
-
-add_library(uint128 STATIC uint128_t/uint128_t.cpp)
-target_include_directories(uint128 PUBLIC uint128_t)
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
