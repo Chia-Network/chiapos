@@ -253,71 +253,75 @@ std::vector<uint64_t> b17RunPhase2(
                         break;
                     }
                 }
-                // ***Reads a left entry
-                if (left_reader_count % left_reader_buf_entries == 0) {
-                    uint64_t readAmt = std::min(
-                        left_reader_buf_entries * left_entry_size_bytes,
-                        (table_sizes[table_index - 1] - left_reader_count) * left_entry_size_bytes);
-                    tmp_1_disks[table_index - 1].Read(left_reader, left_reader_buf, readAmt);
-                    left_reader += readAmt;
-                }
-                left_entry_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
+                // Only process left table if we still have entries - should fix read 0 issue
+                if(left_reader_count < table_sizes[table_index - 1])
+                {
+                    // ***Reads a left entry
+                    if (left_reader_count % left_reader_buf_entries == 0) {
+                        uint64_t readAmt = std::min(
+                            left_reader_buf_entries * left_entry_size_bytes,
+                            (table_sizes[table_index - 1] - left_reader_count) * left_entry_size_bytes);
+                        tmp_1_disks[table_index - 1].Read(left_reader, left_reader_buf, readAmt);
+                        left_reader += readAmt;
+                    }
+                    left_entry_buf = left_reader_buf + (left_reader_count % left_reader_buf_entries) *
                                                        left_entry_size_bytes;
-                left_reader_count++;
+                    left_reader_count++;
 
-                // If this left entry is used, we rewrite it. If it's not used, we ignore it.
-                if (used_positions[current_pos % kCachedPositionsSize]) {
-                    uint64_t entry_metadata;
+                    // If this left entry is used, we rewrite it. If it's not used, we ignore it.
+                    if (used_positions[current_pos % kCachedPositionsSize]) {
+                        uint64_t entry_metadata;
 
-                    if (table_index > 2) {
-                        // For tables 2-6, the entry is: pos, offset
-                        entry_pos = Util::SliceInt64FromBytes(left_entry_buf, 0, pos_size);
-                        entry_offset =
-                            Util::SliceInt64FromBytes(left_entry_buf, pos_size, kOffsetSize);
-                    } else {
-                        entry_metadata =
-                            Util::SliceInt64FromBytes(left_entry_buf, 0, left_metadata_size);
-                    }
-
-                    new_left_entry_buf =
-                        left_writer_buf +
-                        (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
-                    left_writer_count++;
-
-                    Bits new_left_entry;
-                    if (table_index > 2) {
-                        // The new left entry is slightly different. Metadata is dropped, to
-                        // save space, and the counter of the entry is written (sort_key). We
-                        // use this instead of (y + pos + offset) since its smaller.
-                        new_left_entry += Bits(entry_pos, pos_size);
-                        new_left_entry += Bits(entry_offset, kOffsetSize);
-                        new_left_entry += Bits(left_entry_counter, k + 1);
-
-                        // If we are not taking up all the bits, make sure they are zeroed
-                        if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
-                            new_left_entry +=
-                                Bits(0, left_entry_size_bytes * 8 - new_left_entry.GetSize());
+                        if (table_index > 2) {
+                            // For tables 2-6, the entry is: pos, offset
+                            entry_pos = Util::SliceInt64FromBytes(left_entry_buf, 0, pos_size);
+                            entry_offset =
+                                Util::SliceInt64FromBytes(left_entry_buf, pos_size, kOffsetSize);
+                        } else {
+                            entry_metadata =
+                                Util::SliceInt64FromBytes(left_entry_buf, 0, left_metadata_size);
                         }
-                        L_sort_manager->AddToCache(new_left_entry);
-                    } else {
-                        // For table one entries, we don't care about sort key, only x.
-                        // Also, we don't use the sort manager, since we won't sort it.
-                        new_left_entry += Bits(entry_metadata, left_metadata_size);
-                        new_left_entry.ToBytes(new_left_entry_buf);
-                        if (left_writer_count % left_writer_buf_entries == 0) {
-                            tmp_1_disks[table_index - 1].Write(
-                                left_writer,
-                                left_writer_buf,
-                                left_writer_buf_entries * left_entry_size_bytes);
-                            left_writer += left_writer_buf_entries * left_entry_size_bytes;
+
+                        new_left_entry_buf =
+                            left_writer_buf +
+                            (left_writer_count % left_writer_buf_entries) * left_entry_size_bytes;
+                        left_writer_count++;
+
+                        Bits new_left_entry;
+                        if (table_index > 2) {
+                            // The new left entry is slightly different. Metadata is dropped, to
+                            // save space, and the counter of the entry is written (sort_key). We
+                            // use this instead of (y + pos + offset) since its smaller.
+                            new_left_entry += Bits(entry_pos, pos_size);
+                            new_left_entry += Bits(entry_offset, kOffsetSize);
+                            new_left_entry += Bits(left_entry_counter, k + 1);
+
+                            // If we are not taking up all the bits, make sure they are zeroed
+                            if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
+                                new_left_entry +=
+                                    Bits(0, left_entry_size_bytes * 8 - new_left_entry.GetSize());
+                            }
+                            L_sort_manager->AddToCache(new_left_entry);
+                        } else {
+                            // For table one entries, we don't care about sort key, only x.
+                            // Also, we don't use the sort manager, since we won't sort it.
+                            new_left_entry += Bits(entry_metadata, left_metadata_size);
+                            new_left_entry.ToBytes(new_left_entry_buf);
+                            if (left_writer_count % left_writer_buf_entries == 0) {
+                                tmp_1_disks[table_index - 1].Write(
+                                    left_writer,
+                                    left_writer_buf,
+                                    left_writer_buf_entries * left_entry_size_bytes);
+                                left_writer += left_writer_buf_entries * left_entry_size_bytes;
+                            }
                         }
+
+                        // Mapped positions, so we can rewrite the R entry properly
+                        new_positions[current_pos % kCachedPositionsSize] = left_entry_counter;
+
+                        // Counter for new left entries written
+                        ++left_entry_counter;
                     }
-
-                    // Mapped positions, so we can rewrite the R entry properly
-                    new_positions[current_pos % kCachedPositionsSize] = left_entry_counter;
-
-                    // Counter for new left entries written
-                    ++left_entry_counter;
                 }
             }
             // Write pointer lags behind the read pointer
