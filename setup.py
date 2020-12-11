@@ -97,7 +97,6 @@ ext_modules = [
             "lib/FiniteStateEntropy/lib/fse_decompress.c",
             "lib/FiniteStateEntropy/lib/hist.c",
             "python-bindings/chiapos.cpp",
-            "uint128_t/uint128_t.cpp",
             "src/b3/blake3.c",
             "src/b3/blake3_portable.c",
             "src/b3/blake3_dispatch.c",
