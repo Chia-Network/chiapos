@@ -225,102 +225,102 @@ public:
 
             if(disablebitfield)
             { 
-            // Memory to be used for sorting and buffers
-            std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
+                // Memory to be used for sorting and buffers
+                std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
 
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 2/4: Backpropagation into tmp files... "
                       << Timer::GetNow();
 
-            Timer p2;
-            std::vector<uint64_t> backprop_table_sizes = b17RunPhase2(
-                memory.get(),
-                tmp_1_disks,
-                table_sizes,
-                k,
-                id,
-                tmp_dirname,
-                filename,
-                memory_size,
-                num_buckets,
-                log_num_buckets);
-            p2.PrintElapsed("Time for phase 2 =");
+                Timer p2;
+                std::vector<uint64_t> backprop_table_sizes = b17RunPhase2(
+                    memory.get(),
+                    tmp_1_disks,
+                    table_sizes,
+                    k,
+                    id,
+                    tmp_dirname,
+                    filename,
+                    memory_size,
+                    num_buckets,
+                    log_num_buckets);
+                p2.PrintElapsed("Time for phase 2 =");
 
-            // Now we open a new file, where the final contents of the plot will be stored.
-            uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
+                // Now we open a new file, where the final contents of the plot will be stored.
+                uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
-            Timer p3;
-            b17Phase3Results res = b17RunPhase3(
-                memory.get(),
-                k,
-                tmp2_disk,
-                tmp_1_disks,
-                backprop_table_sizes,
-                id,
-                tmp_dirname,
-                filename,
-                header_size,
-                memory_size,
-                num_buckets,
-                log_num_buckets);
-            p3.PrintElapsed("Time for phase 3 =");
+                Timer p3;
+                b17Phase3Results res = b17RunPhase3(
+                    memory.get(),
+                    k,
+                    tmp2_disk,
+                    tmp_1_disks,
+                    backprop_table_sizes,
+                    id,
+                    tmp_dirname,
+                    filename,
+                    header_size,
+                    memory_size,
+                    num_buckets,
+                    log_num_buckets);
+                p3.PrintElapsed("Time for phase 3 =");
 
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
-            Timer p4;
-            b17RunPhase4(k, k + 1, tmp2_disk, res);
-            p4.PrintElapsed("Time for phase 4 =");
-            finalsize = res.final_table_begin_pointers[11];
+                Timer p4;
+                b17RunPhase4(k, k + 1, tmp2_disk, res);
+                p4.PrintElapsed("Time for phase 4 =");
+                finalsize = res.final_table_begin_pointers[11];
             }
             else {
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 2/4: Backpropagation into tmp files... "
                       << Timer::GetNow();
 
-            Timer p2;
-            Phase2Results res2 = RunPhase2(
-                tmp_1_disks,
-                table_sizes,
-                k,
-                id,
-                tmp_dirname,
-                filename,
-                memory_size,
-                num_buckets,
-                log_num_buckets);
-            p2.PrintElapsed("Time for phase 2 =");
+                Timer p2;
+                Phase2Results res2 = RunPhase2(
+                    tmp_1_disks,
+                    table_sizes,
+                    k,
+                    id,
+                    tmp_dirname,
+                    filename,
+                    memory_size,
+                    num_buckets,
+                    log_num_buckets);
+                p2.PrintElapsed("Time for phase 2 =");
 
-            // Now we open a new file, where the final contents of the plot will be stored.
-            uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
+                // Now we open a new file, where the final contents of the plot will be stored.
+                uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
-            Timer p3;
-            Phase3Results res = RunPhase3(
-                k,
-                tmp2_disk,
-                std::move(res2),
-                id,
-                tmp_dirname,
-                filename,
-                header_size,
-                memory_size,
-                num_buckets,
-                log_num_buckets);
-            p3.PrintElapsed("Time for phase 3 =");
+                Timer p3;
+                Phase3Results res = RunPhase3(
+                    k,
+                    tmp2_disk,
+                    std::move(res2),
+                    id,
+                    tmp_dirname,
+                    filename,
+                    header_size,
+                    memory_size,
+                    num_buckets,
+                    log_num_buckets);
+                p3.PrintElapsed("Time for phase 3 =");
 
-            std::cout << std::endl
+                std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
-            Timer p4;
-            RunPhase4(k, k + 1, tmp2_disk, res);
-            p4.PrintElapsed("Time for phase 4 =");
-            finalsize = res.final_table_begin_pointers[11];
+                Timer p4;
+                RunPhase4(k, k + 1, tmp2_disk, res);
+                p4.PrintElapsed("Time for phase 4 =");
+                finalsize = res.final_table_begin_pointers[11];
             }
 
             // The total number of bytes used for sort is saved to table_sizes[0]. All other
