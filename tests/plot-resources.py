@@ -38,7 +38,7 @@ def create_parser() -> ArgumentParser:
         "--threads",
         help="How many threads to use.",
         type=str,
-        default="1",
+        default="2",
     )
     parser.add_argument(
         "-e",
