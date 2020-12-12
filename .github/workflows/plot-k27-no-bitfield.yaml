@@ -1,4 +1,4 @@
-name: Plot k=27
+name: Plot k=27 without bitfield
 
 on: [push, pull_request]
 
@@ -49,7 +49,7 @@ jobs:
         mkdir plots/final
         pip install wheel
         pip install psutil
-        python ../tests/plot-resources.py -k 27 -r 2
+        python ../tests/plot-resources.py -k 27 -r 2 -e
         EXPECTED_SHA="1f144aa10df010a557009c0c032926cfff58fd5e6b4a5317caca5c405b08163a  plots/final/plot.dat"
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
