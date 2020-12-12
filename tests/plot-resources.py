@@ -1,10 +1,10 @@
 #  pip3 install psutil
-import sys
 import subprocess
 import time
 import os
 import threading
 import psutil
+from argparse import ArgumentParser
 from pathlib import Path
 
 
@@ -18,6 +18,36 @@ you are in the chiapos/build directory. If plotting large plots you should
 ln -s a temp and final directory into chiapos/build/plots.
 It takes one argument to specify the k size to plot.
 """
+
+
+def create_parser() -> ArgumentParser:
+    parser: ArgumentParser = ArgumentParser(
+        description="Monitor resources while plotting with ./ProofOfSpace",
+        epilog="Try python3 ../test/plot-resources.py from the build directory\n"
+        + "Requires a plots/temp and plots/final directory to exist in cwd.",
+    )
+
+    parser.add_argument(
+        "-k",
+        help="Which k size to plot.",
+        type=str,
+        default="",
+    )
+    parser.add_argument(
+        "-r",
+        "--threads",
+        help="How many threads to use.",
+        type=str,
+        default="1",
+    )
+    parser.add_argument(
+        "-e",
+        "--no-bitfield",
+        action="store_true",
+        help="Disable using bitfield sort.",
+        default="False",
+    )
+    return parser
 
 
 def kill_everything(pid):
@@ -63,21 +93,27 @@ def pollSpace():
         time.sleep(1)
 
 
-def run_ProofOfSpace(k_size):
+def run_ProofOfSpace(k_size, threads, disable_bitfield):
     if os.path.isfile("./ProofOfSpace"):
         global bPollSpace
         bPollSpace = True
         plot_out = ""
         out = ""
+        if disable_bitfield:
+            e = " -e"
+        else:
+            e = ""
         threading.Thread(target=pollSpace).start()
         start = time.time()
-        print(f"Starting ProofOfSpace create -k {k_size}\n")
+        print(f"Starting ProofOfSpace create -k {k_size}")
         cmd = (
             "exec ./ProofOfSpace create -k "
             + k_size
-            + " -r 1"
+            + " -r "
+            + threads
             + " -b 4608"
             + " -u 64"
+            + e
             + " -t "
             + tempdir
             + " -2 "
@@ -85,6 +121,7 @@ def run_ProofOfSpace(k_size):
             + " -d "
             + finaldir
         )
+        print("cmd is ", cmd, "\n")
         try:
             pro = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
@@ -161,8 +198,10 @@ def run_ProofOfSpace(k_size):
 
 
 def Main():
-    if 22 <= int(sys.argv[1]) <= 50:
-        final_output = run_ProofOfSpace(sys.argv[1])
+    parser = create_parser()
+    args = parser.parse_args()
+    if args.k and 22 <= int(args.k) <= 50:
+        final_output = run_ProofOfSpace(args.k, args.threads, args.no_bitfield)
         print(final_output, flush=True)
     else:
         print("Please specify a k size between 22 and 50")
