@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) try {
     string operation = "help";
     string memo = "0102030405";
     string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
-    bool disablebitfield = false;
+    bool nobitfield = false;
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) try {
         "f, file", "Filename", cxxopts::value<string>(filename))(
         "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
         "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
-        "e, disablebitfield", "disable bitfield", cxxopts::value<bool>(disablebitfield))(
+        "e, nobitfield", "Disable bitfield", cxxopts::value<bool>(nobitfield))(
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
         cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) try {
                 num_buckets,
                 num_stripes,
                 num_threads,
-                disablebitfield);
+                nobitfield);
     } else if (operation == "prove") {
         if (argc < 3) {
             HelpAndQuit(options);
