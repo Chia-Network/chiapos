@@ -69,7 +69,7 @@ public:
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
         uint8_t num_threads_input = 0,
-        bool disablebitfield = false)
+        bool nobitfield = false)
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
@@ -223,7 +223,7 @@ public:
 
             uint64_t finalsize=0;
 
-            if(disablebitfield)
+            if(nobitfield)
             { 
                 // Memory to be used for sorting and buffers
                 std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
