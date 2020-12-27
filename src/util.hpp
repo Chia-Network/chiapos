@@ -68,6 +68,15 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 #define bswap_16(x) OSSwapInt16(x)
 #define bswap_32(x) OSSwapInt32(x)
 #define bswap_64(x) OSSwapInt64(x)
+#elif defined(BSD) || defined(_SYSTYPE_BSD)
+# if defined(__OpenBSD__)
+#  include <machine/endian.h>
+# else
+#  include <sys/endian.h>
+# endif
+#define bswap_16(x) bswap_16(x)
+#define bswap_32(x) bswap_16(x)
+#define bswap_64(x) bswap_16(x)
 #else
 #include <byteswap.h>
 #endif
