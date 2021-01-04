@@ -92,12 +92,12 @@ public:
         if (num_threads_input != 0) {
             num_threads = num_threads_input;
         } else {
-            num_threads = 1;
+            num_threads = 2;
         }
         if (buf_megabytes_input != 0) {
             buf_megabytes = buf_megabytes_input;
         } else {
-            buf_megabytes = 3072;
+            buf_megabytes = 3584;
         }
 
         if (buf_megabytes < 10) {
@@ -224,7 +224,7 @@ public:
             uint64_t finalsize=0;
 
             if(nobitfield)
-            { 
+            {
                 // Memory to be used for sorting and buffers
                 std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
 
