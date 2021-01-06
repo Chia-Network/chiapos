@@ -97,7 +97,7 @@ public:
         if (buf_megabytes_input != 0) {
             buf_megabytes = buf_megabytes_input;
         } else {
-            buf_megabytes = 3584;
+            buf_megabytes = 4608;
         }
 
         if (buf_megabytes < 10) {
