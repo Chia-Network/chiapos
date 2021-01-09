@@ -229,7 +229,7 @@ public:
                 std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
 
                 std::cout << std::endl
-                      << "Starting phase 2/4: Backpropagation into tmp files... "
+                      << "Starting phase 2/4: Backpropagation without bitfield into tmp files... "
                       << Timer::GetNow();
 
                 Timer p2;
@@ -250,7 +250,7 @@ public:
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
                 std::cout << std::endl
-                      << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
+                      << "Starting phase 3/4: Compression without bitfiled from tmp files into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p3;
                 b17Phase3Results res = b17RunPhase3(
