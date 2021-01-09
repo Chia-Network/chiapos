@@ -250,7 +250,7 @@ public:
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
                 std::cout << std::endl
-                      << "Starting phase 3/4: Compression without bitfiled from tmp files into " << tmp_2_filename
+                      << "Starting phase 3/4: Compression without bitfield from tmp files into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p3;
                 b17Phase3Results res = b17RunPhase3(
