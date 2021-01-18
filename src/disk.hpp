@@ -232,14 +232,23 @@ struct BufferedDisk : Disk
         NeedReadCache();
         // all allocations need 7 bytes head-room, since
         // SliceInt64FromBytes() may overrun by 7 bytes
-        if (read_buffer_start_ <= begin && read_buffer_start_ + read_buffer_size_ > begin + length + 7) {
+        if (read_buffer_start_ <= begin
+            && read_buffer_start_ + read_buffer_size_ >= begin + length
+            && read_buffer_start_ + read_ahead >= begin + length + 7)
+        {
             // if the read is entirely inside the buffer, just return it
             return read_buffer_.get() + (begin - read_buffer_start_);
         }
-        else if (begin >= read_buffer_start_ || begin == 0) {
+        else if (begin >= read_buffer_start_ || begin == 0 || read_buffer_start_ == std::uint64_t(-1)) {
+
             // if the read is beyond the current buffer (i.e.
             // forward-sequential) move the buffer forward and read the next
-            // buffer-capacity number of bytes
+            // buffer-capacity number of bytes.
+            // this is also the case we enter the first time we perform a read,
+            // where we haven't read anything into the buffer yet. Note that
+            // begin == 0 won't reliably detect that case, sinec we may have
+            // discarded the first entry and start at some low offset but still
+            // greater than 0
             read_buffer_start_ = begin;
             uint64_t const amount_to_read = std::min(file_size_ - read_buffer_start_, read_ahead);
             disk_->Read(begin, read_buffer_.get(), amount_to_read);
@@ -248,7 +257,13 @@ struct BufferedDisk : Disk
         }
         else {
             // ideally this won't happen
-            assert(false);
+            std::cout << "Disk read position regressed. It's optimized for forward scans. Performance may suffer\n"
+                << "   read-offset: " << begin
+                << " read-length: " << length
+                << " file-size: " << file_size_
+                << " read-buffer: [" << read_buffer_start_ << ", " << read_buffer_size_ << "]"
+                << " file: " << disk_->GetFileName()
+                << '\n';
             static uint8_t temp[128];
             // all allocations need 7 bytes head-room, since
             // SliceInt64FromBytes() may overrun by 7 bytes
