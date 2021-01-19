@@ -88,9 +88,9 @@ void cleanup(const string& tmpdir)
 
 void SigHandler(int s)
 {
-    cout << endl << "Exiting.." << endl;        
+    cout << endl << "Exiting .." << endl;        
     cleanup(tempdir);
-    cleanup(tempdir2);
+    if (tempdir.compare(tempdir2) != 0) { cleanup(tempdir2); }
     exit(1);
 }
 
