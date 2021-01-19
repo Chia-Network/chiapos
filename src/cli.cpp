@@ -14,6 +14,8 @@
 
 #include <ctime>
 #include <set>
+#include <fstream>
+#include <csignal>
 
 #include "../lib/include/cxxopts.hpp"
 #include "../lib/include/picosha2.hpp"
@@ -48,6 +50,16 @@ string Strip0x(const string &hex)
     return hex;
 }
 
+bool endsWith(const string& str, const string& suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+
+bool startsWith(const string& str, const string& prefix)
+{
+    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);
+}
+
 void HelpAndQuit(cxxopts::Options options)
 {
     cout << options.help({""}) << endl;
@@ -58,8 +70,35 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
+string filename = "plot.dat";
+string tempdir = ".";
+string tempdir2 = ".";
+
+void cleanup(const string& tempdir)
+{
+    string glob = fs::path(tempdir) / (filename + ".*.tmp");
+    cout << "Cleaning up " << glob << " .." << endl;        
+    for (const auto& f : fs::directory_iterator(tempdir)) {
+        const auto fname = f.path().filename().string();
+        if (f.is_regular_file() && startsWith(fname, filename) && endsWith(fname, ".tmp")) {
+            fs::remove_all(f);
+        }
+    }
+}
+
+void SigHandler(int s)
+{
+    cout << endl << "Exiting.." << endl;        
+    cleanup(tempdir);
+    cleanup(tempdir2);
+    exit(1);
+}
+
 int main(int argc, char *argv[])
 {
+
+    signal(SIGINT, SigHandler); 
+
     try {
         cxxopts::Options options(
             "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
@@ -71,9 +110,6 @@ int main(int argc, char *argv[])
         uint32_t num_buckets = 0;
         uint32_t num_stripes = 0;
         uint8_t num_threads = 0;
-        string filename = "plot.dat";
-        string tempdir = ".";
-        string tempdir2 = ".";
         string finaldir = ".";
         string operation = "help";
         string memo = "0102030405";
@@ -81,19 +117,19 @@ int main(int argc, char *argv[])
         uint32_t buffmegabytes = 0;
 
         options.allow_unrecognised_options().add_options()(
-                "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
-                "h, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
-                    "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
-                "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
-                "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
-            "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
-            "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
-            "f, file", "Filename", cxxopts::value<string>(filename))(
-            "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
-            "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
-            "b, buffer",
-            "Megabytes to be used as buffer for sorting and plotting",
-            cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
+            "k, size",     "Plot size",                        cxxopts::value<uint8_t>(k))(
+            "h, threads",  "Number of threads",                cxxopts::value<uint8_t>(num_threads))(
+            "u, buckets",  "Number of buckets",                cxxopts::value<uint32_t>(num_buckets))(
+            "s, stripes",  "Size of stripes",                  cxxopts::value<uint32_t>(num_stripes))(
+            "t, tempdir",  "Temporary directory",              cxxopts::value<string>(tempdir))(
+            "2, tempdir2", "Second Temporary directory",       cxxopts::value<string>(tempdir2))(
+            "d, finaldir", "Final directory",                  cxxopts::value<string>(finaldir))(
+            "f, file",     "Filename",                         cxxopts::value<string>(filename))(
+            "m, memo",     "Memo to insert into the plot",     cxxopts::value<string>(memo))(
+            "i, id",       "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
+            "b, buffer",   "Megabytes to be used as buffer "
+                           "for sorting and plotting",         cxxopts::value<uint32_t>(buffmegabytes))(
+            "help", "Print help");
 
         auto result = options.parse(argc, argv);
 
