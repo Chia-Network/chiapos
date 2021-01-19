@@ -96,9 +96,6 @@ void SigHandler(int s)
 
 int main(int argc, char *argv[])
 {
-
-    signal(SIGINT, SigHandler); 
-
     try {
         cxxopts::Options options(
             "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
@@ -142,6 +139,8 @@ int main(int argc, char *argv[])
         if (operation == "help") {
             HelpAndQuit(options);
         } else if (operation == "generate") {
+            signal(SIGINT, SigHandler); 
+
             cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
                  << " id=" << id << endl
                  << endl;
