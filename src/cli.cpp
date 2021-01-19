@@ -74,14 +74,14 @@ string filename = "plot.dat";
 string tempdir = ".";
 string tempdir2 = ".";
 
-void cleanup(const string& tempdir)
+void cleanup(const string& tmpdir)
 {
-    string glob = fs::path(tempdir) / (filename + ".*.tmp");
+    string glob = fs::path(tmpdir) / (filename + ".*.tmp");
     cout << "Cleaning up " << glob << " .." << endl;        
-    for (const auto& f : fs::directory_iterator(tempdir)) {
+    for (const auto& f : fs::directory_iterator(tmpdir)) {
         const auto fname = f.path().filename().string();
         if (f.is_regular_file() && startsWith(fname, filename) && endsWith(fname, ".tmp")) {
-            fs::remove_all(f);
+            fs::remove(f);
         }
     }
 }
