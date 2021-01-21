@@ -49,7 +49,22 @@ namespace fs = ghc::filesystem;
 #include "sort_manager.hpp"
 #include "util.hpp"
 
+bool endsWith(const string& str, const string& suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+
+bool startsWith(const string& str, const string& prefix)
+{
+    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);
+}
+
 class DiskPlotter {
+
+    std::string filename;
+    std::string tmp_dirname;
+    std::string tmp2_dirname;
+
 public:
     // This method creates a plot on disk with the filename. A temporary file, "plotting" +
     // filename, is created and will be larger than the final plot file. This file is deleted at the
@@ -69,6 +84,11 @@ public:
         uint64_t stripe_size_input = 0,
         uint8_t num_threads_input = 0)
     {
+
+        this->filename = filename;
+        this->tmp_dirname = tmp_dirname;
+        this->tmp2_dirname = tmp2_dirname;
+
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
         struct rlimit the_limit = {600, 600};
@@ -363,6 +383,30 @@ public:
             }
         } while (!bRenamed);
     }
+
+void stop()
+{
+    cout << "Stopping plotter .." << endl;
+    // TODO: signal current phase to stop
+}
+
+void cleanup()
+{
+    cleanup(tmp_dirname);
+    if (tmp_dirname.compare(tmp2_dirname) != 0) { cleanup(tmp2_dirname); }
+}
+
+void cleanup(const string& tmpdir)
+{
+    string glob = fs::path(tmpdir) / (filename + ".*.tmp");
+    cout << "Cleaning up " << glob << " .." << endl;        
+    for (const auto& f : fs::directory_iterator(tmpdir)) {
+        const auto fname = f.path().filename().string();
+        if (f.is_regular_file() && startsWith(fname, filename + ".") && endsWith(fname, ".tmp")) {
+            fs::remove(f);
+        }
+    }
+}
 
 private:
     // Writes the plot file header to a file

@@ -50,16 +50,6 @@ string Strip0x(const string &hex)
     return hex;
 }
 
-bool endsWith(const string& str, const string& suffix)
-{
-    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-}
-
-bool startsWith(const string& str, const string& prefix)
-{
-    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);
-}
-
 void HelpAndQuit(cxxopts::Options options)
 {
     cout << options.help({""}) << endl;
@@ -70,27 +60,13 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
-string filename = "plot.dat";
-string tempdir = ".";
-string tempdir2 = ".";
-
-void cleanup(const string& tmpdir)
-{
-    string glob = fs::path(tmpdir) / (filename + ".*.tmp");
-    cout << "Cleaning up " << glob << " .." << endl;        
-    for (const auto& f : fs::directory_iterator(tmpdir)) {
-        const auto fname = f.path().filename().string();
-        if (f.is_regular_file() && startsWith(fname, filename) && endsWith(fname, ".tmp")) {
-            fs::remove(f);
-        }
-    }
-}
+DiskPlotter plotter = DiskPlotter();
 
 void SigHandler(int s)
 {
     cout << endl << "Exiting .." << endl;        
-    cleanup(tempdir);
-    if (tempdir.compare(tempdir2) != 0) { cleanup(tempdir2); }
+    plotter.stop();
+    plotter.cleanup();
     exit(1);
 }
 
@@ -107,6 +83,9 @@ int main(int argc, char *argv[])
         uint32_t num_buckets = 0;
         uint32_t num_stripes = 0;
         uint8_t num_threads = 0;
+        string filename = "plot.dat";
+        string tempdir = ".";
+        string tempdir2 = ".";
         string finaldir = ".";
         string operation = "help";
         string memo = "0102030405";
@@ -156,7 +135,6 @@ int main(int argc, char *argv[])
             HexToBytes(memo, memo_bytes);
             HexToBytes(id, id_bytes);
 
-            DiskPlotter plotter = DiskPlotter();
             plotter.CreatePlotDisk(
                 tempdir,
                 tempdir2,
