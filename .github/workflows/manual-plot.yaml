@@ -38,7 +38,6 @@ jobs:
       with:
         access_token: ${{ github.token }}
 
-
     - name: Test for secrets access
       id: check_secrets
       shell: bash
@@ -48,9 +47,3 @@ jobs:
         echo ::set-output name=HAS_SECRET::${HAS_SECRET}
       env:
         SECRET: "${{ secrets.test_pypi_password }}"
-
-
-    #${{ secrets.REPO_ADMIN }}
-    - name: Plot
-      run: |
-        curl -XPOST -H "Authorization: token test" -H "Accept: application/vnd.github.v3+json" -H "Content-Type: application/json" https://api.github.com/repos/Chia-Network/chia-plotter/actions/workflows/chia-plotter.yml/dispatches --data '{"ref": "main", "inputs": {  "upstream_branch": "${{ github.event.inputs.pull_branch_name }}", "instance_name_tag": "${{ github.event.inputs.instance_name_tag }}", "commit_sha": "${{ github.event.inputs.commit_sha}}" }, "k_size": "${{ github.event.inputs.k_size }}", "count": "${{ github.event.inputs.count }}"  } }'
