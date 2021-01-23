@@ -1,0 +1,54 @@
+name: Manual Plot
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: 'chia pos branch name to use'
+        required: true
+        default: 'master'
+      instance_name_tag:
+        description: 'name tag to apply to new instance'
+        required: true
+        default: 'chia-test-orphan'
+      commit_sha:
+        description: 'commit sha to pull other than head'
+        required: false
+      count:
+        description: 'How many instances should plot?'
+        required: true
+        default: '1'
+      k_size:
+        description: 'The K size to plot'
+        required: true
+        default: '27'
+
+jobs:
+  build_wheels:
+    name: Call Plotter
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+    - name: Cancel previous runs on the same branch
+      uses: styfle/cancel-workflow-action@0.5.0
+      with:
+        access_token: ${{ github.token }}
+
+
+    - name: Test for secrets access
+      id: check_secrets
+      shell: bash
+      run: |
+        unset HAS_SECRET
+        if [ -n "$SECRET" ]; then HAS_SECRET='true' ; fi
+        echo ::set-output name=HAS_SECRET::${HAS_SECRET}
+      env:
+        SECRET: "${{ secrets.test_pypi_password }}"
+
+    - name: Plot
+      run: |
+        curl -XPOST -H "Authorization: token ${{ secrets.REPO_ADMIN }}" -H "Accept: application/vnd.github.v3+json" -H "Content-Type: application/json" https://api.github.com/repos/Chia-Network/chia-plotter/actions/workflows/chia-plotter.yml/dispatches --data '{"ref": "main", "inputs": {  "upstream_branch": "${{ github.event.inputs.pull_branch_name }}", "instance_name_tag": "${{ github.event.inputs.instance_name_tag }}", "commit_sha": "${{ github.event.inputs.commit_sha}}" }, "k_size": "${{ github.event.inputs.k_size }}", "count": "${{ github.event.inputs.count }}"  } }'
