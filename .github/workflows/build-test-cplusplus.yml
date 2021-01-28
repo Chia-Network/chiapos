@@ -36,6 +36,7 @@ jobs:
     - name: cmake, RunTests, and valgrind on ${{ matrix.os }}
       if: startsWith(matrix.os, 'ubuntu')
       run: |
+        sudo apt update
         sudo apt-get install valgrind -y
         mkdir build
         cd build
