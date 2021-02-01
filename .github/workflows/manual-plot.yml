@@ -24,7 +24,7 @@ on:
         default: '27'
 
 jobs:
-  build_wheels:
+  Plot:
     name: Call Plotter
     runs-on: ${{ matrix.os }}
     strategy:
@@ -46,4 +46,9 @@ jobs:
         if [ -n "$SECRET" ]; then HAS_SECRET='true' ; fi
         echo ::set-output name=HAS_SECRET::${HAS_SECRET}
       env:
-        SECRET: "${{ secrets.test_pypi_password }}"
+        SECRET: "${{ secrets.TEST_WEBHOOK_SECRET }}"
+
+    #${{ secrets.REPO_ADMIN }}
+    - name: Plot
+      run: |
+        curl -XPOST -H "Authorization: token ${{ secrets.WEBHOOK_CREDENTIAL }}" -H "Accept: application/vnd.github.v3+json" -H "Content-Type: application/json" https://api.github.com/repos/Chia-Network/chia-plotter/actions/workflows/chia-plotter.yml/dispatches --data '{"ref": "main", "inputs": {  "upstream_branch": "${{ github.event.inputs.upstream_branch }}", "instance_name_tag": "${{ github.event.inputs.instance_name_tag }}", "commit_sha": "${{ github.event.inputs.commit_sha}}", "ksize": "${{ github.event.inputs.k_size }}", "count": "${{ github.event.inputs.count }}"  } }'
