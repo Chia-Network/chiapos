@@ -96,6 +96,7 @@ jobs:
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
     - name: Build wheels and test aarch64
+      if: startsWith(matrix.os, 'ubuntu')    
       uses: joerick/cibuildwheel@v1.9.0
       with:
         output-dir: dist
