@@ -75,7 +75,6 @@ jobs:
         # CIBW_ARCHS_MACOS: x86_64 arm64 universal2
         CIBW_ARCHS_MACOS: x86_64 universal2
         CIBW_TEST_SKIP: '*_arm64 *_universal2:arm64'
-        CIBW_ARCHS_LINUX: x86_64 aarch64
         CIBW_BUILD_VERBOSITY_LINUX: 0
         CIBW_BUILD_VERBOSITY_MACOS: 0
         CIBW_BUILD_VERBOSITY_WINDOWS: 0
@@ -95,6 +94,29 @@ jobs:
         # CIBW_ENVIRONMENT_WINDOWS: SETUPTOOLS_USE_DISTUTILS=stdlib
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
+
+    - name: Build wheels and test aarch64
+      uses: joerick/cibuildwheel@v1.9.0
+      with:
+        output-dir: dist
+        env:
+          # build python 3.7 and 3.8
+          CIBW_BUILD: 'cp37-* cp38-* cp39-*'
+          CIBW_ARCHS_LINUX: aarch64
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+          CIBW_BUILD_VERBOSITY_LINUX: 0
+          # we need boost
+          CIBW_BEFORE_ALL_LINUX: >
+            yum -y install epel-release
+            && yum -y install cmake3
+            && rm -rf /usr/local/bin/cmake
+            && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
+            && cmake --version
+            && uname -a
+          CIBW_BEFORE_BUILD_LINUX: >
+            python -m pip install --upgrade pip
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
     - name: Upload wheels
       uses: actions/upload-artifact@v2
