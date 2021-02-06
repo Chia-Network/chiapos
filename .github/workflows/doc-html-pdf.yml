@@ -20,9 +20,6 @@ jobs:
 
     - name: Checkout code
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-        # we need fetch-depth 0 so setuptools_scm can resolve tags
 
     - uses: actions/setup-python@v2
       name: Install Python
@@ -38,16 +35,6 @@ jobs:
          pip install markdown
          pip install python-markdown-math
 #         python -m markdown -x mdx_math --verbose -f proof_of_space.html proof_of_space.md
-
-#    - name: Test for secrets access
-#      id: check_secrets
-#      shell: bash
-#      run: |
-#        unset HAS_SECRET
-#        if [ -n "$SECRET" ]; then HAS_SECRET='true' ; fi
-#        echo ::set-output name=HAS_SECRET::${HAS_SECRET}
-#      env:
-#        SECRET: "${{ secrets.test_pypi_password }}"
 
     - name: html to pdf
       uses: fifsky/html-to-pdf-action@master
