@@ -56,13 +56,6 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
-    - name: Set up QEMU on ubuntu x86_64
-      if: startsWith(matrix.os, 'ubuntu')
-      id: qemu
-      uses: docker/setup-qemu-action@v1
-      with:
-        platforms: arm64
-
     - name: Build wheels and test
       uses: joerick/cibuildwheel@v1.9.0
       with:
@@ -95,28 +88,35 @@ jobs:
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
-    - name: Build wheels and test aarch64
-      if: startsWith(matrix.os, 'ubuntu')    
-      uses: joerick/cibuildwheel@v1.9.0
-      with:
-        output-dir: dist
-      env:
-        CIBW_BUILD: 'cp37-* cp38-* cp39-*'
-        CIBW_ARCHS_LINUX: aarch64
-        CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
-        CIBW_BUILD_VERBOSITY_LINUX: 0
-        # we need boost
-        CIBW_BEFORE_ALL_LINUX: >
-          yum -y install epel-release
-          && yum -y install cmake3
-          && rm -rf /usr/local/bin/cmake
-          && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
-          && cmake --version
-          && uname -a
-        CIBW_BEFORE_BUILD_LINUX: >
-          python -m pip install --upgrade pip
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: py.test -v {project}/tests -s
+#    - name: Set up QEMU on ubuntu x86_64
+#      if: startsWith(matrix.os, 'ubuntu')
+#      id: qemu
+#      uses: docker/setup-qemu-action@v1
+#      with:
+#        platforms: arm64
+# QEMY is about 9x slower than ARM64 native builds sadly...
+#    - name: Build wheels and test aarch64
+#      if: startsWith(matrix.os, 'ubuntu')
+#      uses: joerick/cibuildwheel@v1.9.0
+#      with:
+#        output-dir: dist
+#      env:
+#        CIBW_BUILD: 'cp37-* cp38-* cp39-*'
+#        CIBW_ARCHS_LINUX: aarch64
+#        CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+#        CIBW_BUILD_VERBOSITY_LINUX: 0
+#        # we need boost
+#        CIBW_BEFORE_ALL_LINUX: >
+#          yum -y install epel-release
+#          && yum -y install cmake3
+#          && rm -rf /usr/local/bin/cmake
+#          && ln -s /usr/bin/cmake3 /usr/local/bin/cmake
+#          && cmake --version
+#          && uname -a
+#        CIBW_BEFORE_BUILD_LINUX: >
+#          python -m pip install --upgrade pip
+#        CIBW_TEST_REQUIRES: pytest
+#        CIBW_TEST_COMMAND: py.test -v {project}/tests -s
 
     - name: Upload wheels
       uses: actions/upload-artifact@v2
