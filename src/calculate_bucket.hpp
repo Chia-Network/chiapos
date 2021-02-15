@@ -49,7 +49,7 @@ const uint16_t kC = 127;
 const uint16_t kBC = kB * kC;
 
 // This (times k) is the length of the metadata that must be kept for each entry. For example,
-// for a tbale 4 entry, we must keep 4k additional bits for each entry, which is used to
+// for a table 4 entry, we must keep 4k additional bits for each entry, which is used to
 // compute f5.
 static const uint8_t kVectorLens[] = {0, 0, 1, 2, 4, 4, 3, 2};
 
@@ -72,7 +72,7 @@ void load_tables()
 // Class to evaluate F1
 class F1Calculator {
 public:
-    F1Calculator() {}
+    F1Calculator() = default;
 
     inline F1Calculator(uint8_t k, const uint8_t* orig_key)
     {
@@ -166,13 +166,13 @@ public:
         uint64_t start = first_x * k_ / kF1BlockSizeBits;
         // 'end' is one past the last keystream block number to be generated
         uint64_t end = cdiv((first_x + n) * k_, kF1BlockSizeBits);
-        uint64_t n_blks = end - start;
+        uint64_t num_blocks = end - start;
         uint32_t start_bit = first_x * k_ % kF1BlockSizeBits;
         uint8_t x_shift = k_ - kExtraBits;
 
         assert(n <= (1U << kBatchSizes));
 
-        chacha8_get_keystream(&this->enc_ctx_, start, n_blks, buf_);
+        chacha8_get_keystream(&this->enc_ctx_, start, num_blocks, buf_);
         for (uint64_t x = first_x; x < first_x + n; x++) {
             uint64_t y = Util::SliceInt64FromBytes(buf_, start_bit, k_);
 
@@ -184,12 +184,12 @@ public:
 
 private:
     // Size of the plot
-    uint8_t k_;
+    uint8_t k_{};
 
     // ChaCha8 context
-    struct chacha8_ctx enc_ctx_;
+    struct chacha8_ctx enc_ctx_{};
 
-    uint8_t *buf_;
+    uint8_t *buf_{};
 };
 
 struct rmap_item {
@@ -200,7 +200,7 @@ struct rmap_item {
 // Class to evaluate F2 .. F7.
 class FxCalculator {
 public:
-    FxCalculator() {}
+    FxCalculator() = default;
 
     inline FxCalculator(uint8_t k, uint8_t table_index)
     {
@@ -214,7 +214,7 @@ public:
         }
     }
 
-    inline ~FxCalculator() {}
+    inline ~FxCalculator() = default;
 
     // Disable copying
     FxCalculator(const FxCalculator&) = delete;
@@ -264,7 +264,7 @@ public:
     }
 
     // Given two buckets with entries (y values), computes which y values match, and returns a list
-    // of the pairs of indeces into bucket_L and bucket_R. Indeces l and r match iff:
+    // of the pairs of indices into bucket_L and bucket_R. Indices l and r match iff:
     //   let  yl = bucket_L[l].y,  yr = bucket_R[r].y
     //
     //   For any 0 <= m < kExtraBitsPow:
@@ -285,8 +285,7 @@ public:
         int32_t idx_count = 0;
         uint16_t parity = (bucket_L[0].y / kBC) % 2;
 
-        for (size_t i = 0; i < rmap_clean.size(); i++) {
-            uint16_t yl = rmap_clean[i];
+        for (size_t yl : rmap_clean) {
             this->rmap[yl].count = 0;
         }
         rmap_clean.clear();
@@ -308,7 +307,7 @@ public:
             for (uint8_t i = 0; i < kExtraBitsPow; i++) {
                 uint16_t r_target = L_targets[parity][r][i];
                 for (size_t j = 0; j < rmap[r_target].count; j++) {
-                    if(idx_L != NULL) {
+                    if(idx_L != nullptr) {
                         idx_L[idx_count]=pos_L;
                         idx_R[idx_count]=rmap[r_target].pos + j;
                     }
@@ -320,8 +319,8 @@ public:
     }
 
 private:
-    uint8_t k_;
-    uint8_t table_index_;
+    uint8_t k_{};
+    uint8_t table_index_{};
     std::vector<struct rmap_item> rmap;
     std::vector<uint16_t> rmap_clean;
 };

@@ -162,28 +162,6 @@ namespace Util {
         return s.str();
     }
 
-    inline void WriteZeroesHeap(std::ofstream &file, uint32_t num_bytes)
-    {
-        uint8_t *buf = new uint8_t[num_bytes];
-        memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char *>(buf), num_bytes);
-        delete[] buf;
-    }
-
-    inline void WriteZeroesStack(std::ofstream &file, uint32_t num_bytes)
-    {
-#ifdef _WIN32
-        uint8_t *buf = new uint8_t[num_bytes];
-        memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char *>(buf), num_bytes);
-        delete[] buf;
-#else
-        uint8_t buf[num_bytes];
-        memset(buf, 0, num_bytes);
-        file.write(reinterpret_cast<char *>(buf), num_bytes);
-#endif
-    }
-
     inline void IntToTwoBytes(uint8_t *result, const uint16_t input)
     {
         uint16_t r = bswap_16(input);
@@ -202,25 +180,6 @@ namespace Util {
         uint16_t i;
         memcpy(&i, bytes, sizeof(i));
         return bswap_16(i);
-    }
-
-    /*
-     * Converts a 32 bit int to bytes.
-     */
-    inline void IntToFourBytes(uint8_t *result, const uint32_t input)
-    {
-        uint32_t r = bswap_32(input);
-        memcpy(result, &r, sizeof(r));
-    }
-
-    /*
-     * Converts a byte array to a 32 bit int.
-     */
-    inline uint32_t FourBytesToInt(const uint8_t *bytes)
-    {
-        uint32_t i;
-        memcpy(&i, bytes, sizeof(i));
-        return bswap_32(i);
     }
 
     /*
@@ -379,48 +338,6 @@ namespace Util {
             frac = -0.5;
         double b = ldexp(frac, exp);
         return b;
-    }
-
-    inline uint64_t find_islands(std::vector<std::pair<uint64_t, uint64_t> > edges)
-    {
-        std::map<uint64_t, std::vector<uint64_t> > edge_indeces;
-        for (uint64_t edge_index = 0; edge_index < edges.size(); edge_index++) {
-            edge_indeces[edges[edge_index].first].push_back(edge_index);
-            edge_indeces[edges[edge_index].second].push_back(edge_index);
-        }
-        std::set<uint64_t> visited_nodes;
-        std::queue<uint64_t> nodes_to_visit;
-        uint64_t num_islands = 0;
-        for (auto new_edge : edges) {
-            uint64_t old_size = visited_nodes.size();
-            if (visited_nodes.find(new_edge.first) == visited_nodes.end()) {
-                visited_nodes.insert(new_edge.first);
-                nodes_to_visit.push(new_edge.first);
-            }
-            if (visited_nodes.find(new_edge.second) == visited_nodes.end()) {
-                visited_nodes.insert(new_edge.second);
-                nodes_to_visit.push(new_edge.second);
-            }
-            while (!nodes_to_visit.empty()) {
-                uint64_t node = nodes_to_visit.front();
-                nodes_to_visit.pop();
-                for (uint64_t edge_index : edge_indeces[node]) {
-                    std::pair<uint64_t, uint64_t> edge = edges[edge_index];
-                    if (visited_nodes.find(edge.first) == visited_nodes.end()) {
-                        visited_nodes.insert(edge.first);
-                        nodes_to_visit.push(edge.first);
-                    }
-                    if (visited_nodes.find(edge.second) == visited_nodes.end()) {
-                        visited_nodes.insert(edge.second);
-                        nodes_to_visit.push(edge.second);
-                    }
-                }
-            }
-            if (visited_nodes.size() > old_size) {
-                num_islands++;
-            }
-        }
-        return num_islands;
     }
 }
 
