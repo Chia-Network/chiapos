@@ -74,7 +74,7 @@ public:
         F1Calculator f1(k, id);
 
         for (uint8_t i = 0; i < 64; i++)
-            proof.push_back(Bits(proof_bits.SliceBitsToInt(k * i, k * (i + 1)), k));
+            proof.emplace_back(proof_bits.SliceBitsToInt(k * i, k * (i + 1)), k);
 
         // Calculates f1 for each of the given xs. Note that the proof is in proof order.
         for (uint8_t i = 0; i < 64; i++) {
@@ -89,8 +89,8 @@ public:
             std::vector<Bits> new_ys;
             std::vector<Bits> new_metadata;
             for (int i = 0; i < (1 << (8 - depth)); i += 2) {
-                PlotEntry l_plot_entry;
-                PlotEntry r_plot_entry;
+                PlotEntry l_plot_entry{};
+                PlotEntry r_plot_entry{};
                 l_plot_entry.y = ys[i].GetValue();
                 r_plot_entry.y = ys[i + 1].GetValue();
                 std::vector<PlotEntry> bucket_L = {l_plot_entry};
@@ -101,7 +101,7 @@ public:
                 if (cdiff != 1) {
                     return LargeBits();
                 } else {
-                    if(f.FindMatches(bucket_L, bucket_R, NULL, NULL) != 1) {
+                    if(f.FindMatches(bucket_L, bucket_R, nullptr, nullptr) != 1) {
                         return LargeBits();
                     }
                 }
@@ -111,8 +111,8 @@ public:
                 new_ys.push_back(std::get<0>(results));
                 new_metadata.push_back(std::get<1>(results));
             }
-            for (size_t i = 0; i < new_ys.size(); i++) {
-                if (new_ys[i].GetSize() <= 0) {
+            for (auto & new_y : new_ys) {
+                if (new_y.GetSize() <= 0) {
                     return LargeBits();
                 }
             }
@@ -136,7 +136,7 @@ public:
 private:
     // Compares two lists of k values, a and b. a > b iff max(a) > max(b),
     // if there is a tie, the next largest value is compared.
-    static bool CompareProofBits(LargeBits left, LargeBits right, uint8_t k)
+    static bool CompareProofBits(const LargeBits& left, const LargeBits& right, uint8_t k)
     {
         uint16_t size = left.GetSize() / k;
         assert(left.GetSize() == right.GetSize());
