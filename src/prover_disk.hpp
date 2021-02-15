@@ -46,11 +46,11 @@ struct plot_header {
 // of space, for a given challenge.
 class DiskProver {
 public:
-    // The costructor opens the file, and reads the contents of the file header. The table pointers
+    // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
-    explicit DiskProver(std::string filename)
+    explicit DiskProver(const std::string& filename)
     {
-        struct plot_header header;
+        struct plot_header header{};
         this->filename = filename;
 
         std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -67,7 +67,7 @@ public:
         // x bytes   - memo
 
         disk_file.read(reinterpret_cast<char*>(&header), sizeof(header));
-        if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)))
+        if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)) != 0)
             throw std::invalid_argument("Invalid plot header magic");
 
         uint16_t fmt_desc_len = Util::TwoBytesToInt(header.fmt_desc_len);
@@ -108,7 +108,7 @@ public:
 
         // The list of C2 entries is small enough to keep in memory. When proving, we can
         // read from disk the C1 and C3 entries.
-        uint8_t* c2_buf = new uint8_t[c2_size];
+        auto* c2_buf = new uint8_t[c2_size];
         for (uint32_t i = 0; i < c2_entries - 1; i++) {
             disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);
             this->C2.push_back(Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue());
@@ -157,7 +157,7 @@ public:
             // challenge. The expected value is one proof.
             std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
 
-            if (p7_entries.size() == 0) {
+            if (p7_entries.empty()) {
                 return std::vector<LargeBits>();
             }
 
@@ -165,8 +165,7 @@ public:
             // our two x values in the leaves.
             uint8_t last_5_bits = challenge[31] & 0x1f;
 
-            for (uint32_t i = 0; i < p7_entries.size(); i++) {
-                uint64_t position = p7_entries[i];
+            for (uint64_t position : p7_entries) {
                 // This inner loop goes from table 6 to table 1, getting the two backpointers,
                 // and following one of them.
                 for (uint8_t table_index = 6; table_index > 1; table_index--) {
@@ -191,7 +190,7 @@ public:
                     .ToBytes(hash_input.data() + 32);
                 std::vector<unsigned char> hash(picosha2::k_digest_size);
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-                qualities.push_back(LargeBits(hash.data(), 32, 256));
+                qualities.emplace_back(hash.data(), 32, 256);
             }
         }  // Scope for disk_file
         return qualities;
@@ -213,7 +212,7 @@ public:
             }
 
             std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
-            if (p7_entries.size() == 0 || index >= p7_entries.size()) {
+            if (p7_entries.empty() || index >= p7_entries.size()) {
                 throw std::logic_error("No proof of space for this challenge");
             }
 
@@ -225,7 +224,7 @@ public:
             // proof ordering, they're stored in plot ordering, due to the sorting in the Compress
             // phase.
             std::vector<LargeBits> xs_sorted = ReorderProof(xs);
-            for (auto x : xs_sorted) {
+            for (const auto& x : xs_sorted) {
                 full_proof += x;
             }
         }  // Scope for disk_file
@@ -237,7 +236,7 @@ private:
     std::string filename;
     uint32_t memo_size;
     uint8_t* memo;
-    uint8_t id[kIdLen];  // Unique plot id
+    uint8_t id[kIdLen]{};  // Unique plot id
     uint8_t k;
     std::vector<uint64_t> table_begin_pointers;
     std::vector<uint64_t> C2;
@@ -254,18 +253,18 @@ private:
 
         // This is the checkpoint at the beginning of the park
         uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
-        uint8_t* line_point_bin = new uint8_t[line_point_size + 7];
+        auto* line_point_bin = new uint8_t[line_point_size + 7];
         disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size);
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs
         uint32_t stubs_size_bits = EntrySizes::CalculateStubsSize(k) * 8;
-        uint8_t* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
+        auto* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
         disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
 
         // Reads EPP deltas
         uint32_t max_deltas_size_bits = EntrySizes::CalculateMaxDeltasSize(k, table_index) * 8;
-        uint8_t* deltas_bin = new uint8_t[max_deltas_size_bits / 8];
+        auto* deltas_bin = new uint8_t[max_deltas_size_bits / 8];
 
         // Reads the size of the encoded deltas object
         uint16_t encoded_deltas_size = 0;
@@ -322,7 +321,7 @@ private:
         uint64_t curr_p7_pos,
         uint8_t* bit_mask,
         uint16_t encoded_size,
-        uint64_t c1_index)
+        uint64_t c1_index) const
     {
         std::vector<uint8_t> deltas =
             Encoding::ANSDecodeDeltas(bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
@@ -350,7 +349,7 @@ private:
     // Returns P7 table entries (which are positions into table P6), for a given challenge
     std::vector<uint64_t> GetP7Entries(std::ifstream& disk_file, const uint8_t* challenge)
     {
-        if (C2.size() == 0) {
+        if (C2.empty()) {
             return std::vector<uint64_t>();
         }
         Bits challenge_bits = Bits(challenge, 256 / 8, 256);
@@ -385,7 +384,7 @@ private:
 
         uint32_t c1_entry_size = Util::ByteAlign(k) / 8;
 
-        uint8_t* c1_entry_bytes = new uint8_t[c1_entry_size];
+        auto* c1_entry_bytes = new uint8_t[c1_entry_size];
         disk_file.seekg(table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
 
         uint64_t curr_f7 = c2_entry_f;
@@ -420,7 +419,7 @@ private:
         }
 
         uint32_t c3_entry_size = EntrySizes::CalculateC3Size(k);
-        uint8_t* bit_mask = new uint8_t[c3_entry_size];
+        auto* bit_mask = new uint8_t[c3_entry_size];
 
         // Double entry means that our entries are in more than one checkpoint park.
         bool double_entry = f7 == curr_f7 && c1_index > 0;
@@ -434,7 +433,6 @@ private:
         if (double_entry) {
             // In this case, we read the previous park as well as the current one
             c1_index -= 1;
-            uint8_t* c1_entry_bytes = new uint8_t[Util::ByteAlign(k) / 8];
             disk_file.seekg(table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
             disk_file.read(reinterpret_cast<char*>(c1_entry_bytes), Util::ByteAlign(k) / 8);
             Bits c1_entry_bits = Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
@@ -453,11 +451,9 @@ private:
             disk_file.read(reinterpret_cast<char*>(encoded_size_buf), 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
             disk_file.read(reinterpret_cast<char*>(bit_mask), c3_entry_size - 2);
-            delete[] c1_entry_bytes;
 
             c1_index++;
             curr_p7_pos = c1_index * kCheckpoint1Interval;
-            curr_f7 = next_f7;
             auto second_positions =
                 GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
             p7_positions.insert(
@@ -475,7 +471,7 @@ private:
 
         // p7_positions is a list of all the positions into table P7, where the output is equal to
         // f7. If it's empty, no proofs are present for this f7.
-        if (p7_positions.size() == 0) {
+        if (p7_positions.empty()) {
             delete[] bit_mask;
             delete[] c1_entry_bytes;
             return std::vector<uint64_t>();
@@ -487,7 +483,7 @@ private:
 
         // Given the p7 positions, which are all adjacent, we can read the pos6 values from table
         // P7.
-        uint8_t* p7_park_buf = new uint8_t[p7_park_size_bytes];
+        auto* p7_park_buf = new uint8_t[p7_park_size_bytes];
         uint64_t park_index = (p7_positions[0] == 0 ? 0 : p7_positions[0]) / kEntriesPerPark;
         disk_file.seekg(table_begin_pointers[7] + park_index * p7_park_size_bytes);
         disk_file.read(reinterpret_cast<char*>(p7_park_buf), p7_park_size_bytes);
@@ -599,8 +595,8 @@ private:
         if (depth == 1) {
             // For table P1, the line point represents two concatenated x values.
             std::vector<Bits> ret;
-            ret.push_back(Bits(xy.second, k));  // y
-            ret.push_back(Bits(xy.first, k));   // x
+            ret.emplace_back(xy.second, k);  // y
+            ret.emplace_back(xy.first, k);   // x
             return ret;
         } else {
             std::vector<Bits> left = GetInputs(disk_file, xy.second, depth - 1);  // y
