@@ -24,6 +24,7 @@
 
 #include "../lib/FiniteStateEntropy/lib/fse.h"
 #include "../lib/FiniteStateEntropy/lib/hist.h"
+#include "../lib/FiniteStateEntropy/lib/error_public.h"
 #include "bits.hpp"
 #include "exceptions.hpp"
 #include "util.hpp"
@@ -164,7 +165,9 @@ public:
             unsigned tableLog = 14;
 
             FSE_DTable *dt = FSE_createDTable(tableLog);
-            FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
+            size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
+            if(err != FSE_error_no_error)
+                throw std::logic_error(FSE_getErrorName(err));
             DT_MEMO[R] = dt;
         }
 
