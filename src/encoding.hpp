@@ -166,7 +166,6 @@ public:
 
             FSE_DTable *dt = FSE_createDTable(tableLog);
             size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
-            err = FSE_error_tableLog_tooLarge;
             if(err != FSE_error_no_error)
                 throw std::logic_error("FSE_buildDTable failed");
             DT_MEMO[R] = dt;
