@@ -85,7 +85,7 @@ class Timer {
 public:
     Timer()
     {
-        wall_clock_time_start_ = std::chrono::steady_clock::now();
+        wall_clock_time_start_ = std::chrono::system_clock::now();
 #if _WIN32
         ::GetProcessTimes(::GetCurrentProcess(), &ft_[3], &ft_[2], &ft_[1], &ft_[0]);
 #else
@@ -102,9 +102,9 @@ public:
 
     void PrintElapsed(const std::string &name) const
     {
-        auto end = std::chrono::steady_clock::now();
+        auto wall_clock_end = std::chrono::system_clock::now();
         auto wall_clock_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 end - this->wall_clock_time_start_)
+                                 wall_clock_end - this->wall_clock_time_start_)
                                  .count();
 
 #if _WIN32
@@ -130,10 +130,11 @@ public:
 
         std::cout << name << " " << (wall_clock_ms / 1000.0) << " seconds. CPU (" << cpu_ratio
                   << "%) " << Timer::GetNow();
+
     }
 
 private:
-    std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
+    std::chrono::time_point<std::chrono::system_clock> wall_clock_time_start_;
 #if _WIN32
     FILETIME ft_[4];
 #else
