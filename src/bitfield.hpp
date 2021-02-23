@@ -100,23 +100,32 @@ struct bitfield
         uint64_t const* start = buffer_.get() + start_bit / 64;
         uint64_t const* end = buffer_.get() + end_bit / 64;
         int64_t ret = 0;
-        while (start != end) {
-#ifdef _MSC_VER
-            ret += __popcnt64(*start);
-#else
+
         if(hasPOPCNT())
         {
-            uint64_t x;
-            __asm__ volatile("popcntq %0, %1"
+            while (start != end) {
+#ifdef _MSC_VER
+                ret += __popcnt64(*start);
+#else
+                uint64_t x;
+                __asm__ volatile("popcntq %0, %1"
                      : "=r" (x)
                      : "0" (*start));
-            ret += x;
+                ret += x;
+#endif
+                ++start;
+            }
         }
         else {
-            ret += __builtin_popcountl(*start);
-        }
+            while (start != end) {
+#ifdef _MSC_VER 
+                // Need fallback here for MSVC
+                ret += __popcnt64(*start);
+#else           
+                ret += __builtin_popcountl(*start);
 #endif
-            ++start;
+                ++start;
+            }
         }
         int const tail = end_bit % 64;
         if (tail > 0) {
@@ -124,17 +133,17 @@ struct bitfield
 #ifdef _MSC_VER
             ret += __popcnt64(*end & mask);
 #else
-        if(hasPOPCNT())
-        {
-            uint64_t x;
-            __asm__ volatile("popcntq %0, %1"
+            if(hasPOPCNT())
+            {
+                uint64_t x;
+                __asm__ volatile("popcntq %0, %1"
                      : "=r" (x)
                      : "0" (*end & mask));
-            ret += x;
-        } 
-        else {
-            ret += __builtin_popcountl(*end & mask);
-        }
+                ret += x;
+            } 
+            else {
+                ret += __builtin_popcountl(*end & mask);
+            }
 #endif
         }
         return ret;
