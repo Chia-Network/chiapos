@@ -11,11 +11,45 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#define WJB
 
 #pragma once
 
 #include <memory>
+
+#ifndef _MSC_VER
+
+int bCheckedPOPCNT;
+int bPOPCNT;
+
+inline int hasPOPCNT()
+{
+    if(bCheckedPOPCNT)
+        return bPOPCNT;
+
+    bCheckedPOPCNT = 1;
+    int info[4] = {0};
+    #if defined(_MSC_VER)
+        __cpuid(info, 0x80000001);
+    #elif defined(__GNUC__) || defined(__clang__)
+        #if defined(ARCH_X86) && defined(__PIC__)
+            __asm__ __volatile__ (
+                "xchg{l} {%%}ebx, %k1;"
+                "cpuid;"
+                "xchg{l} {%%}ebx, %k1;"
+                : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x80000001), "c"(0)
+            );
+        #else
+            __asm__ __volatile__ (
+                "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x80000001), "c"(0)
+            );
+        #endif
+    #endif
+
+    bPOPCNT = ((info[2] & (1 << 5)) != 0);
+    return bPOPCNT;
+}
+
+#endif
 
 struct bitfield
 {
@@ -64,13 +98,17 @@ struct bitfield
 #ifdef _MSC_VER
             ret += __popcnt64(*start);
 #else
-#ifdef WJB
-            uint64_t x=*start;
-            __asm__ ("popcnt %1, %0" : "=r" (x) : "0" (x));
+        if(hasPOPCNT())
+        {
+            uint64_t x;
+            __asm__ volatile("popcntq %0, %1"
+                     : "=r" (x)
+                     : "0" (*start));
             ret += x;
-#else
+        }
+        else {
             ret += __builtin_popcountl(*start);
-#endif
+        }
 #endif
             ++start;
         }
@@ -80,13 +118,17 @@ struct bitfield
 #ifdef _MSC_VER
             ret += __popcnt64(*end & mask);
 #else
-#ifdef WJB
-            uint64_t x=*end & mask;
-            __asm__ ("popcnt %1, %0" : "=r" (x) : "0" (x));
+        if(hasPOPCNT())
+        {
+            uint64_t x;
+            __asm__ volatile("popcntq %0, %1"
+                     : "=r" (x)
+                     : "0" (*end & mask));
             ret += x;
-#else
+        } 
+        else {
             ret += __builtin_popcountl(*end & mask);
-#endif
+        }
 #endif
         }
         return ret;
