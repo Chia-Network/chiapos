@@ -192,7 +192,7 @@ public:
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
-                throw std::logic_error("FSE_buildDTable failed");
+                throw FSE_getErrorName(err);
             }
             tmc.CTAssign(R, ct);
         }
@@ -220,8 +220,8 @@ public:
 
             FSE_DTable *dt = FSE_createDTable(tableLog);
             size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
-            if(err != FSE_error_no_error)
-                throw std::logic_error("FSE_buildDTable failed");
+            if (FSE_isError(err)) {
+                throw FSE_getErrorName(err);
             tmc.DTAssign(R, dt);
         }
 
