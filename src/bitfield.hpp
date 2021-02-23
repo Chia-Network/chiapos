@@ -16,13 +16,7 @@
 
 #include <memory>
 
-#ifndef _MSC_VER
-#ifndef __x86_64__
-inline int hasPOPCNT()
-{
-    return false;
-}
-#else
+#ifdef __x86_64__
 int bCheckedPOPCNT;
 int bPOPCNT;
 
@@ -53,8 +47,11 @@ inline int hasPOPCNT()
     bPOPCNT = ((info[2] & (1 << 23)) != 0);
     return bPOPCNT;
 }
-
-#endif
+#else
+inline int hasPOPCNT()
+{   
+    return false;
+}
 #endif
 
 struct bitfield
