@@ -29,8 +29,68 @@
 #include "exceptions.hpp"
 #include "util.hpp"
 
-std::map<double, FSE_CTable *> CT_MEMO = {};
-std::map<double, FSE_DTable *> DT_MEMO = {};
+#include <mutex>
+
+class TMemoCache {
+public:
+    ~TMemoCache() 
+    {
+        // Clean up global entries on destruction
+        std::lock_guard<std::mutex> l(memoMutex);
+
+        std::map<double, FSE_CTable *>::iterator itc;
+        for (itc = CT_MEMO.begin(); itc != CT_MEMO.end(); itc++) {
+            FSE_freeCTable(itc->second);
+        }
+        std::map<double, FSE_DTable *>::iterator itd;
+        for (itd = DT_MEMO.begin(); itd != DT_MEMO.end(); itd++) {
+            FSE_freeDTable(itd->second);
+        }
+    }
+
+    bool CTExists(double R)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        return (CT_MEMO.find(R) != CT_MEMO.end());
+    }
+
+    bool DTExists(double R)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        return (DT_MEMO.find(R) != DT_MEMO.end());
+    }   
+
+    void CTAssign(double R, FSE_CTable *ct)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        CT_MEMO[R] = ct;
+    }
+
+    void DTAssign(double R, FSE_DTable *dt)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        DT_MEMO[R] = dt;
+    }
+
+    FSE_CTable *CTGet(double R)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        return CT_MEMO[R];
+    }
+
+    FSE_DTable *DTGet(double R)
+    {
+        std::lock_guard<std::mutex> l(memoMutex);
+        return DT_MEMO[R];
+    }
+
+private:
+    mutable std::mutex memoMutex; // Mutex to ensure map thread safety
+    std::map<double, FSE_CTable *> CT_MEMO;
+    std::map<double, FSE_DTable *> DT_MEMO;
+};
+
+TMemoCache tmc;
 
 class Encoding {
 public:
@@ -122,7 +182,7 @@ public:
 
     static size_t ANSEncodeDeltas(std::vector<unsigned char> deltas, double R, uint8_t *out)
     {
-        if (CT_MEMO.find(R) == CT_MEMO.end()) {
+        if (!tmc.CTExists(R)) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
             unsigned tableLog = 14;
@@ -132,25 +192,19 @@ public:
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
-                throw FSE_getErrorName(err);
+                throw std::logic_error("FSE_buildDTable failed");
             }
-            CT_MEMO[R] = ct;
+            tmc.CTAssign(R, ct);
         }
 
+        FSE_CTable *ct = tmc.CTGet(R);
         return FSE_compress_usingCTable(
-            out, deltas.size() * 8, static_cast<void *>(deltas.data()), deltas.size(), CT_MEMO[R]);
+            out, deltas.size() * 8, static_cast<void *>(deltas.data()), deltas.size(), ct);
     }
 
     static void ANSFree(double R)
     {
-        if (CT_MEMO.find(R) != CT_MEMO.end()) {
-            FSE_freeCTable(CT_MEMO[R]);
-            CT_MEMO.erase(R);
-        }
-        if (DT_MEMO.find(R) != DT_MEMO.end()) {
-            FSE_freeDTable(DT_MEMO[R]);
-            DT_MEMO.erase(R);
-        }
+        // Cache all entries, only free on close
     }
 
     static std::vector<uint8_t> ANSDecodeDeltas(
@@ -159,7 +213,7 @@ public:
         int numDeltas,
         double R)
     {
-        if (DT_MEMO.find(R) == DT_MEMO.end()) {
+        if (!tmc.DTExists(R)) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
             unsigned tableLog = 14;
@@ -168,11 +222,13 @@ public:
             size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
             if(err != FSE_error_no_error)
                 throw std::logic_error("FSE_buildDTable failed");
-            DT_MEMO[R] = dt;
+            tmc.DTAssign(R, dt);
         }
 
+        FSE_DTable *dt = tmc.DTGet(R);
+
         std::vector<uint8_t> deltas(numDeltas);
-        size_t err = FSE_decompress_usingDTable(&deltas[0], numDeltas, inp, inp_size, DT_MEMO[R]);
+        size_t err = FSE_decompress_usingDTable(&deltas[0], numDeltas, inp, inp_size, dt);
 
         if (FSE_isError(err)) {
             throw FSE_getErrorName(err);
