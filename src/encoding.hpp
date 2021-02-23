@@ -222,6 +222,7 @@ public:
             size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
                 throw FSE_getErrorName(err);
+            }
             tmc.DTAssign(R, dt);
         }
 
