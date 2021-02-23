@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#define WJB
 
 #pragma once
 
@@ -63,7 +64,13 @@ struct bitfield
 #ifdef _MSC_VER
             ret += __popcnt64(*start);
 #else
+#ifdef WJB
+            uint64_t x=*start;
+            __asm__ ("popcnt %1, %0" : "=r" (x) : "0" (x));
+            ret += x;
+#else
             ret += __builtin_popcountl(*start);
+#endif
 #endif
             ++start;
         }
@@ -73,7 +80,13 @@ struct bitfield
 #ifdef _MSC_VER
             ret += __popcnt64(*end & mask);
 #else
+#ifdef WJB
+            uint64_t x=*end & mask;
+            __asm__ ("popcnt %1, %0" : "=r" (x) : "0" (x));
+            ret += x;
+#else
             ret += __builtin_popcountl(*end & mask);
+#endif
 #endif
         }
         return ret;
