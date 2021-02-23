@@ -17,7 +17,12 @@
 #include <memory>
 
 #ifndef _MSC_VER
-
+#ifndef __x86_64__
+inline int hasPOPCNT()
+{
+    return false;
+}
+#else
 int bCheckedPOPCNT;
 int bPOPCNT;
 
@@ -29,26 +34,27 @@ inline int hasPOPCNT()
     bCheckedPOPCNT = 1;
     int info[4] = {0};
     #if defined(_MSC_VER)
-        __cpuid(info, 0x80000001);
+        __cpuid(info, 0x00000001);
     #elif defined(__GNUC__) || defined(__clang__)
         #if defined(ARCH_X86) && defined(__PIC__)
             __asm__ __volatile__ (
                 "xchg{l} {%%}ebx, %k1;"
                 "cpuid;"
                 "xchg{l} {%%}ebx, %k1;"
-                : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x80000001), "c"(0)
+                : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x00000001), "c"(0)
             );
         #else
             __asm__ __volatile__ (
-                "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x80000001), "c"(0)
+                "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x00000001), "c"(0)
             );
         #endif
     #endif
 
-    bPOPCNT = ((info[2] & (1 << 5)) != 0);
+    bPOPCNT = ((info[2] & (1 << 23)) != 0);
     return bPOPCNT;
 }
 
+#endif
 #endif
 
 struct bitfield
