@@ -36,8 +36,6 @@ public:
     ~TMemoCache() 
     {
         // Clean up global entries on destruction
-        std::lock_guard<std::mutex> l(memoMutex);
-
         std::map<double, FSE_CTable *>::iterator itc;
         for (itc = CT_MEMO.begin(); itc != CT_MEMO.end(); itc++) {
             FSE_freeCTable(itc->second);
@@ -90,7 +88,7 @@ private:
     std::map<double, FSE_DTable *> DT_MEMO;
 };
 
-TMemoCache tmc;
+TMemoCache tmCache;
 
 class Encoding {
 public:
@@ -182,7 +180,7 @@ public:
 
     static size_t ANSEncodeDeltas(std::vector<unsigned char> deltas, double R, uint8_t *out)
     {
-        if (!tmc.CTExists(R)) {
+        if (!tmCache.CTExists(R)) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
             unsigned tableLog = 14;
@@ -194,10 +192,10 @@ public:
             if (FSE_isError(err)) {
                 throw FSE_getErrorName(err);
             }
-            tmc.CTAssign(R, ct);
+            tmCache.CTAssign(R, ct);
         }
 
-        FSE_CTable *ct = tmc.CTGet(R);
+        FSE_CTable *ct = tmCache.CTGet(R);
         return FSE_compress_usingCTable(
             out, deltas.size() * 8, static_cast<void *>(deltas.data()), deltas.size(), ct);
     }
@@ -213,7 +211,7 @@ public:
         int numDeltas,
         double R)
     {
-        if (!tmc.DTExists(R)) {
+        if (!tmCache.DTExists(R)) {
             std::vector<short> nCount = Encoding::CreateNormalizedCount(R);
             unsigned maxSymbolValue = nCount.size() - 1;
             unsigned tableLog = 14;
@@ -223,10 +221,10 @@ public:
             if (FSE_isError(err)) {
                 throw FSE_getErrorName(err);
             }
-            tmc.DTAssign(R, dt);
+            tmCache.DTAssign(R, dt);
         }
 
-        FSE_DTable *dt = tmc.DTGet(R);
+        FSE_DTable *dt = tmCache.DTGet(R);
 
         std::vector<uint8_t> deltas(numDeltas);
         size_t err = FSE_decompress_usingDTable(&deltas[0], numDeltas, inp, inp_size, dt);
