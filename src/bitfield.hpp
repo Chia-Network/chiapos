@@ -15,44 +15,7 @@
 #pragma once
 
 #include <memory>
-
-#ifdef __x86_64__
-int bCheckedPOPCNT;
-int bPOPCNT;
-
-inline int hasPOPCNT()
-{
-    if(bCheckedPOPCNT)
-        return bPOPCNT;
-
-    bCheckedPOPCNT = 1;
-    int info[4] = {0};
-    #if defined(_MSC_VER)
-        __cpuid(info, 0x00000001);
-    #elif defined(__GNUC__) || defined(__clang__)
-        #if defined(ARCH_X86) && defined(__PIC__)
-            __asm__ __volatile__ (
-                "xchg{l} {%%}ebx, %k1;"
-                "cpuid;"
-                "xchg{l} {%%}ebx, %k1;"
-                : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x00000001), "c"(0)
-            );
-        #else
-            __asm__ __volatile__ (
-                "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(0x00000001), "c"(0)
-            );
-        #endif
-    #endif
-
-    bPOPCNT = ((info[2] & (1 << 23)) != 0);
-    return bPOPCNT;
-}
-#else
-inline int hasPOPCNT()
-{   
-    return false;
-}
-#endif
+#include "libpopcnt.h"
 
 struct bitfield
 {
@@ -95,54 +58,22 @@ struct bitfield
         assert(start_bit <= end_bit);
 
         uint64_t const* start = buffer_.get() + start_bit / 64;
-        uint64_t const* end = buffer_.get() + end_bit / 64;
-        int64_t ret = 0;
+        uint64_t *end = buffer_.get() + end_bit / 64;
+        uint64_t amt = end - start;
+        uint64_t ret = 0;
 
-        if(hasPOPCNT())
-        {
-            while (start != end) {
-#ifdef _MSC_VER
-                ret += __popcnt64(*start);
-#else
-                uint64_t x;
-                __asm__ volatile("popcntq %0, %1"
-                     : "=r" (x)
-                     : "0" (*start));
-                ret += x;
-#endif
-                ++start;
-            }
-        }
-        else {
-            while (start != end) {
-#ifdef _MSC_VER 
-                // Need fallback here for MSVC
-                ret += __popcnt64(*start);
-#else           
-                ret += __builtin_popcountl(*start);
-#endif
-                ++start;
-            }
-        }
         int const tail = end_bit % 64;
         if (tail > 0) {
             uint64_t const mask = (uint64_t(1) << tail) - 1;
-#ifdef _MSC_VER
-            ret += __popcnt64(*end & mask);
-#else
-            if(hasPOPCNT())
-            {
-                uint64_t x;
-                __asm__ volatile("popcntq %0, %1"
-                     : "=r" (x)
-                     : "0" (*end & mask));
-                ret += x;
-            } 
-            else {
-                ret += __builtin_popcountl(*end & mask);
-            }
-#endif
+            uint64_t tmp = *end;
+            *end = tmp & mask;
+            ret = popcnt(start, 8 * (amt + 1));
+            *end = tmp;
         }
+        else {
+            ret = popcnt(start, 8 * amt);
+        }
+
         return ret;
     }
 
