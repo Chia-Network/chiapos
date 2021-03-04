@@ -48,6 +48,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(uint128_t)
 
+include_directories(${uint128_t_SOURCE_DIR})
+
 IF (MSVC)
 IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Oy")
@@ -122,7 +124,6 @@ add_executable(RunTests
 )
 
 find_package(Threads REQUIRED)
-find_package(uint128_t REQUIRED)
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
