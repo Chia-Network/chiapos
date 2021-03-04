@@ -1,24 +1,8 @@
 #include "uint128_t.build"
+#include <cstring>
 
 const uint128_t uint128_0(0);
 const uint128_t uint128_1(1);
-
-uint128_t::uint128_t()
-    : UPPER(0), LOWER(0)
-{}
-
-uint128_t::uint128_t(const uint128_t & rhs)
-    : UPPER(rhs.UPPER), LOWER(rhs.LOWER)
-{}
-
-uint128_t::uint128_t(uint128_t && rhs)
-    : UPPER(std::move(rhs.UPPER)), LOWER(std::move(rhs.LOWER))
-{
-    if (this != &rhs){
-        rhs.UPPER = 0;
-        rhs.LOWER = 0;
-    }
-}
 
 uint128_t::uint128_t(std::string & s) {
     init(s.c_str());
@@ -29,56 +13,80 @@ uint128_t::uint128_t(const char *s) {
 }
 
 void uint128_t::init(const char *s) {
-    if (s == NULL || s[0] == 0) { uint128_t(); return; }
-    if (s[1] == 'x')
-        s += 2;
-    else if (*s == 'x')
-        s++;
+    if (s == NULL || s[0] == 0){
+        LOWER = UPPER = 0;
+        return;
+    }
 
-    UPPER = ConvertToUint64(s);
-    LOWER = ConvertToUint64(s + 16);
+    while (*s == ' ') ++s;
+
+    if (std::memcmp(s, "0x", 2) == 0){
+        _init_hex(&s[2]);
+    }
+    else if (std::memcmp(s, "0o", 2) == 0){
+        _init_oct(&s[2]);
+    }
+    else{
+        _init_dec(s);
+    }
 }
 
-uint64_t uint128_t::ConvertToUint64(const char *s) const {
-    int count = 0;
-    uint64_t val = 0;
-    uint8_t hv = HexToInt(s++);
-    while (hv != 0xFF && count < 16) {
-        val = (val << 4) | hv;
-        hv = HexToInt(&s[count]);
-        count++;
+void uint128_t::_init_hex(const char *s) {
+    // 2**128 = 0x100000000000000000000000000000000.
+    LOWER = UPPER = 0;
+    int i;
+    for (i = 0; *s && i < 16; ++s, ++i){
+        if ('0' <= *s && *s <= '9'){
+            LOWER *= 16;
+            LOWER += *s - '0';
+        }
+        else if ('A' <= *s && *s <= 'F'){
+            LOWER *= 16;
+            LOWER += *s + (10 - 'A');
+        }
+        else if ('a' <= *s && *s <= 'f'){
+            LOWER *= 16;
+            LOWER += *s + (10 - 'a');
+        }
+        else{
+            return;
+        }
     }
-    return val;
+    for (; *s && i < 32; ++s, ++i){
+        if ('0' <= *s && *s <= '9'){
+            *this *= 16;
+            *this += *s - '0';
+        }
+        else if ('A' <= *s && *s <= 'F'){
+            *this *= 16;
+            *this += *s + (10 - 'A');
+        }
+        else if ('a' <= *s && *s <= 'f'){
+            *this *= 16;
+            *this += *s + (10 - 'a');
+        }
+        else{
+            return;
+        }
+    }
 }
 
-uint8_t uint128_t::HexToInt(const char *s) const {
-    uint8_t ret = 0xFF;
-    if (*s >= '0' && *s <= '9') {
-        ret = uint8_t(*s - '0');
+void uint128_t::_init_dec(const char *s){
+    // 2**128 = 340282366920938463463374607431768211456.
+    LOWER = UPPER = 0;
+    for (int i = 0; '0' <= *s && *s <= '9' && i < 39; ++s, ++i){
+        *this *= 10;
+        *this += *s - '0';
     }
-    else if (*s >= 'a' && *s <= 'f') {
-        ret = uint8_t(*s - 'a' + 10);
-    }
-    else if (*s >= 'A' && *s <= 'F') {
-        ret = uint8_t(*s - 'A' + 10);
-    }
-    return ret;
 }
 
-uint128_t & uint128_t::operator=(const uint128_t & rhs){
-    UPPER = rhs.UPPER;
-    LOWER = rhs.LOWER;
-    return *this;
-}
-
-uint128_t & uint128_t::operator=(uint128_t && rhs){
-    if (this != &rhs){
-        UPPER = std::move(rhs.UPPER);
-        LOWER = std::move(rhs.LOWER);
-        rhs.UPPER = 0;
-        rhs.LOWER = 0;
+void uint128_t::_init_oct(const char *s){
+    // 2**128 = 0o4000000000000000000000000000000000000000000.
+    LOWER = UPPER = 0;
+    for (int i = 0; '0' <= *s && *s <= '7' && i < 43; ++s, ++i){
+        *this *= 8;
+        *this += *s - '0';
     }
-    return *this;
 }
 
 uint128_t::operator bool() const{
