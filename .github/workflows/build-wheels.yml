@@ -53,7 +53,7 @@ jobs:
         CIBW_SKIP: '*-manylinux_i686 *-win32'
         # we need boost
         # CIBW_ARCHS_MACOS: x86_64 arm64 universal2
-        CIBW_ARCHS_MACOS: x86_64 universal2
+        CIBW_ARCHS_MACOS: x86_64
         CIBW_TEST_SKIP: '*_arm64 *_universal2:arm64'
         CIBW_BUILD_VERBOSITY_LINUX: 0
         CIBW_BUILD_VERBOSITY_MACOS: 0
