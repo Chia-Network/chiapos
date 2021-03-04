@@ -122,6 +122,7 @@ add_executable(RunTests
 )
 
 find_package(Threads REQUIRED)
+find_package(uint128_t REQUIRED)
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
