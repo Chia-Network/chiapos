@@ -1,0 +1,11 @@
+*
+!lib/
+!python-bindings/
+!src/
+!tests/
+!tools/
+!uint128_t/
+!CMakeLists.txt
+!LICENSE
+!README.md
+
