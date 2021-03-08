@@ -39,6 +39,9 @@
 #include "chia_filesystem.hpp"
 #include "util.hpp"
 
+using namespace std::chrono;
+using namespace std::chrono_literals;
+
 namespace DiskUtil {
 
 #if !defined(__APPLE__) && !defined(_WIN32)
@@ -134,7 +137,6 @@ namespace DiskUtil {
             return -1;
         }
         while (0 != flock(dir_fd, LOCK_EX | LOCK_NB)) {
-            using namespace std::chrono_literals;
             if (EWOULDBLOCK == errno) {
                 std::this_thread::sleep_for(10s);
             } else {
@@ -190,8 +192,6 @@ public:
     bool Lock()
     {
         if (fd_ == -1) {
-            using namespace std::chrono;
-
             std::cout << "Acquiring directory lock: " << dirname_ << std::endl;
 
             steady_clock::time_point start = steady_clock::now();
@@ -221,6 +221,128 @@ public:
 private:
     int fd_ = -1;
     std::string dirname_;
+};
+
+class MultiFileLock
+{
+public:
+    MultiFileLock(const std::string &runtime_dir, const std::string &lock_name,
+        int max_slots, bool lock = true)
+    {
+        runtime_dir_ = runtime_dir;
+        lock_name_ = lock_name;
+
+        std::ostringstream prefix;
+        prefix << "." << lock_name << "-lock";
+        prefix_ = prefix.str();
+        
+        max_slots_ = max_slots;
+        if (lock) {
+            Lock();
+        }
+    }
+
+    MultiFileLock(const MultiFileLock&) = delete;
+
+    virtual ~MultiFileLock()
+    {
+        Unlock();
+    }
+
+    bool Lock()
+    {
+#ifdef _WIN32
+        return false;
+#else
+        if (max_slots_ < 1 || fd_ != -1) {
+            return false;
+        }
+
+        std::cout << "Acquiring " << lock_name_ << " lock" << std::endl;
+
+        steady_clock::time_point start = steady_clock::now();
+        while (!TryLock()) {
+            std::this_thread::sleep_for(20s);
+        }
+        steady_clock::time_point end = steady_clock::now();
+
+        std::cout << "Lock acquired (took "
+            << duration_cast<seconds>(end - start).count()
+            << " sec)" << std::endl;
+
+        return true;
+#endif
+    }
+    
+    bool Unlock()
+    {
+#ifdef _WIN32
+        return false;
+#else
+        if (fd_ == -1) {
+            return false;
+        }
+
+        std::cout << "Releasing " << lock_name_ << " lock" << std::endl;
+
+        if (-1 == flock(fd_, LOCK_UN)) {
+            std::cerr << "Failed to unlock the file: " << strerror(errno)
+                << std::endl;
+            return false;
+        }
+
+        if (-1 == close(fd_)) {
+            std::cerr << "Failed to close the file during unlocking: "
+                << strerror(errno) << std::endl;
+            return false;
+        }
+
+        fd_ = -1;
+
+        return true;
+#endif
+    }
+
+private:
+#ifndef _WIN32
+    bool TryLock()
+    {
+        for (int current_slot = 0; current_slot < max_slots_; ++current_slot) {
+            fs::path path(runtime_dir_);
+            std::ostringstream filename;
+            filename << prefix_ << "-" << current_slot;
+            path.append(filename.str());
+
+            std::string fullname = path.string();
+
+            fd_ = open(fullname.c_str(), O_CREAT | O_RDONLY | O_NOCTTY, 0666);
+            if (fd_ == -1) {
+                std::cerr << "Unable to open file for locking: " << fullname
+                    << ". Error: " << strerror(errno) << std::endl;
+                return false;
+            }
+            if (0 == flock(fd_, LOCK_EX | LOCK_NB)) {
+                return true;
+            }
+            if (EWOULDBLOCK != errno) {
+                std::cerr << "Error while trying to lock " << fullname << ": "
+                    << strerror(errno) << std::endl;
+            }
+            if (-1 == close(fd_)) {
+                std::cerr << "Failed to close " << fullname << ": "
+                    << strerror(errno) << std::endl;
+            }
+            fd_ = -1;
+        }
+        return false;
+    }
+#endif
+
+    int fd_ = -1;
+    std::string runtime_dir_;
+    std::string lock_name_;
+    std::string prefix_;
+    int max_slots_ = 0;
 };
 
 #endif // SRC_CPP_DISK_UTIL_HPP_
