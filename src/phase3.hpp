@@ -59,8 +59,8 @@ void WriteParkToFile(
     uint64_t writer = table_start + park_index * park_size_bytes;
     uint8_t *index = park_buffer;
 
-    Bits first_line_point_bits(first_line_point, 2 * k);
-    first_line_point_bits.ToBytes(index);
+    first_line_point <<= 128 - 2 * k;
+    Util::IntTo16Bytes(index, first_line_point);
     index += EntrySizes::CalculateLinePointSize(k);
 
     // We use ParkBits instead of Bits since it allows storing more data
@@ -386,8 +386,9 @@ Phase3Results RunPhase3(
         // Now we will write on of the final tables, since we have a table sorted by line point.
         // The final table will simply store the deltas between each line_point, in fixed space
         // groups(parks), with a checkpoint in each group.
-        Bits right_entry_bits;
         int added_to_cache = 0;
+        uint8_t const sort_key_shift = 128 - right_sort_key_size;
+        uint8_t const index_shift = sort_key_shift - (k + 1);
         for (uint64_t index = 0; index < total_r_entries; index++) {
             right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader);
             right_reader += right_entry_size_bytes;
@@ -399,10 +400,12 @@ Phase3Results RunPhase3(
                 Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
 
             // Write the new position (index) and the sort key
-            Bits to_write = Bits(sort_key, right_sort_key_size);
-            to_write += Bits(index, k + 1);
+            uint128_t to_write = (uint128_t)sort_key << sort_key_shift;
+            to_write |= (uint128_t)index << index_shift;
 
-            L_sort_manager->AddToCache(to_write);
+            uint8_t bytes[16];
+            Util::IntTo16Bytes(bytes, to_write);
+            L_sort_manager->AddToCache(bytes);
             added_to_cache++;
 
             // Every EPP entries, writes a park
