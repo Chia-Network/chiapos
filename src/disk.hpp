@@ -100,20 +100,35 @@ struct FileDisk {
         Open(false);
     }
 
-    void Open(bool read_only = true)
+    void Open(bool read_only = true, bool retry = false)
     {
         // if the file is already open, don't do anything
         if (f_) return;
 
         // Opens the file for reading and writing
+        if (retry) {
+            do {
 #ifdef _WIN32
-        f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
+                f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
 #else
-        f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
+                f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
 #endif
-        if (f_ == nullptr) {
-            throw InvalidValueException(
-                "Could not open " + filename_.string() + ": " + ::strerror(errno));
+                if (f_ == nullptr) {
+                    std::cout << "Could not open " << filename_ << ": " << ::strerror(errno)
+                              << ". Retrying in five minutes." << std::endl;
+                    std::this_thread::sleep_for(5min);
+                }
+            } while (f_ == nullptr);
+        } else {
+#ifdef _WIN32
+            f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
+#else
+            f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
+#endif
+            if (f_ == nullptr) {
+                throw InvalidValueException(
+                    "Could not open " + filename_.string() + ": " + ::strerror(errno));
+            }
         }
     }
 
@@ -140,7 +155,7 @@ struct FileDisk {
 
     void Read(uint64_t begin, uint8_t *memcache, uint64_t length)
     {
-        Open();
+        Open(true, true);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::read, begin, length);
 #endif
@@ -170,7 +185,7 @@ struct FileDisk {
 
     void Write(uint64_t begin, const uint8_t *memcache, uint64_t length)
     {
-        Open();
+        Open(false, true);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::write, begin, length);
 #endif
