@@ -52,8 +52,9 @@
 
 class DiskPlotter {
 public:
-    // This method creates a plot on disk with the filename. A temporary file, "plotting" +
-    // filename, is created and will be larger than the final plot file. This file is deleted at the
+    // This method creates a plot on disk with the filename. Many temporary files
+    // (filename + ".table1.tmp", filename + ".p2.t3.sort_bucket_4.tmp", etc.) are created
+    // and their total size will be larger than the final plot file. Temp files are deleted at the
     // end of the process.
     void CreatePlotDisk(
         std::string tmp_dirname,
