@@ -45,7 +45,7 @@ def create_parser() -> ArgumentParser:
         "--no-bitfield",
         action="store_true",
         help="Disable using bitfield sort.",
-        default="False",
+        default=False,
     )
     return parser
 
