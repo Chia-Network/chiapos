@@ -61,22 +61,10 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 #define bswap_16(x) _byteswap_ushort(x)
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
-#elif defined(__APPLE__)
-
-#include <libkern/OSByteOrder.h>
-
-#define bswap_16(x) OSSwapInt16(x)
-#define bswap_32(x) OSSwapInt32(x)
-#define bswap_64(x) OSSwapInt64(x)
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
-# if defined(__OpenBSD__)
-#  include <machine/endian.h>
-# else
-#  include <sys/endian.h>
-# endif
-#define bswap_16(x) bswap16(x)
-#define bswap_32(x) bswap32(x)
-#define bswap_64(x) bswap64(x)
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#define bswap_16(x) __builtin_bswap16(x)
+#define bswap_32(x) __builtin_bswap32(x)
+#define bswap_64(x) __builtin_bswap64(x)
 #else
 #include <byteswap.h>
 #endif
