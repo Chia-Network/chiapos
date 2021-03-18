@@ -19,9 +19,9 @@
 
 struct bitfield_index
 {
-    // cache the number of set bits evey kIndexBucket bits.
-	// For a bitfield of size 2^32, this means a 4 MiB index
-    static inline const int64_t kIndexBucket = 8 * 1024;
+    // Cache the number of set bits every kIndexBucket bits.
+    // For a bitfield of size 2^32, this means a 32 MiB index
+    static inline const int64_t kIndexBucket = 1024;
 
     bitfield_index(bitfield const& b) : bitfield_(b)
     {
