@@ -81,6 +81,13 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 #include <byteswap.h>
 #endif
 
+/* Platform-specific cpuid include. */
+#if defined(_WIN32)
+#include <intrin.h>
+#elif defined(__x86_64__)
+#include <cpuid.h>
+#endif
+
 class Timer {
 public:
     Timer()
@@ -338,6 +345,40 @@ namespace Util {
             frac = -0.5;
         double b = ldexp(frac, exp);
         return b;
+    }
+
+#if defined(_WIN32) || defined(__x86_64__)
+    void CpuID(uint32_t leaf, uint32_t *regs)
+    {
+#if defined(_WIN32)
+        __cpuid((int *)regs, (int)leaf);
+#else
+        __get_cpuid(leaf, &regs[0], &regs[1], &regs[2], &regs[3]);
+#endif /* defined(_WIN32) */
+    }
+
+    bool HavePopcnt(void)
+    {
+        // EAX, EBX, ECX, EDX
+        uint32_t regs[4] = {0};
+
+        CpuID(1, regs);
+        // Bit 23 of ECX indicates POPCNT instruction support
+        return (regs[2] >> 23) & 1;
+    }
+#endif /* defined(_WIN32) || defined(__x86_64__) */
+
+    inline uint64_t PopCount(uint64_t n)
+    {
+#if defined(_WIN32)
+        return __popcnt64(n);
+#elif defined(__x86_64__)
+        uint64_t r;
+        __asm__("popcnt %1, %0" : "=r"(r) : "r"(n));
+        return r;
+#else
+        return __builtin_popcountl(n);
+#endif /* defined(_WIN32) ... defined(__x86_64__) */
     }
 }
 
