@@ -147,6 +147,12 @@ public:
             throw InvalidValueException("Stripe size too large");
         }
 
+#if defined(_WIN32) || defined(__x86_64__)
+        if (!nobitfield && !Util::HavePopcnt()) {
+            throw InvalidValueException("Bitfield plotting not supported by CPU");
+        }
+#endif /* defined(_WIN32) || defined(__x86_64__) */
+
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
                   << tmp2_dirname << std::endl;
