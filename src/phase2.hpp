@@ -147,7 +147,7 @@ Phase2Results RunPhase2(
         // * sort by pos
 
         auto sort_manager = std::make_unique<SortManager>(
-            memory_size / 2,
+            table_index == 2 ? memory_size : memory_size / 2,
             num_buckets,
             log_num_buckets,
             uint16_t(entry_size),
