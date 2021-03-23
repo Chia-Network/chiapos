@@ -54,31 +54,24 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 
 #endif
 
-/* Platform-specific byte swap macros. */
-#if defined(_WIN32)
+// compiler-specific byte swap macros.
+#if defined(_MSC_VER)
+
 #include <cstdlib>
 
-#define bswap_16(x) _byteswap_ushort(x)
-#define bswap_32(x) _byteswap_ulong(x)
-#define bswap_64(x) _byteswap_uint64(x)
-#elif defined(__APPLE__)
+// https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/byteswap-uint64-byteswap-ulong-byteswap-ushort?view=msvc-160
+inline uint16_t bswap_16(uint16_t x) { return _byteswap_ushort(x); }
+inline uint32_t bswap_32(uint32_t x) { return _byteswap_ulong(x); }
+inline uint64_t bswap_64(uint64_t x) { return _byteswap_uint64(x); }
 
-#include <libkern/OSByteOrder.h>
+#elif defined(__clang__) || defined(__GNUC__)
 
-#define bswap_16(x) OSSwapInt16(x)
-#define bswap_32(x) OSSwapInt32(x)
-#define bswap_64(x) OSSwapInt64(x)
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
-# if defined(__OpenBSD__)
-#  include <machine/endian.h>
-# else
-#  include <sys/endian.h>
-# endif
-#define bswap_16(x) bswap16(x)
-#define bswap_32(x) bswap32(x)
-#define bswap_64(x) bswap64(x)
+inline uint16_t bswap_16(uint16_t x) { return __builtin_bswap16(x); }
+inline uint32_t bswap_32(uint32_t x) { return __builtin_bswap32(x); }
+inline uint64_t bswap_64(uint64_t x) { return __builtin_bswap64(x); }
+
 #else
-#include <byteswap.h>
+#error "unknown compiler, don't know how to swap bytes"
 #endif
 
 /* Platform-specific cpuid include. */
