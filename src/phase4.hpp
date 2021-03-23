@@ -21,6 +21,7 @@
 #include "phase3.hpp"
 #include "pos_constants.hpp"
 #include "util.hpp"
+#include "progress.hpp"
 
 // Writes the checkpoint tables. The purpose of these tables, is to store a list of ~2^k values
 // of size k (the proof of space outputs from table 7), in a way where they can be looked up for
@@ -79,6 +80,8 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
     std::cout << "\tStarting to write C1 and C3 tables" << std::endl;
 
     ParkBits to_write_p7;
+    const int max_phase4_progress_updates = 16;
+    const int progress_update_increment = res.final_entries_written / max_phase4_progress_updates;
 
     // We read each table7 entry, which is sorted by f7, but we don't need f7 anymore. Instead,
     // we will just store pos6, and the deltas in table C3, and checkpoints in tables C1 and C2.
@@ -132,6 +135,9 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
                 deltas_to_write.push_back(entry_y - prev_y);
             }
             prev_y = entry_y;
+        }
+        if (f7_position % progress_update_increment == 0) {
+            progress(4, f7_position, res.final_entries_written);
         }
     }
     Encoding::ANSFree(kC3R);
@@ -194,5 +200,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
         std::cout << ": 0x" << res.final_table_begin_pointers[i] << std::endl;
     }
     std::cout << std::dec;
+    progress(4, res.final_entries_written, res.final_entries_written);
+
 }
 #endif  // SRC_CPP_PHASE4_HPP

@@ -20,6 +20,7 @@
 #include "sort_manager.hpp"
 #include "bitfield.hpp"
 #include "bitfield_index.hpp"
+#include "progress.hpp"
 
 struct Phase2Results
 {
@@ -237,6 +238,7 @@ Phase2Results RunPhase2(
         if (table_index != 7) {
             tmp_1_disks[table_index].Truncate(0);
         }
+        progress(2, 8 - table_index, 6);
     }
 
     // lazy-compact table 1 based on current_bitfield
