@@ -173,9 +173,10 @@ Phase3Results RunPhase3(
         Disk& right_disk = res2.disk_for_table(table_index + 1);
         Disk& left_disk = res2.disk_for_table(table_index);
 
-        // Sort key for table 7 is just y, which is k bits. For all other tables it can
-        // be higher than 2^k and therefore k+1 bits are used.
-        uint32_t right_sort_key_size = table_index == 6 ? k : k + 1;
+        // Sort key is k bits for all tables. For table 7 it is just y, which
+        // is k bits, and for all other tables the number of entries does not
+        // exceed 0.865 * 2^k on average.
+        uint32_t right_sort_key_size = k;
 
         uint32_t left_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, false);
@@ -302,7 +303,7 @@ Phase3Results RunPhase3(
                 } else {
                     // k+1 bits in case it overflows
                     left_new_pos[current_pos % kCachedPositionsSize] =
-                        Util::SliceInt64FromBytes(left_entry_disk_buf, k + 1, k + 1);
+                        Util::SliceInt64FromBytes(left_entry_disk_buf, right_sort_key_size, k + 1);
                 }
             }
 

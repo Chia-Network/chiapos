@@ -52,11 +52,11 @@ Phase2Results RunPhase2(
     uint32_t const log_num_buckets,
     bool const show_progress)
 {
-    // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
-    // each table will have 0.8*2^k or fewer entries).
+    // After pruning each table will have 0.865 * 2^k or fewer entries on
+    // average
     uint8_t const pos_size = k;
     uint8_t const pos_offset_size = pos_size + kOffsetSize;
-    uint8_t const write_counter_shift = 128 - (k + 1);
+    uint8_t const write_counter_shift = 128 - k;
     uint8_t const pos_offset_shift = write_counter_shift - pos_offset_size;
     uint8_t const f7_shift = 128 - k;
     uint8_t const t7_pos_offset_shift = f7_shift - pos_offset_size;
@@ -160,7 +160,7 @@ Phase2Results RunPhase2(
             uint16_t(entry_size),
             tmp_dirname,
             filename + ".p2.t" + std::to_string(table_index),
-            uint32_t(k) + 1,
+            uint32_t(k),
             0,
             strategy_t::quicksort_last);
 
