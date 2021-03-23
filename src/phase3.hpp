@@ -303,7 +303,7 @@ Phase3Results RunPhase3(
                 } else {
                     // k+1 bits in case it overflows
                     left_new_pos[current_pos % kCachedPositionsSize] =
-                        Util::SliceInt64FromBytes(left_entry_disk_buf, right_sort_key_size, k + 1);
+                        Util::SliceInt64FromBytes(left_entry_disk_buf, right_sort_key_size, k);
                 }
             }
 
@@ -397,7 +397,7 @@ Phase3Results RunPhase3(
         // groups(parks), with a checkpoint in each group.
         int added_to_cache = 0;
         uint8_t const sort_key_shift = 128 - right_sort_key_size;
-        uint8_t const index_shift = sort_key_shift - (k + 1);
+        uint8_t const index_shift = sort_key_shift - (k + (table_index == 6 ? 1 : 0));
         for (uint64_t index = 0; index < total_r_entries; index++) {
             right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader);
             right_reader += right_entry_size_bytes;
