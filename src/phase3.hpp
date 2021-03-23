@@ -335,7 +335,7 @@ Phase3Results RunPhase3(
                         }
                     }
                     Bits to_write = Bits(line_point, 2 * k);
-                    to_write += Bits(
+                    to_write.AppendValue(
                         old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
                         right_sort_key_size);
 
