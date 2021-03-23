@@ -20,6 +20,7 @@
 #include "exceptions.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
+#include "progress.hpp"
 
 // Results of phase 3. These are passed into Phase 4, so the checkpoint tables
 // can be properly built.
@@ -488,6 +489,7 @@ Phase3Results RunPhase3(
 
         left_disk.FreeMemory();
         right_disk.FreeMemory();
+        progress(3, table_index, 6);
     }
 
     L_sort_manager->FreeMemory();

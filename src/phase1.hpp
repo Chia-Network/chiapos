@@ -45,6 +45,7 @@
 #include "sort_manager.hpp"
 #include "threading.hpp"
 #include "util.hpp"
+#include "progress.hpp"
 
 struct THREADDATA {
     int index;
@@ -742,6 +743,7 @@ std::vector<uint64_t> RunPhase1(
 
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
+        progress(1, table_index, 6);
     }
     table_sizes[0] = 0;
     globals.R_sort_manager.reset();
