@@ -61,12 +61,12 @@ public:
                     //    b:  line_point, sort_key
                     return Util::ByteAlign(
                                std::max(static_cast<uint32_t>(2 * k + kOffsetSize),
-                                   static_cast<uint32_t>(3 * k))) /
+                                   static_cast<uint32_t>(3 * k - 1))) /
                            8;
             case 7:
             default:
                 // Represents line_point, f7
-                return Util::ByteAlign(3 * k) / 8;
+                return Util::ByteAlign(3 * k - 1) / 8;
         }
     }
 

@@ -131,6 +131,7 @@ Phase3Results RunPhase3(
     const bool show_progress)
 {
     uint8_t pos_size = k;
+    uint8_t line_point_size = 2 * k - 1;
 
     std::vector<uint64_t> final_table_begin_pointers(12, 0);
     final_table_begin_pointers[1] = header_size;
@@ -334,7 +335,7 @@ Phase3Results RunPhase3(
                             abort();
                         }
                     }
-                    Bits to_write = Bits(line_point, 2 * k);
+                    Bits to_write = Bits(line_point, line_point_size);
                     to_write.AppendValue(
                         old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
                         right_sort_key_size);
@@ -404,9 +405,9 @@ Phase3Results RunPhase3(
             right_reader_count++;
 
             // Right entry is read as (line_point, sort_key)
-            uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, 2 * k);
+            uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, line_point_size);
             uint64_t sort_key =
-                Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
+                Util::SliceInt64FromBytes(right_reader_entry_buf, line_point_size, right_sort_key_size);
 
             // Write the new position (index) and the sort key
             uint128_t to_write = (uint128_t)sort_key << sort_key_shift;
