@@ -147,6 +147,11 @@ Phase2Results RunPhase2(
         // * update (pos, offset) to remain valid after table_index-1 has been
         //   compacted.
         // * sort by pos
+        //
+        // As we have to sort two adjacent tables at the same time in phase 3,
+        // we can use only a half of memory_size for SortManager. However,
+        // table 1 is already sorted, so we can use all memory for sorting
+        // table 2.
 
         auto sort_manager = std::make_unique<SortManager>(
             table_index == 2 ? memory_size : memory_size / 2,
