@@ -33,7 +33,8 @@ std::vector<uint64_t> b17RunPhase2(
     const std::string &filename,
     uint64_t memory_size,
     uint32_t num_buckets,
-    uint32_t log_num_buckets)
+    uint32_t log_num_buckets,
+    const bool show_progress)
 {
     // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
     // each table will have 0.8*2^k or less entries).
@@ -407,6 +408,9 @@ std::vector<uint64_t> b17RunPhase2(
             R_sort_manager = std::move(L_sort_manager);
         }
         delete[] right_entry_buf_SM;
+        if (show_progress) {
+            progress(2, 8 - table_index, 6);
+        }
     }
     L_sort_manager.reset();
     return new_table_sizes;

@@ -49,7 +49,8 @@ Phase2Results RunPhase2(
     const std::string &filename,
     uint64_t memory_size,
     uint32_t const num_buckets,
-    uint32_t const log_num_buckets)
+    uint32_t const log_num_buckets,
+    bool const show_progress)
 {
     // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
     // each table will have 0.8*2^k or fewer entries).
@@ -238,7 +239,9 @@ Phase2Results RunPhase2(
         if (table_index != 7) {
             tmp_1_disks[table_index].Truncate(0);
         }
-        progress(2, 8 - table_index, 6);
+        if (show_progress) {
+            progress(2, 8 - table_index, 6);
+        }
     }
 
     // lazy-compact table 1 based on current_bitfield
