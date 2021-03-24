@@ -188,6 +188,8 @@ Phase3Results RunPhase3(
             L_sort_manager->FreeMemory();
         }
 
+        // We read only from this SortManager during the second pass, so all
+        // memory is available
         R_sort_manager = std::make_unique<SortManager>(
             memory_size,
             num_buckets,
@@ -361,8 +363,12 @@ Phase3Results RunPhase3(
             L_sort_manager.reset();
         }
 
-        // L sort manager will be used for the writer, and R sort manager will be used for the
-        // reader
+        // In the second pass we read from R sort manager and write to L sort
+        // manager, and they both handle table (table_index + 1)'s data.
+        // For tables below 6 we can only use a half of memory_size since it
+        // will be sorted in the first pass of the next iteration together with
+        // the next table, which will use the other half of memory_size.
+        // Tables 6 and 7 will be sorted alone, so we use all memory for them.
         R_sort_manager->FreeMemory();
         L_sort_manager = std::make_unique<SortManager>(
             (table_index >= 5) ? memory_size : (memory_size / 2),
