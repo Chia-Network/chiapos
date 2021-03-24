@@ -49,7 +49,9 @@ PYBIND11_MODULE(chiapos, m)
                uint32_t num_buckets,
                uint32_t stripe_size,
                uint8_t num_threads,
-               bool nobitfield) {
+               bool nobitfield,
+               const std::string runtime_dir,
+               uint32_t phase1_max_processes) {
                 std::string memo_str(memo);
                 const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
                 std::string id_str(id);
@@ -68,7 +70,9 @@ PYBIND11_MODULE(chiapos, m)
                                       num_buckets,
                                       stripe_size,
                                       num_threads,
-                                      nobitfield);
+                                      nobitfield,
+                                      runtime_dir,
+                                      phase1_max_processes);
                 } catch (const std::exception &e) {
                     std::cout << "Caught plotting error: " << e.what() << std::endl;
                     throw e;

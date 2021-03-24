@@ -31,6 +31,8 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <thread>
+#include <chrono>
 
 #include "chia_filesystem.hpp"
 
@@ -47,6 +49,7 @@
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
 #include "util.hpp"
+#include "disk_util.hpp"
 
 #define B17PHASE23
 
@@ -69,7 +72,9 @@ public:
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
         uint8_t num_threads_input = 0,
-        bool nobitfield = false)
+        bool nobitfield = false,
+        std::string runtime_dir = ".",
+        uint32_t phase1_max_processes = 0)
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
@@ -153,9 +158,14 @@ public:
         }
 #endif /* defined(_WIN32) || defined(__x86_64__) */
 
+        const char is_parallel_writing_enabled = !DiskUtil::ShouldLock(final_dirname);
+
         std::cout << std::endl
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
                   << tmp2_dirname << std::endl;
+        std::cout << "Final dir: " << final_dirname << " (parallel writing: "
+                  << (is_parallel_writing_enabled ? "enabled" : "disabled") 
+                  << ")" << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
@@ -208,12 +218,18 @@ public:
 
             assert(id_len == kIdLen);
 
+            if (phase1_max_processes > 0) {
+                std::cout << std::endl;
+            }
+            MultiFileLock lock(runtime_dir, "phase1", phase1_max_processes);
+
             std::cout << std::endl
                       << "Starting phase 1/4: Forward Propagation into tmp files... "
                       << Timer::GetNow();
 
-            Timer p1;
             Timer all_phases;
+
+            Timer p1;
             std::vector<uint64_t> table_sizes = RunPhase1(
                 tmp_1_disks,
                 k,
@@ -226,6 +242,8 @@ public:
                 stripe_size,
                 num_threads);
             p1.PrintElapsed("Time for phase 1 =");
+
+            lock.Unlock();
 
             uint64_t finalsize=0;
 
@@ -373,8 +391,14 @@ public:
                 }
             } else {
                 if (!bCopied) {
+                    bool should_lock = DiskUtil::ShouldLock(final_dirname);
+                    DirectoryLock dir_lock(final_dirname, should_lock);
+
                     fs::copy(
                         tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
+
+                    dir_lock.Unlock();
+                    
                     if (ec.value() != 0) {
                         std::cout << "Could not copy " << tmp_2_filename << " to "
                                   << final_2_filename << ". Error " << ec.message()
@@ -404,11 +428,8 @@ public:
             }
 
             if (!bRenamed) {
-#ifdef _WIN32
-                Sleep(5 * 60000);
-#else
-                sleep(5 * 60);
-#endif
+                using namespace std::chrono_literals;
+                std::this_thread::sleep_for(5min);
             }
         } while (!bRenamed);
     }

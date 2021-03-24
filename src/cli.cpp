@@ -82,6 +82,8 @@ int main(int argc, char *argv[]) try {
     string memo = "0102030405";
     string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
     bool nobitfield = false;
+    uint32_t phase1_max_processes = 0;
+    string runtimedir = ".";
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
@@ -96,6 +98,8 @@ int main(int argc, char *argv[]) try {
         "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
         "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
         "e, nobitfield", "Disable bitfield", cxxopts::value<bool>(nobitfield))(
+        "p1maxproc", "Phase 1 max process count", cxxopts::value<uint32_t>(phase1_max_processes))(
+        "runtimedir", "Runtime directory", cxxopts::value<string>(runtimedir))(
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
         cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
@@ -145,7 +149,9 @@ int main(int argc, char *argv[]) try {
                 num_buckets,
                 num_stripes,
                 num_threads,
-                nobitfield);
+                nobitfield,
+                runtimedir,
+                phase1_max_processes);
     } else if (operation == "prove") {
         if (argc < 3) {
             HelpAndQuit(options);
