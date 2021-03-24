@@ -39,7 +39,8 @@
 // C1 (checkpoint values)
 // C2 (checkpoint values into)
 // C3 (deltas of f7s between C1 checkpoints)
-void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &res)
+void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &res,
+               const bool show_progress, const int max_phase4_progress_updates)
 {
     uint32_t P7_park_size = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
     uint64_t number_of_p7_parks =
@@ -80,7 +81,6 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
     std::cout << "\tStarting to write C1 and C3 tables" << std::endl;
 
     ParkBits to_write_p7;
-    const int max_phase4_progress_updates = 16;
     const int progress_update_increment = res.final_entries_written / max_phase4_progress_updates;
 
     // We read each table7 entry, which is sorted by f7, but we don't need f7 anymore. Instead,
@@ -136,7 +136,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
             }
             prev_y = entry_y;
         }
-        if (f7_position % progress_update_increment == 0) {
+        if (show_progress && f7_position % progress_update_increment == 0) {
             progress(4, f7_position, res.final_entries_written);
         }
     }
@@ -200,7 +200,5 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
         std::cout << ": 0x" << res.final_table_begin_pointers[i] << std::endl;
     }
     std::cout << std::dec;
-    progress(4, res.final_entries_written, res.final_entries_written);
-
 }
 #endif  // SRC_CPP_PHASE4_HPP

@@ -69,7 +69,8 @@ public:
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
         uint8_t num_threads_input = 0,
-        bool nobitfield = false)
+        bool nobitfield = false,
+        bool show_progress = false)
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
@@ -224,7 +225,8 @@ public:
                 num_buckets,
                 log_num_buckets,
                 stripe_size,
-                num_threads);
+                num_threads,
+                show_progress);
             p1.PrintElapsed("Time for phase 1 =");
 
             uint64_t finalsize=0;
@@ -249,7 +251,8 @@ public:
                     filename,
                     memory_size,
                     num_buckets,
-                    log_num_buckets);
+                    log_num_buckets,
+                    show_progress);
                 p2.PrintElapsed("Time for phase 2 =");
 
                 // Now we open a new file, where the final contents of the plot will be stored.
@@ -271,14 +274,15 @@ public:
                     header_size,
                     memory_size,
                     num_buckets,
-                    log_num_buckets);
+                    log_num_buckets,
+                    show_progress);
                 p3.PrintElapsed("Time for phase 3 =");
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p4;
-                b17RunPhase4(k, k + 1, tmp2_disk, res);
+                b17RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 p4.PrintElapsed("Time for phase 4 =");
                 finalsize = res.final_table_begin_pointers[11];
             }
@@ -297,7 +301,8 @@ public:
                     filename,
                     memory_size,
                     num_buckets,
-                    log_num_buckets);
+                    log_num_buckets,
+                    show_progress);
                 p2.PrintElapsed("Time for phase 2 =");
 
                 // Now we open a new file, where the final contents of the plot will be stored.
@@ -317,14 +322,15 @@ public:
                     header_size,
                     memory_size,
                     num_buckets,
-                    log_num_buckets);
+                    log_num_buckets,
+                    show_progress);
                 p3.PrintElapsed("Time for phase 3 =");
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p4;
-                RunPhase4(k, k + 1, tmp2_disk, res);
+                RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 p4.PrintElapsed("Time for phase 4 =");
                 finalsize = res.final_table_begin_pointers[11];
             }

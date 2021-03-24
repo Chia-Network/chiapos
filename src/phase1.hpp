@@ -596,7 +596,8 @@ std::vector<uint64_t> RunPhase1(
     uint32_t const num_buckets,
     uint32_t const log_num_buckets,
     uint32_t const stripe_size,
-    uint8_t const num_threads)
+    uint8_t const num_threads,
+    bool const show_progress)
 {
     std::cout << "Computing table 1" << std::endl;
     globals.stripe_size = stripe_size;
@@ -743,7 +744,9 @@ std::vector<uint64_t> RunPhase1(
 
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
-        progress(1, table_index, 6);
+        if (show_progress) {
+            progress(1, table_index, 6);
+        }
     }
     table_sizes[0] = 0;
     globals.R_sort_manager.reset();
