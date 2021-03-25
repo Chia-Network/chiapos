@@ -66,7 +66,7 @@ class DiskProver {
         // We cannot read a plot with a different format version
         if (format_description_size != kFormatDescription.size() ||
             memcmp(format_description_read, kFormatDescription.data(), format_description_size) !=0) {
-            throw std::string("Invalid format") + format_str;
+            throw std::invalid_argument("Invalid format") + format_str;
         }
 
         disk_file.read(reinterpret_cast<char*>(size_buf), 2);
@@ -537,7 +537,7 @@ class DiskProver {
         if (p7_entries.size() == 0) {
             disk_file.clear();
             disk_file.sync();
-            throw std::string("No proof of space for this challenge");
+            throw std::runtime_error("No proof of space for this challenge");
         }
 
         // Gets the 64 leaf x values, concatenated together into a k*64 bit string.

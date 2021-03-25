@@ -159,7 +159,7 @@ class Encoding {
         free(out);
         for (uint32_t i = 0; i < deltas.size(); i++) {
            if (deltas[i] == 0xff) {
-              throw std::string("Bad delta detected");
+              throw std::runtime_error("Bad delta detected");
            }
         }
         return deltas;

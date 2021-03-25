@@ -186,7 +186,7 @@ public:
             unsigned tableLog = 14;
 
             if (maxSymbolValue > 255)
-                throw "maxSymbolValue > 255";
+                throw std::invalid_argument("maxSymbolValue > 255");
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
