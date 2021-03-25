@@ -97,7 +97,7 @@ struct FileDisk {
     explicit FileDisk(const fs::path &filename)
     {
         filename_ = filename;
-        Open();
+        Open(!readOnlyFlag); // Read and Write
     }
 
     void Open(uint8_t flags = readOnlyFlag)
