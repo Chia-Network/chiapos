@@ -190,7 +190,7 @@ public:
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
-                throw FSE_getErrorName(err);
+                throw InvalidStateException(FSE_getErrorName(err));
             }
             tmCache.CTAssign(R, ct);
         }
@@ -219,7 +219,7 @@ public:
             FSE_DTable *dt = FSE_createDTable(tableLog);
             size_t err = FSE_buildDTable(dt, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
-                throw FSE_getErrorName(err);
+                throw InvalidStateException(FSE_getErrorName(err));
             }
             tmCache.DTAssign(R, dt);
         }
@@ -230,7 +230,7 @@ public:
         size_t err = FSE_decompress_usingDTable(&deltas[0], numDeltas, inp, inp_size, dt);
 
         if (FSE_isError(err)) {
-            throw FSE_getErrorName(err);
+            throw InvalidStateException(FSE_getErrorName(err));
         }
 
         for (uint32_t i = 0; i < deltas.size(); i++) {

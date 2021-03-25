@@ -113,7 +113,7 @@ class Encoding {
             FSE_CTable *ct = FSE_createCTable(maxSymbolValue, tableLog);
             size_t err = FSE_buildCTable(ct, nCount.data(), maxSymbolValue, tableLog);
             if (FSE_isError(err)) {
-                throw FSE_getErrorName(err);
+                throw std::runtime_error(FSE_getErrorName(err));
             }
             CT_MEMO[R] = ct;
         }
@@ -150,7 +150,7 @@ class Encoding {
         size_t err = FSE_decompress_usingDTable(out, numDeltas, inp, inpsize, DT_MEMO[R]);
 
         if(FSE_isError(err)) {
-            throw FSE_getErrorName(err);
+            throw std::runtime_error(FSE_getErrorName(err));
         }
 
         deltas.assign((unsigned char *) out, ((unsigned char *) out) + numDeltas);
