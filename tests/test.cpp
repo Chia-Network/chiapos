@@ -499,10 +499,14 @@ void TestProofOfSpace(
     DiskProver prover(filename);
     uint8_t* proof_data = new uint8_t[8 * k];
     uint32_t success = 0;
+    // Tries an edge case challenge with many 1s in the front, and ensures there is no segfault
+    vector<unsigned char> hash(picosha2::k_digest_size);
+    HexToBytes("fffffa2b647d4651c500076d7df4c6f352936cf293bd79c591a7b08e43d6adfb", hash.data());
+    prover.GetQualitiesForChallenge(hash.data());
+
     for (uint32_t i = 0; i < iterations; i++) {
         vector<unsigned char> hash_input = intToBytes(i, 4);
         vector<unsigned char> hash(picosha2::k_digest_size);
-        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
         vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
         Verifier verifier = Verifier();
         for (uint32_t index = 0; index < qualities.size(); index++) {
