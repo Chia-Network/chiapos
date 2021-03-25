@@ -504,7 +504,7 @@ void TestProofOfSpace(
         vector<unsigned char> hash(picosha2::k_digest_size);
         if (i == 0) {
             // Tries an edge case challenge with many 1s in the front
-            HexToBytes("fffffa2b647d4651c500076d7df4c6f352936cf293bd79c591a7b08e43d6adfb", hash.data());
+            HexToBytes("0xfffffa2b647d4651c500076d7df4c6f352936cf293bd79c591a7b08e43d6adfb", hash.data());
         } else {
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
         }
