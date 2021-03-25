@@ -339,7 +339,7 @@ private:
 
             // In the last park, we might have extra deltas
             if ((int64_t)curr_p7_pos >= (int64_t)((c1_index + 1) * kCheckpoint1Interval) - 1 ||
-                curr_f7 >= (((uint64_t)1) << k)) {
+                curr_f7 >= (((uint64_t)1) << k) - 1) {
                 return p7_positions;
             }
         }
