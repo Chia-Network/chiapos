@@ -264,13 +264,8 @@ size_t FSE_decompress_usingDTable(void* dst, size_t originalSize,
                             const void* cSrc, size_t cSrcSize,
                             const FSE_DTable* dt)
 {
-    const void* ptr = dt;
-    const FSE_DTableHeader* DTableH = (const FSE_DTableHeader*)ptr;
-    const U32 fastMode = DTableH->fastMode;
-
-    /* select fast mode (static) */
-    if (fastMode) return FSE_decompress_usingDTable_generic(dst, originalSize, cSrc, cSrcSize, dt, 1);
-    return FSE_decompress_usingDTable_generic(dst, originalSize, cSrc, cSrcSize, dt, 0);
+    const FSE_DTableHeader* DTableH = (const FSE_DTableHeader*)dt;
+    return FSE_decompress_usingDTable_generic(dst, originalSize, cSrc, cSrcSize, dt, DTableH->fastMode);
 }
 
 
