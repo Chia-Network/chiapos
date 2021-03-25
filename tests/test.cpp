@@ -507,6 +507,7 @@ void TestProofOfSpace(
     for (uint32_t i = 0; i < iterations; i++) {
         vector<unsigned char> hash_input = intToBytes(i, 4);
         vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
         vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
         Verifier verifier = Verifier();
         for (uint32_t index = 0; index < qualities.size(); index++) {
