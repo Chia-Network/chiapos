@@ -97,10 +97,10 @@ struct FileDisk {
     explicit FileDisk(const fs::path &filename)
     {
         filename_ = filename;
-        Open(!readOnlyFlag); // Read and Write
+        Open(writeFlag);
     }
 
-    void Open(uint8_t flags = readOnlyFlag)
+    void Open(uint8_t flags = 0)
     {
         // if the file is already open, don't do anything
         if (f_) return;
@@ -108,9 +108,9 @@ struct FileDisk {
         // Opens the file for reading and writing
         do {
 #ifdef _WIN32
-            f_ = ::_wfopen(filename_.c_str(), (flags & readOnlyFlag) ? L"r+b" : L"w+b");
+            f_ = ::_wfopen(filename_.c_str(), (flags & writeFlag) ? L"w+b" : L"r+b");
 #else
-            f_ = ::fopen(filename_.c_str(), (flags & readOnlyFlag) ? "r+b" : "w+b");
+            f_ = ::fopen(filename_.c_str(), (flags & writeFlag) ? "w+b" : "r+b");
 #endif
             if (f_ == nullptr) {
                 std::string error_message =
@@ -148,7 +148,7 @@ struct FileDisk {
 
     void Read(uint64_t begin, uint8_t *memcache, uint64_t length)
     {
-        Open(readOnlyFlag | retryOpenFlag);
+        Open(retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::read, begin, length);
 #endif
@@ -178,7 +178,7 @@ struct FileDisk {
 
     void Write(uint64_t begin, const uint8_t *memcache, uint64_t length)
     {
-        Open(retryOpenFlag);
+        Open(writeFlag | retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::write, begin, length);
 #endif
@@ -229,7 +229,7 @@ private:
     fs::path filename_;
     FILE *f_ = nullptr;
 
-    static const uint8_t readOnlyFlag = 0b01;
+    static const uint8_t writeFlag = 0b01;
     static const uint8_t retryOpenFlag = 0b10;
 };
 
