@@ -97,39 +97,32 @@ struct FileDisk {
     explicit FileDisk(const fs::path &filename)
     {
         filename_ = filename;
-        Open(false);
+        Open();
     }
 
-    void Open(bool read_only = true, bool retry = false)
+    void Open(uint8_t flags = 0)
     {
         // if the file is already open, don't do anything
         if (f_) return;
 
         // Opens the file for reading and writing
-        if (retry) {
-            do {
+        do {
 #ifdef _WIN32
-                f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
+            f_ = ::_wfopen(filename_.c_str(), (flags & readOnlyFlag) ? L"r+b" : L"w+b");
 #else
-                f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
-#endif
-                if (f_ == nullptr) {
-                    std::cout << "Could not open " << filename_ << ": " << ::strerror(errno)
-                              << ". Retrying in five minutes." << std::endl;
-                    std::this_thread::sleep_for(5min);
-                }
-            } while (f_ == nullptr);
-        } else {
-#ifdef _WIN32
-            f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
-#else
-            f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
+            f_ = ::fopen(filename_.c_str(), (flags & readOnlyFlag) ? "r+b" : "w+b");
 #endif
             if (f_ == nullptr) {
-                throw InvalidValueException(
-                    "Could not open " + filename_.string() + ": " + ::strerror(errno));
+                std::string error_message =
+                    "Could not open " + filename_.string() + ": " + ::strerror(errno) + ".";
+                if (flags & retryOpenFlag) {
+                    std::cout << error_message << " Retrying in five minutes." << std::endl;
+                    std::this_thread::sleep_for(5min);
+                } else {
+                    throw InvalidValueException(error_message);
+                }
             }
-        }
+        } while (f_ == nullptr);
     }
 
     FileDisk(FileDisk &&fd)
@@ -155,7 +148,7 @@ struct FileDisk {
 
     void Read(uint64_t begin, uint8_t *memcache, uint64_t length)
     {
-        Open(true, true);
+        Open(readOnlyFlag | retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::read, begin, length);
 #endif
@@ -185,7 +178,7 @@ struct FileDisk {
 
     void Write(uint64_t begin, const uint8_t *memcache, uint64_t length)
     {
-        Open(false, true);
+        Open(retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::write, begin, length);
 #endif
@@ -235,6 +228,9 @@ private:
 
     fs::path filename_;
     FILE *f_ = nullptr;
+
+    static const uint8_t readOnlyFlag = 0b01;
+    static const uint8_t retryOpenFlag = 0b10;
 };
 
 struct BufferedDisk : Disk
