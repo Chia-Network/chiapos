@@ -100,7 +100,7 @@ struct FileDisk {
         Open();
     }
 
-    void Open(uint8_t flags = 0)
+    void Open(uint8_t flags = readOnlyFlag)
     {
         // if the file is already open, don't do anything
         if (f_) return;
