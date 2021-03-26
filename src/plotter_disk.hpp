@@ -364,6 +364,7 @@ public:
 
         bool bCopied = false;
         bool bRenamed = false;
+        Timer copy;
         do {
             std::error_code ec;
             if (tmp_2_filename.parent_path() == final_filename.parent_path()) {
@@ -388,6 +389,7 @@ public:
                     } else {
                         std::cout << "Copied final file from " << tmp_2_filename << " to "
                                   << final_2_filename << std::endl;
+                        copy.PrintElapsed("Copy time =");
                         bCopied = true;
 
                         bool removed_2 = fs::remove(tmp_2_filename);
