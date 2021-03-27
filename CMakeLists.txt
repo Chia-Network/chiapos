@@ -13,6 +13,23 @@ endif()
 
 project(chiapos C CXX ASM)
 
+# CMake 3.14+
+include(FetchContent)
+
+FetchContent_Declare(
+  pybind11-src
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG        v2.6.2
+)
+FetchContent_MakeAvailable(pybind11-src)
+
+FetchContent_Declare(
+  cxxopts
+  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+  GIT_TAG        v2.2.1
+)
+FetchContent_MakeAvailable(cxxopts)
+
 set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
 set(FSE_FILES
     ${FSE_LIB}/fse_compress.c
@@ -24,22 +41,13 @@ set(FSE_FILES
 include_directories(
   ${INCLUDE_DIRECTORIES}
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
+  ${cxxopts_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
   )
 
 add_library(fse ${FSE_FILES})
-
-# CMake 3.14+
-include(FetchContent)
-
-FetchContent_Declare(
-  pybind11-src
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.6.2
-)
-FetchContent_MakeAvailable(pybind11-src)
 
 IF (MSVC)
 IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")

@@ -15,7 +15,7 @@
 #include <ctime>
 #include <set>
 
-#include "../lib/include/cxxopts.hpp"
+#include "cxxopts.hpp"
 #include "../lib/include/picosha2.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
