@@ -22,9 +22,11 @@
 #include <utility>
 #include <vector>
 
-#include "../lib/FiniteStateEntropy/lib/fse.h"
-#include "../lib/FiniteStateEntropy/lib/hist.h"
-#include "../lib/FiniteStateEntropy/lib/error_public.h"
+// From FiniteStateEntropy
+#include "fse.h"
+#include "hist.h"
+#include "error_public.h"
+
 #include "bits.hpp"
 #include "exceptions.hpp"
 #include "util.hpp"
@@ -33,7 +35,7 @@
 
 class TMemoCache {
 public:
-    ~TMemoCache() 
+    ~TMemoCache()
     {
         // Clean up global entries on destruction
         std::map<double, FSE_CTable *>::iterator itc;
@@ -56,7 +58,7 @@ public:
     {
         std::lock_guard<std::mutex> l(memoMutex);
         return (DT_MEMO.find(R) != DT_MEMO.end());
-    }   
+    }
 
     void CTAssign(double R, FSE_CTable *ct)
     {
