@@ -146,7 +146,7 @@ class FileDisk : public Disk {
 
         if (!f_.is_open()) {
             std::cout << "Fialed to open" << std::endl;
-            throw std::string("File not opened correct");
+            throw std::runtime_error("File not opened correct");
         }
     }
 

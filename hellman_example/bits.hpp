@@ -205,7 +205,7 @@ template <class T> class BitsGeneric {
     // Concatenates two Bits objects together.
     BitsGeneric<T> operator+(const BitsGeneric<T>& b) const {
         if (GetSize() + b.GetSize() > kMaxSizeBits) {
-            throw std::string("The number of bits exceeds the limit.");
+            throw std::invalid_argument("The number of bits exceeds the limit.");
         }
         BitsGeneric<T> result;
         if (values_.size() > 0) {
@@ -293,7 +293,7 @@ template <class T> class BitsGeneric {
                 }
         }
         if (all_zero) {
-            throw std::string("Overflow, negative number");
+            throw std::runtime_error("Overflow, negative number");
         }
         return *this;
     }
@@ -442,7 +442,7 @@ template <class T> class BitsGeneric {
         if (values_.size() != 1) {
             std::cout << "Number of values is: " << values_.size() << std::endl;
             std::cout << "Size of bits is: " << GetSize() << std::endl;
-            throw std::string("Number doesn't fit into a 128-bit type.");
+            throw std::runtime_error("Number doesn't fit into a 128-bit type.");
         }
         return values_[0];
     }
@@ -530,7 +530,7 @@ bool operator==(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
 template <class T>
 bool operator<(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
     if (lhs.GetSize() != rhs.GetSize())
-        throw std::string("Different sizes!");
+        throw std::invalid_argument("Different sizes!");
     for (uint16_t i = 0; i < lhs.values_.size(); i++) {
         if (lhs.values_[i] < rhs.values_[i])
             return true;
@@ -543,7 +543,7 @@ bool operator<(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
 template <class T>
 bool operator>(const BitsGeneric<T>& lhs, const BitsGeneric<T>& rhs) {
     if (lhs.GetSize() != rhs.GetSize())
-        throw std::string("Different sizes!");
+        throw std::invalid_argument("Different sizes!");
     for (uint16_t i = 0; i < lhs.values_.size(); i++) {
         if (lhs.values_[i] > rhs.values_[i])
             return true;
