@@ -11,7 +11,7 @@
 > #  define FSE_DEFAULT_MEMORY_USAGE 13
 ```
 
-An alternate CMake fetch conten based CMakeLists.txt for the chiapos project is included as fetch-content-CMakeLists.txt should we revisit this fork strategy.
+An alternate CMake fetch content based CMakeLists.txt for the chiapos project is included as fetch-content-CMakeLists.txt should we revisit this fork strategy. It however does not address the changes needed to fse.h from above to keep it compliant with the current plot standard.
 
 New Generation Entropy coders
 =============================
