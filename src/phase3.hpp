@@ -142,6 +142,7 @@ Phase3Results RunPhase3(
 
     uint64_t final_entries_written = 0;
     uint32_t right_entry_size_bytes = 0;
+    uint32_t new_pos_entry_size_bytes = 0;
 
     std::unique_ptr<SortManager> L_sort_manager;
     std::unique_ptr<SortManager> R_sort_manager;
@@ -290,7 +291,7 @@ Phase3Results RunPhase3(
                         left_reader += left_entry_size_bytes;
                     } else {
                         left_entry_disk_buf = L_sort_manager->ReadEntry(left_reader);
-                        left_reader += left_entry_size_bytes;
+                        left_reader += new_pos_entry_size_bytes;
                     }
                     left_reader_count++;
                 }
@@ -353,6 +354,7 @@ Phase3Results RunPhase3(
 
         // Flush cache so all entries are written to buckets
         R_sort_manager->FlushCache();
+        R_sort_manager->FreeMemory();
 
         Timer computation_pass_2_timer;
 
@@ -368,17 +370,21 @@ Phase3Results RunPhase3(
         }
 
         // In the second pass we read from R sort manager and write to L sort
-        // manager, and they both handle table (table_index + 1)'s data.
+        // manager, and they both handle table (table_index + 1)'s data. The
+        // newly written table consists of (sort_key, new_pos). Add one extra
+        // bit for 'new_pos' to the 7-th table as it may have more than 2^k
+        // entries.
+        new_pos_entry_size_bytes = cdiv(2 * k + (table_index == 6 ? 1 : 0), 8);
+
         // For tables below 6 we can only use a half of memory_size since it
         // will be sorted in the first pass of the next iteration together with
         // the next table, which will use the other half of memory_size.
         // Tables 6 and 7 will be sorted alone, so we use all memory for them.
-        R_sort_manager->FreeMemory();
         L_sort_manager = std::make_unique<SortManager>(
             (table_index >= 5) ? memory_size : (memory_size / 2),
             num_buckets,
             log_num_buckets,
-            right_entry_size_bytes,
+            new_pos_entry_size_bytes,
             tmp_dirname,
             filename + ".p3s.t" + std::to_string(table_index + 1),
             0,
@@ -508,7 +514,7 @@ Phase3Results RunPhase3(
     return Phase3Results{
         final_table_begin_pointers,
         final_entries_written,
-        right_entry_size_bytes * 8,
+        new_pos_entry_size_bytes * 8,
         header_size,
         std::move(L_sort_manager)};
 }
