@@ -30,6 +30,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cxxopts)
 
+FetchContent_Declare(
+  gulrak
+  GIT_REPOSITORY https://github.com/gulrak/filesystem.git
+  GIT_TAG        v1.5.4
+)
+FetchContent_MakeAvailable(gulrak)
+
 set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
 set(FSE_FILES
     ${FSE_LIB}/fse_compress.c
@@ -42,6 +49,7 @@ include_directories(
   ${INCLUDE_DIRECTORIES}
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
   ${cxxopts_SOURCE_DIR}/include
+  ${gulrak_SOURCE_DIR}/include/ghc
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test

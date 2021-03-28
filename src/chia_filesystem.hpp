@@ -17,7 +17,7 @@
 
 #ifdef __APPLE__
 // std::filesystem is not supported on Mojave
-#include "../lib/include/filesystem.hpp"
+#include "filesystem.hpp"
 namespace fs = ghc::filesystem;
 #else
 #ifdef __has_include
