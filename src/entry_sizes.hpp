@@ -70,6 +70,13 @@ public:
         }
     }
 
+    // Get size of entries containing (sort_key, pos, offset). Such entries are
+    // written to table 7 in phase 1 and to tables 2-7 in phase 2.
+    static uint32_t GetKeyPosOffsetSize(uint8_t k)
+    {
+        return cdiv(2 * k + kOffsetSize, 8);
+    }
+
     // Calculates the size of one C3 park. This will store bits for each f7 between
     // two C1 checkpoints, depending on how many times that f7 is present. For low
     // values of k, we need extra space to account for the additional variability.

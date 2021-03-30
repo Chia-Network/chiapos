@@ -181,6 +181,7 @@ Phase3Results RunPhase3(
         uint32_t right_sort_key_size = k;
 
         uint32_t left_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
+        uint32_t p2_entry_size_bytes = EntrySizes::GetKeyPosOffsetSize(k);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, false);
 
         uint64_t left_reader = 0;
@@ -242,8 +243,8 @@ Phase3Results RunPhase3(
                         }
                         // The right entries are in the format from backprop, (sort_key, pos,
                         // offset)
-                        uint8_t const* right_entry_buf = right_disk.Read(right_reader, right_entry_size_bytes);
-                        right_reader += right_entry_size_bytes;
+                        uint8_t const* right_entry_buf = right_disk.Read(right_reader, p2_entry_size_bytes);
+                        right_reader += p2_entry_size_bytes;
                         right_reader_count++;
 
                         entry_sort_key =

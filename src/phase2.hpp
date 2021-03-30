@@ -60,6 +60,7 @@ Phase2Results RunPhase2(
     uint8_t const pos_offset_shift = write_counter_shift - pos_offset_size;
     uint8_t const f7_shift = 128 - k;
     uint8_t const t7_pos_offset_shift = f7_shift - pos_offset_size;
+    uint8_t const new_entry_size = EntrySizes::GetKeyPosOffsetSize(k);
 
     std::vector<uint64_t> new_table_sizes(8, 0);
     new_table_sizes[7] = table_sizes[7];
@@ -102,7 +103,7 @@ Phase2Results RunPhase2(
         next_bitfield.clear();
 
         int64_t const table_size = table_sizes[table_index];
-        int16_t const entry_size = EntrySizes::GetMaxEntrySize(k, table_index, false);
+        int16_t const entry_size = cdiv(k + kOffsetSize + (table_index == 7 ? k : 0), 8);
 
         BufferedDisk disk(&tmp_1_disks[table_index], table_size * entry_size);
 
@@ -157,7 +158,7 @@ Phase2Results RunPhase2(
             table_index == 2 ? memory_size : memory_size / 2,
             num_buckets,
             log_num_buckets,
-            uint16_t(entry_size),
+            new_entry_size,
             tmp_dirname,
             filename + ".p2.t" + std::to_string(table_index),
             uint32_t(k),
@@ -265,7 +266,7 @@ Phase2Results RunPhase2(
 
     return {
         FilteredDisk(std::move(disk), std::move(current_bitfield), entry_size)
-        , BufferedDisk(&tmp_1_disks[7], new_table_sizes[7] * EntrySizes::GetMaxEntrySize(k, 7, false))
+        , BufferedDisk(&tmp_1_disks[7], new_table_sizes[7] * new_entry_size)
         , std::move(output_files)
         , std::move(new_table_sizes)
     };
