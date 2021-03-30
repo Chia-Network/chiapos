@@ -597,6 +597,7 @@ std::vector<uint64_t> RunPhase1(
     uint32_t const log_num_buckets,
     uint32_t const stripe_size,
     uint8_t const num_threads,
+    bool const enable_bitfield,
     bool const show_progress)
 {
     std::cout << "Computing table 1" << std::endl;
@@ -652,8 +653,18 @@ std::vector<uint64_t> RunPhase1(
 
         // Determines how many bytes the entries in our left and right tables will take up.
         uint32_t const entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, true);
-        uint32_t const compressed_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
+        uint32_t compressed_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, true);
+
+        if (enable_bitfield && table_index != 1) {
+            // We only write pos and offset to tables 2-6 after removing
+            // metadata
+            compressed_entry_size_bytes = cdiv(k + kOffsetSize, 8);
+            if (table_index == 6) {
+                // Table 7 will contain f7, pos and offset
+                right_entry_size_bytes = EntrySizes::GetKeyPosOffsetSize(k);
+            }
+        }
 
         std::cout << "Computing table " << int{table_index + 1} << std::endl;
         // Start of parallel execution
