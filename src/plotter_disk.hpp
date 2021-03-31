@@ -73,12 +73,11 @@ public:
         bool show_progress = false)
     {
         // Increases the open file limit, we will open a lot of files.
-#ifndef _WIN32
-        struct rlimit the_limit = {600, 600};
+        struct rlimit the_limit = {4096, 4096};
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
             std::cout << "setrlimit failed" << std::endl;
         }
-#endif
+
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             throw InvalidValueException("Plot size k= " + std::to_string(k) + " is invalid");
         }
