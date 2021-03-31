@@ -210,7 +210,7 @@ std::vector<uint64_t> b17RunPhase2(
                             entry_offset =
                                 Util::SliceInt64FromBytes(right_entry_buf, pos_size, kOffsetSize);
                             entry_sort_key = Util::SliceInt64FromBytes(
-                                right_entry_buf, pos_size + kOffsetSize, k + 1);
+                                right_entry_buf, pos_size + kOffsetSize, k);
                         }
                     } else if (cached_entry_pos == current_pos) {
                         // We have a cached entry at this position
@@ -295,7 +295,7 @@ std::vector<uint64_t> b17RunPhase2(
                             // use this instead of (y + pos + offset) since its smaller.
                             new_left_entry += Bits(entry_pos, pos_size);
                             new_left_entry += Bits(entry_offset, kOffsetSize);
-                            new_left_entry += Bits(left_entry_counter, k + 1);
+                            new_left_entry += Bits(left_entry_counter, k);
 
                             // If we are not taking up all the bits, make sure they are zeroed
                             if (Util::ByteAlign(new_left_entry.GetSize()) < left_entry_size_bytes * 8) {
@@ -348,7 +348,7 @@ std::vector<uint64_t> b17RunPhase2(
                             ? Bits(old_sort_keys[write_pointer_pos % kReadMinusWrite][counter], k)
                             : Bits(
                                   old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
-                                  k + 1);
+                                  k);
                     new_right_entry += new_pos_bin;
                     // match_positions.push_back(std::make_pair(new_pos, new_offset_pos));
                     new_right_entry.AppendValue(new_offset_pos - new_pos, kOffsetSize);

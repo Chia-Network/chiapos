@@ -62,6 +62,7 @@ b17Phase3Results b17RunPhase3(
     const bool show_progress)
 {
     uint8_t pos_size = k;
+    uint8_t line_point_size = 2 * k - 1;
 
     std::vector<uint64_t> final_table_begin_pointers(12, 0);
     final_table_begin_pointers[1] = header_size;
@@ -103,7 +104,7 @@ b17Phase3Results b17RunPhase3(
 
         // Sort key for table 7 is just y, which is k bits. For all other tables it can
         // be higher than 2^k and therefore k+1 bits are used.
-        uint32_t right_sort_key_size = table_index == 6 ? k : k + 1;
+        uint32_t right_sort_key_size = k;
 
         uint32_t left_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, false);
@@ -258,7 +259,7 @@ b17Phase3Results b17RunPhase3(
                 } else {
                     // k+1 bits in case it overflows
                     left_new_pos[current_pos % kCachedPositionsSize] =
-                        Util::SliceInt64FromBytes(left_entry_disk_buf, k + 1, k + 1);
+                        Util::SliceInt64FromBytes(left_entry_disk_buf, right_sort_key_size, k);
                 }
             }
 
@@ -289,7 +290,7 @@ b17Phase3Results b17RunPhase3(
                             abort();
                         }
                     }
-                    Bits to_write = Bits(line_point, 2 * k);
+                    Bits to_write = Bits(line_point, line_point_size);
                     to_write += Bits(
                         old_sort_keys[write_pointer_pos % kReadMinusWrite][counter],
                         right_sort_key_size);
@@ -357,19 +358,20 @@ b17Phase3Results b17RunPhase3(
         // groups(parks), with a checkpoint in each group.
         Bits right_entry_bits;
         int added_to_cache = 0;
+        uint8_t index_size = table_index == 6 ? k + 1 : k;
         for (uint64_t index = 0; index < total_r_entries; index++) {
             right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader, 2);
             right_reader += right_entry_size_bytes;
             right_reader_count++;
 
             // Right entry is read as (line_point, sort_key)
-            uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, 2 * k);
+            uint128_t line_point = Util::SliceInt128FromBytes(right_reader_entry_buf, 0, line_point_size);
             uint64_t sort_key =
-                Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
+                Util::SliceInt64FromBytes(right_reader_entry_buf, line_point_size, right_sort_key_size);
 
             // Write the new position (index) and the sort key
             Bits to_write = Bits(sort_key, right_sort_key_size);
-            to_write += Bits(index, k + 1);
+            to_write += Bits(index, index_size);
 
             L_sort_manager->AddToCache(to_write);
             added_to_cache++;
