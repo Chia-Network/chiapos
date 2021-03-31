@@ -26,7 +26,7 @@ const uint32_t kOffsetSize = 10;
 // Max matches a single entry can have, used for hardcoded memory allocation
 const uint32_t kMaxMatchesSingleEntry = 30;
 const uint32_t kMinBuckets = 16;
-const uint32_t kMaxBuckets = 128;
+const uint32_t kMaxBuckets = 1024;
 
 // During backprop and compress, the write pointer is ahead of the read pointer
 // Note that the large the offset, the higher these values must be
