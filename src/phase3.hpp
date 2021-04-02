@@ -130,8 +130,8 @@ Phase3Results RunPhase3(
     uint32_t log_num_buckets,
     const bool show_progress)
 {
-    uint8_t pos_size = k;
-    uint8_t line_point_size = 2 * k - 1;
+    uint8_t const pos_size = k;
+    uint8_t const line_point_size = 2 * k - 1;
 
     std::vector<uint64_t> final_table_begin_pointers(12, 0);
     final_table_begin_pointers[1] = header_size;
