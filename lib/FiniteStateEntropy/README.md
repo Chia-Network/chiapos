@@ -1,9 +1,24 @@
+**Note:** This static version is a fork of https://github.com/Cyan4973/FiniteStateEntropy/commit/510d22b221c8c02f281c35f9edeb606baacef27b with the following changes made to fse.h
+
+```
+662c662
+< #  define FSE_MAX_MEMORY_USAGE 16
+---
+> #  define FSE_MAX_MEMORY_USAGE 14
+665c665
+< #  define FSE_DEFAULT_MEMORY_USAGE 16
+---
+> #  define FSE_DEFAULT_MEMORY_USAGE 13
+```
+
+An alternate CMake fetch content based CMakeLists.txt for the chiapos project is included as fetch-content-CMakeLists.txt should we revisit this fork strategy. It however does not address the changes needed to fse.h from above to keep it compliant with the current plot standard.
+
 New Generation Entropy coders
 =============================
 
 This library proposes two high speed entropy coders :
 
-__Huff0__, a [Huffman codec](https://en.wikipedia.org/wiki/Huffman_coding) designed for modern CPU, 
+__Huff0__, a [Huffman codec](https://en.wikipedia.org/wiki/Huffman_coding) designed for modern CPU,
 featuring OoO (Out of Order) operations on multiple ALU (Arithmetic Logic Unit),
 achieving extremely fast compression and decompression speeds.
 
@@ -51,4 +66,3 @@ Branch Policy
 External contributions are welcomed and encouraged.
 The "master" branch is only meant to host stable releases.
 The "dev" branch is the one where all contributions are merged. If you want to propose a patch, please commit into "dev" branch or dedicated feature branch. Direct commit to "master" are not permitted.
-

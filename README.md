@@ -90,13 +90,13 @@ installation is then available via `pip install chiapos` e.g.
 
 ## Contributing and workflow
 Contributions are welcome and more details are available in chia-blockchain's
-[CONTRIBUTING.md](https://github.com/Chia-Network/chia-blockchain/blob/master/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/Chia-Network/chia-blockchain/blob/main/CONTRIBUTING.md).
 
-The master branch is usually the currently released latest version on PyPI.
+The main branch is usually the currently released latest version on PyPI.
 Note that at times chiapos will be ahead of the release version that
-chia-blockchain requires in it's master/release version in preparation for a
-new chia-blockchain release. Please branch or fork master and then create a
-pull request to the master branch. Linear merging is enforced on master and
+chia-blockchain requires in it's main/release version in preparation for a
+new chia-blockchain release. Please branch or fork main and then create a
+pull request to the main branch. Linear merging is enforced on main and
 merging requires a completed review. PRs will kick off a GitHub actions ci build
 and analysis of chiapos at
 [lgtm.com](https://lgtm.com/projects/g/Chia-Network/chiapos/?mode=list). Please

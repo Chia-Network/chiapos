@@ -24,20 +24,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11-src)
 
 FetchContent_Declare(
-  cxxopts
-  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-  GIT_TAG        v2.2.1
+  fse
+  GIT_REPOSITORY https://github.com/Cyan4973/FiniteStateEntropy.git
+  GIT_TAG        510d22b221c8c02f281c35f9edeb606baacef27b
 )
-FetchContent_MakeAvailable(cxxopts)
+FetchContent_MakeAvailable(fse)
 
-FetchContent_Declare(
-  gulrak
-  GIT_REPOSITORY https://github.com/gulrak/filesystem.git
-  GIT_TAG        v1.5.4
-)
-FetchContent_MakeAvailable(gulrak)
-
-set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
+set(FSE_LIB ${fse_SOURCE_DIR}/lib)
 set(FSE_FILES
     ${FSE_LIB}/fse_compress.c
     ${FSE_LIB}/fse_decompress.c
@@ -48,9 +41,7 @@ set(FSE_FILES
 include_directories(
   ${INCLUDE_DIRECTORIES}
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
-  ${cxxopts_SOURCE_DIR}/include
-  ${gulrak_SOURCE_DIR}/include/ghc
-  ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
+  ${FSE_LIB}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
   )

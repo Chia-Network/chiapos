@@ -20,6 +20,7 @@
 #include "exceptions.hpp"
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
+#include "progress.hpp"
 
 // Results of phase 3. These are passed into Phase 4, so the checkpoint tables
 // can be properly built.
@@ -59,8 +60,8 @@ void WriteParkToFile(
     uint64_t writer = table_start + park_index * park_size_bytes;
     uint8_t *index = park_buffer;
 
-    Bits first_line_point_bits(first_line_point, 2 * k);
-    first_line_point_bits.ToBytes(index);
+    first_line_point <<= 128 - 2 * k;
+    Util::IntTo16Bytes(index, first_line_point);
     index += EntrySizes::CalculateLinePointSize(k);
 
     // We use ParkBits instead of Bits since it allows storing more data
@@ -126,7 +127,8 @@ Phase3Results RunPhase3(
     uint32_t header_size,
     uint64_t memory_size,
     uint32_t num_buckets,
-    uint32_t log_num_buckets)
+    uint32_t log_num_buckets,
+    const bool show_progress)
 {
     uint8_t pos_size = k;
 
@@ -188,8 +190,10 @@ Phase3Results RunPhase3(
             L_sort_manager->FreeMemory();
         }
 
+        // We read only from this SortManager during the second pass, so all
+        // memory is available
         R_sort_manager = std::make_unique<SortManager>(
-            (table_index == 1 || table_index == 6) ? memory_size : (memory_size / 2),
+            memory_size,
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,
@@ -361,11 +365,15 @@ Phase3Results RunPhase3(
             L_sort_manager.reset();
         }
 
-        // L sort manager will be used for the writer, and R sort manager will be used for the
-        // reader
+        // In the second pass we read from R sort manager and write to L sort
+        // manager, and they both handle table (table_index + 1)'s data.
+        // For tables below 6 we can only use a half of memory_size since it
+        // will be sorted in the first pass of the next iteration together with
+        // the next table, which will use the other half of memory_size.
+        // Tables 6 and 7 will be sorted alone, so we use all memory for them.
         R_sort_manager->FreeMemory();
         L_sort_manager = std::make_unique<SortManager>(
-            (table_index == 6) ? memory_size : (memory_size / 2),
+            (table_index >= 5) ? memory_size : (memory_size / 2),
             num_buckets,
             log_num_buckets,
             right_entry_size_bytes,
@@ -386,8 +394,9 @@ Phase3Results RunPhase3(
         // Now we will write on of the final tables, since we have a table sorted by line point.
         // The final table will simply store the deltas between each line_point, in fixed space
         // groups(parks), with a checkpoint in each group.
-        Bits right_entry_bits;
         int added_to_cache = 0;
+        uint8_t const sort_key_shift = 128 - right_sort_key_size;
+        uint8_t const index_shift = sort_key_shift - (k + 1);
         for (uint64_t index = 0; index < total_r_entries; index++) {
             right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader);
             right_reader += right_entry_size_bytes;
@@ -399,10 +408,12 @@ Phase3Results RunPhase3(
                 Util::SliceInt64FromBytes(right_reader_entry_buf, 2 * k, right_sort_key_size);
 
             // Write the new position (index) and the sort key
-            Bits to_write = Bits(sort_key, right_sort_key_size);
-            to_write += Bits(index, k + 1);
+            uint128_t to_write = (uint128_t)sort_key << sort_key_shift;
+            to_write |= (uint128_t)index << index_shift;
 
-            L_sort_manager->AddToCache(to_write);
+            uint8_t bytes[16];
+            Util::IntTo16Bytes(bytes, to_write);
+            L_sort_manager->AddToCache(bytes);
             added_to_cache++;
 
             // Every EPP entries, writes a park
@@ -485,6 +496,7 @@ Phase3Results RunPhase3(
 
         left_disk.FreeMemory();
         right_disk.FreeMemory();
+        if (show_progress) { progress(3, table_index, 6); }
     }
 
     L_sort_manager->FreeMemory();

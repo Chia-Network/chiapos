@@ -15,7 +15,7 @@
 #include <ctime>
 #include <set>
 
-#include "../lib/include/cxxopts.hpp"
+#include "cxxopts.hpp"
 #include "../lib/include/picosha2.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) try {
     string memo = "0102030405";
     string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
     bool nobitfield = false;
+    bool show_progress = false;
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
@@ -98,7 +99,10 @@ int main(int argc, char *argv[]) try {
         "e, nobitfield", "Disable bitfield", cxxopts::value<bool>(nobitfield))(
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
-        cxxopts::value<uint32_t>(buffmegabytes))("help", "Print help");
+        cxxopts::value<uint32_t>(buffmegabytes))(
+        "p, progress", "Display progress percentage during plotting",
+        cxxopts::value<bool>(show_progress))(
+        "help", "Print help");
 
     auto result = options.parse(argc, argv);
 
@@ -145,7 +149,8 @@ int main(int argc, char *argv[]) try {
                 num_buckets,
                 num_stripes,
                 num_threads,
-                nobitfield);
+                nobitfield,
+                show_progress);
     } else if (operation == "prove") {
         if (argc < 3) {
             HelpAndQuit(options);
@@ -259,6 +264,7 @@ int main(int argc, char *argv[]) try {
         }
         std::cout << "Total success: " << success << "/" << iterations << ", "
                   << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
+        if (show_progress) { progress(4, 1, 1); }
     } else {
         cout << "Invalid operation. Use create/prove/verify/check" << endl;
     }

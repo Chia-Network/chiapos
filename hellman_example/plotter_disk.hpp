@@ -243,7 +243,7 @@ class DiskPlotter {
         // it is only present during plotting.
         std::ofstream plot_file(plot_filename, std::ios::out | std::ios::trunc | std::ios::binary);
         if (!plot_file.is_open()) {
-            throw std::string("File not opened correct");
+            throw std::runtime_error("File not opened correct");
         }
         uint32_t header_size = WriteHeader(plot_file, k, id, memo, memo_len);
 
@@ -897,7 +897,7 @@ class DiskPlotter {
         // In this phase we open a new file, where the final contents of the plot will be stored.
         std::ofstream header_writer(filename, std::ios::out | std::ios::trunc | std::ios::binary);
         if (!header_writer.is_open()) {
-            throw std::string("Final file not opened correct");
+            throw std::runtime_error("Final file not opened correct");
         }
         uint32_t header_size = WriteHeader(header_writer, k, id, memo, memo_len);
 
@@ -1436,7 +1436,7 @@ class DiskPlotter {
 
         std::ofstream filename_stream(filename, std::ios::out | std::ios::trunc | std::ios::binary);
         if (!filename_stream.is_open()) {
-            throw std::string("File not opened correct");
+            throw std::runtime_error("File not opened correct");
         }
         filename_stream.close();
 

@@ -20,6 +20,7 @@
 #include "sort_manager.hpp"
 #include "bitfield.hpp"
 #include "bitfield_index.hpp"
+#include "progress.hpp"
 
 struct Phase2Results
 {
@@ -48,11 +49,17 @@ Phase2Results RunPhase2(
     const std::string &filename,
     uint64_t memory_size,
     uint32_t const num_buckets,
-    uint32_t const log_num_buckets)
+    uint32_t const log_num_buckets,
+    bool const show_progress)
 {
     // An extra bit is used, since we may have more than 2^k entries in a table. (After pruning,
     // each table will have 0.8*2^k or fewer entries).
     uint8_t const pos_size = k;
+    uint8_t const pos_offset_size = pos_size + kOffsetSize;
+    uint8_t const write_counter_shift = 128 - (k + 1);
+    uint8_t const pos_offset_shift = write_counter_shift - pos_offset_size;
+    uint8_t const f7_shift = 128 - k;
+    uint8_t const t7_pos_offset_shift = f7_shift - pos_offset_size;
 
     std::vector<uint64_t> new_table_sizes(8, 0);
     new_table_sizes[7] = table_sizes[7];
@@ -108,23 +115,22 @@ Phase2Results RunPhase2(
         {
             uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
-            uint64_t entry_pos = 0;
-            uint64_t entry_offset = 0;
+            uint64_t entry_pos_offset = 0;
             if (table_index == 7) {
                 // table 7 is special, we never drop anything, so just build
                 // next_bitfield
-                entry_pos = Util::SliceInt64FromBytes(entry, k, pos_size);
-                entry_offset = Util::SliceInt64FromBytes(entry, k + pos_size, kOffsetSize);
+                entry_pos_offset = Util::SliceInt64FromBytes(entry, k, pos_offset_size);
             } else {
                 if (!current_bitfield.get(read_index))
                 {
                     // This entry should be dropped.
                     continue;
                 }
-                entry_pos = Util::SliceInt64FromBytes(entry, 0, pos_size);
-                entry_offset = Util::SliceInt64FromBytes(entry, pos_size, kOffsetSize);
+                entry_pos_offset = Util::SliceInt64FromBytes(entry, 0, pos_offset_size);
             }
 
+            uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
+            uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
             // mark the two matching entries as used (pos and pos+offset)
             next_bitfield.set(entry_pos);
             next_bitfield.set(entry_pos + entry_offset);
@@ -141,9 +147,14 @@ Phase2Results RunPhase2(
         // * update (pos, offset) to remain valid after table_index-1 has been
         //   compacted.
         // * sort by pos
+        //
+        // As we have to sort two adjacent tables at the same time in phase 3,
+        // we can use only a half of memory_size for SortManager. However,
+        // table 1 is already sorted, so we can use all memory for sorting
+        // table 2.
 
         auto sort_manager = std::make_unique<SortManager>(
-            memory_size / 2,
+            table_index == 2 ? memory_size : memory_size / 2,
             num_buckets,
             log_num_buckets,
             uint16_t(entry_size),
@@ -163,61 +174,49 @@ Phase2Results RunPhase2(
         {
             uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
-            uint64_t entry_pos = 0;
-            uint64_t entry_offset = 0;
             uint64_t entry_f7 = 0;
+            uint64_t entry_pos_offset;
             if (table_index == 7) {
                 // table 7 is special, we never drop anything, so just build
                 // next_bitfield
                 entry_f7 = Util::SliceInt64FromBytes(entry, 0, k);
-                entry_pos = Util::SliceInt64FromBytes(entry, k, pos_size);
-                entry_offset = Util::SliceInt64FromBytes(entry, k + pos_size, kOffsetSize);
+                entry_pos_offset = Util::SliceInt64FromBytes(entry, k, pos_offset_size);
             } else {
                 // skipping
                 if (!current_bitfield.get(read_index)) continue;
 
-                entry_pos = Util::SliceInt64FromBytes(entry, 0, pos_size);
-                entry_offset = Util::SliceInt64FromBytes(entry, pos_size, kOffsetSize);
+                entry_pos_offset = Util::SliceInt64FromBytes(entry, 0, pos_offset_size);
             }
+
+            uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
+            uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
 
             // assemble the new entry and write it to the sort manager
 
             // map the pos and offset to the new, compacted, positions and
             // offsets
             std::tie(entry_pos, entry_offset) = index.lookup(entry_pos, entry_offset);
+            entry_pos_offset = (entry_pos << kOffsetSize) | entry_offset;
 
+            uint8_t bytes[16];
             if (table_index == 7) {
                 // table 7 is already sorted by pos, so we just rewrite the
                 // pos and offset in-place
+                uint128_t new_entry = (uint128_t)entry_f7 << f7_shift;
+                new_entry |= (uint128_t)entry_pos_offset << t7_pos_offset_shift;
+                Util::IntTo16Bytes(bytes, new_entry);
 
-                Bits new_entry;
-                new_entry += Bits(entry_f7, k);
-                new_entry += Bits(entry_pos, pos_size);
-                new_entry += Bits(entry_offset, kOffsetSize);
-
-                uint8_t bytes[20];
-                assert(entry_size <= int(sizeof(bytes)));
-                new_entry.ToBytes(bytes);
                 disk.Write(read_index * entry_size, bytes, entry_size);
             }
             else {
-                Bits new_entry;
                 // The new entry is slightly different. Metadata is dropped, to
                 // save space, and the counter of the entry is written (sort_key). We
                 // use this instead of (y + pos + offset) since its smaller.
-                new_entry += Bits(write_counter, k + 1);
-                new_entry += Bits(entry_pos, pos_size);
-                new_entry += Bits(entry_offset, kOffsetSize);
+                uint128_t new_entry = (uint128_t)write_counter << write_counter_shift;
+                new_entry |= (uint128_t)entry_pos_offset << pos_offset_shift;
+                Util::IntTo16Bytes(bytes, new_entry);
 
-                assert(new_entry.GetSize() <= uint32_t(entry_size) * 8);
-
-                // If we are not taking up all the bits, make sure they are zeroed
-                if (Util::ByteAlign(new_entry.GetSize()) < uint32_t(entry_size) * 8) {
-                    new_entry +=
-                        Bits(0, entry_size * 8 - new_entry.GetSize());
-                }
-
-                sort_manager->AddToCache(new_entry);
+                sort_manager->AddToCache(bytes);
             }
             ++write_counter;
         }
@@ -244,6 +243,9 @@ Phase2Results RunPhase2(
         // FilteredDisk wrapper.
         if (table_index != 7) {
             tmp_1_disks[table_index].Truncate(0);
+        }
+        if (show_progress) {
+            progress(2, 8 - table_index, 6);
         }
     }
 

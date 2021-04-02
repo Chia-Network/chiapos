@@ -6,7 +6,7 @@ on:
       upstream_branch:
         description: 'chia pos branch name to use'
         required: true
-        default: 'master'
+        default: 'main'
       instance_name_tag:
         description: 'name tag to apply to new instance'
         required: true

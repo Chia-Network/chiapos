@@ -326,8 +326,10 @@ private:
         std::vector<uint8_t> deltas =
             Encoding::ANSDecodeDeltas(bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
         std::vector<uint64_t> p7_positions;
+        bool surpassed_f7 = false;
         for (uint8_t delta : deltas) {
             if (curr_f7 > f7) {
+                surpassed_f7 = true;
                 break;
             }
             curr_f7 += delta;
@@ -337,11 +339,18 @@ private:
                 p7_positions.push_back(curr_p7_pos);
             }
 
-            // In the last park, we might have extra deltas
+            // In the last park, we don't know how many entries we have, and there is no stop marker
+            // for the deltas. The rest of the park bytes will be set to 0, and
+            // at this point curr_f7 stops incrementing. If we get stuck in this loop
+            // where curr_f7 == f7, we will not return any positions, since we do not know if
+            // we have an actual solution for f7.
             if ((int64_t)curr_p7_pos >= (int64_t)((c1_index + 1) * kCheckpoint1Interval) - 1 ||
-                curr_f7 >= (((uint64_t)1) << k)) {
-                return p7_positions;
+                curr_f7 >= (((uint64_t)1) << k) - 1) {
+                break;
             }
+        }
+        if (!surpassed_f7) {
+            return std::vector<uint64_t>();
         }
         return p7_positions;
     }

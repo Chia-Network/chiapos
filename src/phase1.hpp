@@ -45,6 +45,7 @@
 #include "sort_manager.hpp"
 #include "threading.hpp"
 #include "util.hpp"
+#include "progress.hpp"
 
 struct THREADDATA {
     int index;
@@ -135,7 +136,7 @@ void* phase1_thread(THREADDATA* ptd)
     uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
     uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
     std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * right_entry_size_bytes + 7]);
-    std::unique_ptr<uint8_t[]> left_writer_buf(new uint8_t[left_buf_entries * compressed_entry_size_bytes]);
+    std::unique_ptr<uint8_t[]> left_writer_buf(new uint8_t[left_buf_entries * compressed_entry_size_bytes + 7]);
 
     FxCalculator f(k, table_index + 1);
 
@@ -187,7 +188,6 @@ void* phase1_thread(THREADDATA* ptd)
         uint64_t R_position_base = 0;
         uint64_t newlpos = 0;
         uint64_t newrpos = 0;
-        Bits new_left_entry(0, pos_size + kOffsetSize);
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
             current_entries_to_write;
         std::vector<std::tuple<PlotEntry, PlotEntry, std::pair<Bits, Bits>>>
@@ -341,11 +341,13 @@ void* phase1_thread(THREADDATA* ptd)
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
 
                             // Rewrite left entry with just pos and offset, to reduce working space
-                            Bits new_left_entry = Bits(
-                                (table_index == 1) ? entry->left_metadata : entry->read_posoffset,
-                                (table_index == 1) ? k : pos_size + kOffsetSize);
-
-                            new_left_entry.ToBytes(tmp_buf);
+                            uint64_t new_left_entry;
+                            if (table_index == 1)
+                                new_left_entry = entry->left_metadata;
+                            else
+                                new_left_entry = entry->read_posoffset;
+                            new_left_entry <<= 64 - (table_index == 1 ? k : pos_size + kOffsetSize);
+                            Util::IntToEightBytes(tmp_buf, new_left_entry);
                         }
                         stripe_left_writer_count++;
                     }
@@ -594,7 +596,8 @@ std::vector<uint64_t> RunPhase1(
     uint32_t const num_buckets,
     uint32_t const log_num_buckets,
     uint32_t const stripe_size,
-    uint8_t const num_threads)
+    uint8_t const num_threads,
+    bool const show_progress)
 {
     std::cout << "Computing table 1" << std::endl;
     globals.stripe_size = stripe_size;
@@ -741,6 +744,9 @@ std::vector<uint64_t> RunPhase1(
 
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
+        if (show_progress) {
+            progress(1, table_index, 6);
+        }
     }
     table_sizes[0] = 0;
     globals.R_sort_manager.reset();
