@@ -145,7 +145,7 @@ class FileDisk : public Disk {
         f_.rdbuf()->pubsetbuf(buf_, BUF_SIZE);
 
         if (!f_.is_open()) {
-            std::cout << "Fialed to open" << std::endl;
+            std::cout << "Failed to open" << std::endl;
             throw std::runtime_error("File not opened correct");
         }
     }

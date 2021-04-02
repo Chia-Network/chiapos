@@ -97,24 +97,32 @@ struct FileDisk {
     explicit FileDisk(const fs::path &filename)
     {
         filename_ = filename;
-        Open(false);
+        Open(writeFlag);
     }
 
-    void Open(bool read_only = true)
+    void Open(uint8_t flags = 0)
     {
         // if the file is already open, don't do anything
         if (f_) return;
 
         // Opens the file for reading and writing
+        do {
 #ifdef _WIN32
-        f_ = ::_wfopen(filename_.c_str(), read_only ? L"r+b" : L"w+b");
+            f_ = ::_wfopen(filename_.c_str(), (flags & writeFlag) ? L"w+b" : L"r+b");
 #else
-        f_ = ::fopen(filename_.c_str(), read_only ? "r+b" : "w+b");
+            f_ = ::fopen(filename_.c_str(), (flags & writeFlag) ? "w+b" : "r+b");
 #endif
-        if (f_ == nullptr) {
-            throw InvalidValueException(
-                "Could not open " + filename_.string() + ": " + ::strerror(errno));
-        }
+            if (f_ == nullptr) {
+                std::string error_message =
+                    "Could not open " + filename_.string() + ": " + ::strerror(errno) + ".";
+                if (flags & retryOpenFlag) {
+                    std::cout << error_message << " Retrying in five minutes." << std::endl;
+                    std::this_thread::sleep_for(5min);
+                } else {
+                    throw InvalidValueException(error_message);
+                }
+            }
+        } while (f_ == nullptr);
     }
 
     FileDisk(FileDisk &&fd)
@@ -140,7 +148,7 @@ struct FileDisk {
 
     void Read(uint64_t begin, uint8_t *memcache, uint64_t length)
     {
-        Open();
+        Open(retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::read, begin, length);
 #endif
@@ -170,7 +178,7 @@ struct FileDisk {
 
     void Write(uint64_t begin, const uint8_t *memcache, uint64_t length)
     {
-        Open();
+        Open(writeFlag | retryOpenFlag);
 #if ENABLE_LOGGING
         disk_log(filename_, op_t::write, begin, length);
 #endif
@@ -220,6 +228,9 @@ private:
 
     fs::path filename_;
     FILE *f_ = nullptr;
+
+    static const uint8_t writeFlag = 0b01;
+    static const uint8_t retryOpenFlag = 0b10;
 };
 
 struct BufferedDisk : Disk
