@@ -31,6 +31,11 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <time.h>
+#define localtime_r(a, b) (localtime_s(b, a) == 0 ? b : NULL)
+#endif
+
 template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
@@ -93,11 +98,17 @@ public:
 #endif
     }
 
-    static char *GetNow()
+    static std::string GetNow()
     {
+        char buffer[100];
         auto now = std::chrono::system_clock::now();
         auto tt = std::chrono::system_clock::to_time_t(now);
-        return ctime(&tt);  // ctime includes newline
+        std::tm now_tm;
+        localtime_r(&tt, &now_tm);
+        if (strftime(buffer, sizeof buffer, "%d-%m-%Y %H:%M:%S", &now_tm) == 0) {
+            return "GetNow failed.";
+        }
+        return buffer;
     }
 
     void PrintElapsed(const std::string &name) const
