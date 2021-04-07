@@ -36,6 +36,10 @@
 #define localtime_r(a, b) (localtime_s(b, a) == 0 ? b : NULL)
 #endif
 
+namespace Util {
+    std::string GetLocalTimeString();
+}
+
 template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
@@ -98,19 +102,6 @@ public:
 #endif
     }
 
-    static std::string GetNow()
-    {
-        char buffer[100];
-        auto now = std::chrono::system_clock::now();
-        auto tt = std::chrono::system_clock::to_time_t(now);
-        std::tm now_tm;
-        localtime_r(&tt, &now_tm);
-        if (strftime(buffer, sizeof buffer, "%d-%m-%Y %H:%M:%S", &now_tm) == 0) {
-            return "GetNow failed.";
-        }
-        return buffer;
-    }
-
     void PrintElapsed(const std::string &name) const
     {
         auto end = std::chrono::steady_clock::now();
@@ -140,7 +131,7 @@ public:
         double cpu_ratio = static_cast<int>(10000 * (cpu_time_ms / wall_clock_ms)) / 100.0;
 
         std::cout << name << " " << (wall_clock_ms / 1000.0) << " seconds. CPU (" << cpu_ratio
-                  << "%) " << Timer::GetNow();
+                  << "%) " << Util::GetLocalTimeString() << std::endl;
     }
 
 private:
@@ -292,6 +283,19 @@ namespace Util {
         for (uint32_t i = 0; i < num_bytes; i++) {
             buf[i] = dist(mt);
         }
+    }
+
+    inline std::string GetLocalTimeString()
+    {
+        char buffer[100];
+        auto now = std::chrono::system_clock::now();
+        auto tt = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm;
+        localtime_r(&tt, &now_tm);
+        if (strftime(buffer, sizeof buffer, "%d-%m-%Y %H:%M:%S", &now_tm) == 0) {
+            return "GetLocalTimeString failed.";
+        }
+        return buffer;
     }
 
     inline uint64_t ExtractNum(

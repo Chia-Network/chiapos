@@ -212,7 +212,7 @@ public:
 
             std::cout << std::endl
                       << "Starting phase 1/4: Forward Propagation into tmp files... "
-                      << Timer::GetNow();
+                      << Util::GetLocalTimeString() << std::endl;
 
             Timer p1;
             Timer all_phases;
@@ -240,7 +240,7 @@ public:
 
                 std::cout << std::endl
                       << "Starting phase 2/4: Backpropagation without bitfield into tmp files... "
-                      << Timer::GetNow();
+                      << Util::GetLocalTimeString() << std::endl;
 
                 Timer p2;
                 std::vector<uint64_t> backprop_table_sizes = b17RunPhase2(
@@ -262,7 +262,7 @@ public:
 
                 std::cout << std::endl
                       << "Starting phase 3/4: Compression without bitfield from tmp files into " << tmp_2_filename
-                      << " ... " << Timer::GetNow();
+                      << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p3;
                 b17Phase3Results res = b17RunPhase3(
                     memory.get(),
@@ -282,7 +282,7 @@ public:
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
-                      << " ... " << Timer::GetNow();
+                      << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p4;
                 b17RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 p4.PrintElapsed("Time for phase 4 =");
@@ -291,7 +291,7 @@ public:
             else {
                 std::cout << std::endl
                       << "Starting phase 2/4: Backpropagation into tmp files... "
-                      << Timer::GetNow();
+                      << Util::GetLocalTimeString() << std::endl;
 
                 Timer p2;
                 Phase2Results res2 = RunPhase2(
@@ -312,7 +312,7 @@ public:
 
                 std::cout << std::endl
                       << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
-                      << " ... " << Timer::GetNow();
+                      << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p3;
                 Phase3Results res = RunPhase3(
                     k,
@@ -330,7 +330,7 @@ public:
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
-                      << " ... " << Timer::GetNow();
+                      << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p4;
                 RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 p4.PrintElapsed("Time for phase 4 =");
