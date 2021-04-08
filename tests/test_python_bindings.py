@@ -149,14 +149,13 @@ class TestPythonBindings(unittest.TestCase):
                     if computed_quality == quality:
                         successes += 1
                     else:
-                        print(f"Did not validate")
+                        print("Did not validate")
                         failures += 1
             except Exception as e:
                 print(f"Exception: {e}")
                 failures += 1
         print(f"Successes: {successes}")
         print(f"Failures: {failures}")
-
 
 
 if __name__ == "__main__":
