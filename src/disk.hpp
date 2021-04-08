@@ -116,7 +116,7 @@ struct FileDisk {
                 std::string error_message =
                     "Could not open " + filename_.string() + ": " + ::strerror(errno) + ".";
                 if (flags & retryOpenFlag) {
-                    std::cout << error_message << " Retrying in five minutes." << std::endl;
+                    Util::Log(error_message + " Retrying in five minutes.\n");
                     std::this_thread::sleep_for(5min);
                 } else {
                     throw InvalidValueException(error_message);
@@ -168,9 +168,9 @@ struct FileDisk {
             amtread = ::fread(reinterpret_cast<char *>(memcache), sizeof(uint8_t), length, f_);
             readPos = begin + amtread;
             if (amtread != length) {
-                std::cout << "Only read " << amtread << " of " << length << " bytes at offset "
-                          << begin << " from " << filename_ << "with length " << writeMax
-                          << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                Util::Log(("Only read %s of %s bytes at offset %s from %s with length %s. "
+                          "Error %s. Retrying in five minutes.\n"), amtread, length, begin,
+                                                                    filename_, writeMax, ferror(f_));
                 std::this_thread::sleep_for(5min);
             }
         } while (amtread != length);
@@ -201,9 +201,9 @@ struct FileDisk {
             if (writePos > writeMax)
                 writeMax = writePos;
             if (amtwritten != length) {
-                std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
-                          << begin << " to " << filename_ << "with length " << writeMax
-                          << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                Util::Log(("Only wrote %s of %s bytes at offset %s to %s with length %s. "
+                           "Error %s. Retrying in five minutes.\n"), amtwritten, length, begin,
+                          filename_, writeMax, ferror(f_));
                 std::this_thread::sleep_for(5min);
             }
         } while (amtwritten != length);
@@ -268,13 +268,12 @@ struct BufferedDisk : Disk
         }
         else {
             // ideally this won't happen
-            std::cout << "Disk read position regressed. It's optimized for forward scans. Performance may suffer\n"
-                << "   read-offset: " << begin
-                << " read-length: " << length
-                << " file-size: " << file_size_
-                << " read-buffer: [" << read_buffer_start_ << ", " << read_buffer_size_ << "]"
-                << " file: " << disk_->GetFileName()
-                << '\n';
+            Util::Log("Disk read position regressed. It's optimized for forward scans."
+                      " Performance may suffer.\n");
+            Util::Log(" read-offset: %s read-length: %s file-size: %s "
+                      "read-buffer: [%s,%s] file: %s\n", begin, length, file_size_,
+                                                         read_buffer_start_, read_buffer_size_,
+                                                    disk_->GetFileName());
             static uint8_t temp[128];
             // all allocations need 7 bytes head-room, since
             // SliceInt64FromBytes() may overrun by 7 bytes

@@ -50,7 +50,7 @@ std::vector<uint64_t> b17RunPhase2(
         // std::vector<std::pair<uint64_t, uint64_t> > match_positions;
         Timer table_timer;
 
-        std::cout << "Backpropagating on table " << table_index << std::endl;
+        Util::Log("Backpropagating on table %s\n", table_index);
 
         uint16_t left_metadata_size = kVectorLens[table_index] * k;
 

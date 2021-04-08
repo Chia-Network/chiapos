@@ -70,7 +70,7 @@ PYBIND11_MODULE(chiapos, m)
                                       num_threads,
                                       nobitfield);
                 } catch (const std::exception &e) {
-                    std::cout << "Caught plotting error: " << e.what() << std::endl;
+                    Util::Log(std::cerr, "Caught plotting error: %s\n", e.what());
                     throw e;
                 }
             });

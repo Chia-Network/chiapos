@@ -93,8 +93,7 @@ b17Phase3Results b17RunPhase3(
     for (int table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         Timer computation_pass_1_timer;
-        std::cout << "Compressing tables " << table_index << " and " << (table_index + 1)
-                  << std::endl;
+        Util::Log("Compressing tables %s and %s\n", table_index, table_index + 1);
 
         // The park size must be constant, for simplicity, but must be big enough to store EPP
         // entries. entry deltas are encoded with variable length, and thus there is no
@@ -281,12 +280,11 @@ b17Phase3Results b17RunPhase3(
 
                     if (left_new_pos_1 > ((uint64_t)1 << k) ||
                         left_new_pos_2 > ((uint64_t)1 << k)) {
-                        std::cout << "left or right positions too large" << std::endl;
-                        std::cout << (line_point > ((uint128_t)1 << (2 * k)));
+                        Util::Log("left or right positions too large\n");
+                        Util::Log("%s", line_point > ((uint128_t)1 << (2 * k)));
                         if ((line_point > ((uint128_t)1 << (2 * k)))) {
-                            std::cout << "L, R: " << left_new_pos_1 << " " << left_new_pos_2
-                                      << std::endl;
-                            std::cout << "Line point: " << line_point << std::endl;
+                            Util::Log("L, R: %s %s\n", left_new_pos_1, left_new_pos_2);
+                            Util::Log("Line point: %s\n", line_point);
                             abort();
                         }
                     }
@@ -442,7 +440,7 @@ b17Phase3Results b17RunPhase3(
         }
 
         Encoding::ANSFree(kRValues[table_index - 1]);
-        std::cout << "\tWrote " << final_entries_written << " entries" << std::endl;
+        Util::Log("\tWrote %s entries\n", final_entries_written);
 
         final_table_begin_pointers[table_index + 1] =
             final_table_begin_pointers[table_index] + (park_index + 1) * park_size_bytes;

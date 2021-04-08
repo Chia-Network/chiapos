@@ -77,7 +77,7 @@ public:
 #ifndef _WIN32
         struct rlimit the_limit = {600, 600};
         if (-1 == setrlimit(RLIMIT_NOFILE, &the_limit)) {
-            std::cout << "setrlimit failed" << std::endl;
+            Util::Log("setrlimit failed\n");
         }
 #endif
         if (k < kMinPlotSize || k > kMaxPlotSize) {
@@ -155,15 +155,12 @@ public:
         }
 #endif /* defined(_WIN32) || defined(__x86_64__) */
 
-        std::cout << std::endl
-                  << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
-                  << tmp2_dirname << std::endl;
-        std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
-        std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
-        std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
-        std::cout << "Using " << num_buckets << " buckets" << std::endl;
-        std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size
-                  << std::endl;
+        Util::Log("\nStarting plotting progress into temporary dirs: %s and %s\n", tmp_dirname, tmp2_dirname);
+        Util::Log("ID: %s\n", Util::HexStr(id, id_len));
+        Util::Log("Plot size is: %s\n", static_cast<int>(k));
+        Util::Log("Buffer size is: %sMiB\n", buf_megabytes);
+        Util::Log("Using %s buckets\n", num_buckets);
+        Util::Log("Using %s threads of stripe size %s\n", (int)num_threads, stripe_size);
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -210,9 +207,7 @@ public:
 
             assert(id_len == kIdLen);
 
-            std::cout << std::endl
-                      << "Starting phase 1/4: Forward Propagation into tmp files... "
-                      << Util::GetLocalTimeString() << std::endl;
+            Util::Log("\nStarting phase 1/4: Forward Propagation into tmp files... %s\n", Util::GetLocalTimeString());
 
             Timer p1;
             Timer all_phases;
@@ -238,9 +233,8 @@ public:
                 // Memory to be used for sorting and buffers
                 std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
 
-                std::cout << std::endl
-                      << "Starting phase 2/4: Backpropagation without bitfield into tmp files... "
-                      << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 2/4: Backpropagation without bitfield into tmp files... %s\n",
+                          Util::GetLocalTimeString());
 
                 Timer p2;
                 std::vector<uint64_t> backprop_table_sizes = b17RunPhase2(
@@ -260,9 +254,8 @@ public:
                 // Now we open a new file, where the final contents of the plot will be stored.
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
-                std::cout << std::endl
-                      << "Starting phase 3/4: Compression without bitfield from tmp files into " << tmp_2_filename
-                      << " ... " << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 3/4: Compression without bitfield from tmp files into %s ... %s\n",
+                          tmp_2_filename, Util::GetLocalTimeString());
                 Timer p3;
                 b17Phase3Results res = b17RunPhase3(
                     memory.get(),
@@ -280,18 +273,15 @@ public:
                     show_progress);
                 Util::LogElapsed("Phase 3 completed", p3);
 
-                std::cout << std::endl
-                      << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
-                      << " ... " << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 4/4: Write Checkpoint tables into %s ... %s\n",
+                          tmp_2_filename, Util::GetLocalTimeString());
                 Timer p4;
                 b17RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 Util::LogElapsed("Phase 4 completed", p4);
                 finalsize = res.final_table_begin_pointers[11];
             }
             else {
-                std::cout << std::endl
-                      << "Starting phase 2/4: Backpropagation into tmp files... "
-                      << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 2/4: Backpropagation into tmp files... %s\n", Util::GetLocalTimeString());
 
                 Timer p2;
                 Phase2Results res2 = RunPhase2(
@@ -310,9 +300,8 @@ public:
                 // Now we open a new file, where the final contents of the plot will be stored.
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
 
-                std::cout << std::endl
-                      << "Starting phase 3/4: Compression from tmp files into " << tmp_2_filename
-                      << " ... " << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 3/4: Compression from tmp files into %s ... %s\n",
+                          tmp_2_filename, Util::GetLocalTimeString());
                 Timer p3;
                 Phase3Results res = RunPhase3(
                     k,
@@ -328,9 +317,8 @@ public:
                     show_progress);
                 Util::LogElapsed("Phase 3 completed", p3);
 
-                std::cout << std::endl
-                      << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
-                      << " ... " << Util::GetLocalTimeString() << std::endl;
+                Util::Log("\nStarting phase 4/4: Write Checkpoint tables into %s ... %s\n",
+                          tmp_2_filename, Util::GetLocalTimeString());
                 Timer p4;
                 RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
                 Util::LogElapsed("Phase 4 completed", p4);
@@ -346,14 +334,10 @@ public:
             for (size_t i = 1; i <= 7; i++) {
                 total_working_space += table_sizes[i] * EntrySizes::GetMaxEntrySize(k, i, false);
             }
-            std::cout << "Approximate working space used (without final file): "
-                      << static_cast<double>(total_working_space) / (1024 * 1024 * 1024) << " GiB"
-                      << std::endl;
+            Util::Log("Approximate working space used (without final file): %s GiB\n",
+                      static_cast<double>(total_working_space) / (1024 * 1024 * 1024));
 
-            std::cout << "Final File size: "
-                      << static_cast<double>(finalsize) /
-                             (1024 * 1024 * 1024)
-                      << " GiB" << std::endl;
+            Util::Log("Final File size: %s GiB\n", static_cast<double>(finalsize) / (1024 * 1024 * 1024));
             Util::LogElapsed("Total time", all_phases);
         }
 
@@ -372,42 +356,35 @@ public:
             if (tmp_2_filename.parent_path() == final_filename.parent_path()) {
                 fs::rename(tmp_2_filename, final_filename, ec);
                 if (ec.value() != 0) {
-                    std::cout << "Could not rename " << tmp_2_filename << " to " << final_filename
-                              << ". Error " << ec.message() << ". Retrying in five minutes."
-                              << std::endl;
+                    Util::Log("Could not rename %s to %s. "
+                              "Error %s. Retrying in five minutes\n", tmp_2_filename, final_filename, ec.message());
                 } else {
                     bRenamed = true;
-                    std::cout << "Renamed final file from " << tmp_2_filename << " to "
-                              << final_filename << std::endl;
+                    Util::Log("Renamed final file from %s to %s\n", tmp_2_filename, final_filename);
                 }
             } else {
                 if (!bCopied) {
                     fs::copy(
                         tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
                     if (ec.value() != 0) {
-                        std::cout << "Could not copy " << tmp_2_filename << " to "
-                                  << final_2_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
+                        Util::Log("Could not copy %s to %s. "
+                                  "Error %s. Retrying in five minutes\n", tmp_2_filename, final_2_filename, ec.message());
                     } else {
-                        std::cout << "Copied final file from " << tmp_2_filename << " to "
-                                  << final_2_filename << std::endl;
+                        Util::Log("Copied final file from %s to %s\n", tmp_2_filename, final_2_filename);
                         Util::LogElapsed("Copy completed", copy);
                         bCopied = true;
 
                         bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
+                        Util::Log("Removed temp2 file %s? %s\n", tmp_2_filename, removed_2);
                     }
                 }
                 if (bCopied && (!bRenamed)) {
                     fs::rename(final_2_filename, final_filename, ec);
                     if (ec.value() != 0) {
-                        std::cout << "Could not rename " << tmp_2_filename << " to "
-                                  << final_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
+                        Util::Log("Could not rename %s to %s. "
+                                  "Error %s. Retrying in five minutes\n", tmp_2_filename, final_filename, ec.message());
                     } else {
-                        std::cout << "Renamed final file from " << final_2_filename << " to "
-                                  << final_filename << std::endl;
+                        Util::Log("Renamed final file from %s to %s\n", final_2_filename, final_filename);
                         bRenamed = true;
                     }
                 }
@@ -472,7 +449,7 @@ private:
 
         uint32_t bytes_written =
             header_text.size() + kIdLen + 1 + 2 + kFormatDescription.size() + 2 + memo_len + 10 * 8;
-        std::cout << "Wrote: " << bytes_written << std::endl;
+        Util::Log("Wrote: %s\n", bytes_written);
         return bytes_written;
     }
 };
