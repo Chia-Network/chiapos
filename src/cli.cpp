@@ -68,6 +68,7 @@ int main(int argc, char *argv[]) try {
         .show_positional_help();
 
     // Default values
+    fs::path logFilePath;
     uint8_t k = 20;
     uint32_t num_buckets = 0;
     uint32_t num_stripes = 0;
@@ -84,6 +85,7 @@ int main(int argc, char *argv[]) try {
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
+            "l, log", "Create a debug logfile in the provided directory", cxxopts::value<fs::path>(logFilePath))(
             "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
             "r, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
                 "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
@@ -103,6 +105,19 @@ int main(int argc, char *argv[]) try {
         "help", "Print help");
 
     auto result = options.parse(argc, argv);
+
+    std::unique_ptr<std::ofstream> logFile;
+    if (!logFilePath.empty()) {
+        if (!fs::is_directory(logFilePath)) {
+            throw std::invalid_argument("Invalid logfile directory");
+        }
+        logFile = std::make_unique<std::ofstream>(logFilePath / (id + ".log"));
+        if (logFile->is_open()) {
+            Util::LogStream(logFile.get());
+        } else {
+            throw std::invalid_argument("Failed to open logfile");
+        }
+    }
 
     if (result.count("help") || argc < 2) {
         HelpAndQuit(options);
