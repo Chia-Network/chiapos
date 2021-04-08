@@ -138,7 +138,7 @@ Phase2Results RunPhase2(
         }
 
         std::cout << "scanned table " << table_index << std::endl;
-        scan_timer.PrintElapsed("scanned time = ");
+        Util::LogElapsed("scanned", scan_timer);
 
         std::cout << "sorting table " << table_index << std::endl;
         Timer sort_timer;
@@ -224,7 +224,7 @@ Phase2Results RunPhase2(
 
         if (table_index != 7) {
             sort_manager->FlushCache();
-            sort_timer.PrintElapsed("sort time = ");
+            Util::LogElapsed("sort", sort_timer);
 
             // clear disk caches
             disk.FreeMemory();

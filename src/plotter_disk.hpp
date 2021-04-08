@@ -229,7 +229,7 @@ public:
                 num_threads,
                 !nobitfield,
                 show_progress);
-            p1.PrintElapsed("Time for phase 1 =");
+            Util::LogElapsed("Phase 1 completed", p1);
 
             uint64_t finalsize=0;
 
@@ -255,7 +255,7 @@ public:
                     num_buckets,
                     log_num_buckets,
                     show_progress);
-                p2.PrintElapsed("Time for phase 2 =");
+                Util::LogElapsed("Phase 2 completed", p2);
 
                 // Now we open a new file, where the final contents of the plot will be stored.
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
@@ -278,14 +278,14 @@ public:
                     num_buckets,
                     log_num_buckets,
                     show_progress);
-                p3.PrintElapsed("Time for phase 3 =");
+                Util::LogElapsed("Phase 3 completed", p3);
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p4;
                 b17RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
-                p4.PrintElapsed("Time for phase 4 =");
+                Util::LogElapsed("Phase 4 completed", p4);
                 finalsize = res.final_table_begin_pointers[11];
             }
             else {
@@ -305,7 +305,7 @@ public:
                     num_buckets,
                     log_num_buckets,
                     show_progress);
-                p2.PrintElapsed("Time for phase 2 =");
+                Util::LogElapsed("Phase 2 completed", p2);
 
                 // Now we open a new file, where the final contents of the plot will be stored.
                 uint32_t header_size = WriteHeader(tmp2_disk, k, id, memo, memo_len);
@@ -326,14 +326,14 @@ public:
                     num_buckets,
                     log_num_buckets,
                     show_progress);
-                p3.PrintElapsed("Time for phase 3 =");
+                Util::LogElapsed("Phase 3 completed", p3);
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Util::GetLocalTimeString() << std::endl;
                 Timer p4;
                 RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
-                p4.PrintElapsed("Time for phase 4 =");
+                Util::LogElapsed("Phase 4 completed", p4);
                 finalsize = res.final_table_begin_pointers[11];
             }
 
@@ -354,7 +354,7 @@ public:
                       << static_cast<double>(finalsize) /
                              (1024 * 1024 * 1024)
                       << " GiB" << std::endl;
-            all_phases.PrintElapsed("Total time =");
+            Util::LogElapsed("Total time", all_phases);
         }
 
         std::cin.tie(prevstr);
@@ -391,7 +391,7 @@ public:
                     } else {
                         std::cout << "Copied final file from " << tmp_2_filename << " to "
                                   << final_2_filename << std::endl;
-                        copy.PrintElapsed("Copy time =");
+                        Util::LogElapsed("Copy completed", copy);
                         bCopied = true;
 
                         bool removed_2 = fs::remove(tmp_2_filename);

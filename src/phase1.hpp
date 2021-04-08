@@ -637,7 +637,7 @@ std::vector<uint64_t> RunPhase1(
     }
 
     uint64_t prevtableentries = 1ULL << k;
-    f1_start_time.PrintElapsed("F1 complete, time:");
+    Util::LogElapsed("F1 complete", f1_start_time);
     globals.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;
 
@@ -754,7 +754,7 @@ std::vector<uint64_t> RunPhase1(
         }
 
         prevtableentries = globals.right_writer_count;
-        table_timer.PrintElapsed("Forward propagation table time:");
+        Util::LogElapsed("Forward propagation table", table_timer);
         if (show_progress) {
             progress(1, table_index, 6);
         }

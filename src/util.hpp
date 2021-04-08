@@ -136,38 +136,6 @@ public:
         return out << tfm::format("%s seconds. CPU (%s%%)", wall_clock_ms, cpu_ratio);
     }
 
-    void PrintElapsed(const std::string &name) const
-    {
-        auto end = std::chrono::steady_clock::now();
-        auto wall_clock_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 end - this->wall_clock_time_start_)
-                                 .count();
-
-#if _WIN32
-        FILETIME nowft_[6];
-        nowft_[0] = ft_[0];
-        nowft_[1] = ft_[1];
-
-        ::GetProcessTimes(::GetCurrentProcess(), &nowft_[5], &nowft_[4], &nowft_[3], &nowft_[2]);
-        ULARGE_INTEGER u[4];
-        for (size_t i = 0; i < 4; ++i) {
-            u[i].LowPart = nowft_[i].dwLowDateTime;
-            u[i].HighPart = nowft_[i].dwHighDateTime;
-        }
-        double user = (u[2].QuadPart - u[0].QuadPart) / 10000.0;
-        double kernel = (u[3].QuadPart - u[1].QuadPart) / 10000.0;
-        double cpu_time_ms = user + kernel;
-#else
-        double cpu_time_ms =
-            1000.0 * (static_cast<double>(clock()) - this->cpu_time_start_) / CLOCKS_PER_SEC;
-#endif
-
-        double cpu_ratio = static_cast<int>(10000 * (cpu_time_ms / wall_clock_ms)) / 100.0;
-
-        std::cout << name << " " << (wall_clock_ms / 1000.0) << " seconds. CPU (" << cpu_ratio
-                  << "%) " << Util::GetLocalTimeString() << std::endl;
-    }
-
 private:
     std::chrono::time_point<std::chrono::steady_clock> wall_clock_time_start_;
 #if _WIN32
@@ -452,6 +420,13 @@ namespace Util {
     {
 #ifdef _UTIL_LOGS_ENABLED_
         Log(LogStream(), strFormat, args...);
+#endif
+    }
+
+    void LogElapsed(const std::string& strEvent, const Timer& timer)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        Log("%s - time: %s %s\n", strEvent, timer, GetLocalTimeString());
 #endif
     }
 }

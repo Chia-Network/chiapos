@@ -301,7 +301,7 @@ b17Phase3Results b17RunPhase3(
             }
             current_pos += 1;
         }
-        computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
+        Util::LogElapsed("\tFirst computation pass", computation_pass_1_timer);
 
         // Remove no longer needed file
         tmp_1_disks[table_index].Truncate(0);
@@ -422,7 +422,7 @@ b17Phase3Results b17RunPhase3(
         R_sort_manager.reset();
         L_sort_manager->FlushCache();
 
-        computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
+        Util::LogElapsed("\tSecond computation pass", computation_pass_2_timer);
 
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
@@ -452,7 +452,7 @@ b17Phase3Results b17RunPhase3(
         tmp2_disk.Write(final_table_writer, (table_pointer_bytes), 8);
         final_table_writer += 8;
 
-        table_timer.PrintElapsed("Total compress table time:");
+        Util::LogElapsed("Total compress table", table_timer);
         if (show_progress) { progress(3, table_index, 6); }
     }
 

@@ -377,8 +377,8 @@ std::vector<uint64_t> b17RunPhase2(
         }
         new_table_sizes[table_index - 1] = left_entry_counter;
 
-        std::cout << "\tWrote left entries: " << left_entry_counter << std::endl;
-        table_timer.PrintElapsed("Total backpropagation time::");
+        Util::Log("\tWrote left entries: %s\n", left_entry_counter);
+        Util::LogElapsed("Total backpropagation", table_timer);
 
         tmp_1_disks[table_index].Write(
             right_writer,
