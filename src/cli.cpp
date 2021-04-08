@@ -166,17 +166,25 @@ int main(int argc, char *argv[]) try {
         HexToBytes(challenge, challenge_bytes);
 
         DiskProver prover(filename);
-        vector<LargeBits> qualities = prover.GetQualitiesForChallenge(challenge_bytes);
-        for (uint32_t i = 0; i < qualities.size(); i++) {
-            k = prover.GetSize();
-            uint8_t *proof_data = new uint8_t[8 * k];
-            LargeBits proof = prover.GetFullProof(challenge_bytes, i);
-            proof.ToBytes(proof_data);
-            cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
-            delete[] proof_data;
-        }
-        if (qualities.empty()) {
-            cout << "No proofs found." << endl;
+        try {
+            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(challenge_bytes);
+            for (uint32_t i = 0; i < qualities.size(); i++) {
+                k = prover.GetSize();
+                uint8_t *proof_data = new uint8_t[8 * k];
+                LargeBits proof = prover.GetFullProof(challenge_bytes, i);
+                proof.ToBytes(proof_data);
+                cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                delete[] proof_data;
+            }
+            if (qualities.empty()) {
+                cout << "No proofs found." << endl;
+                exit(1);
+            }
+        } catch (const std::exception& ex) {
+            std::cout << "Error proving. " << ex.what() << std::endl;
+            exit(1);
+        } catch (...) {
+            std::cout << "Error proving. " << std::endl;
             exit(1);
         }
     } else if (operation == "verify") {
@@ -241,25 +249,30 @@ int main(int argc, char *argv[]) try {
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
 
-            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
-            for (uint32_t i = 0; i < qualities.size(); i++) {
-                LargeBits proof = prover.GetFullProof(hash.data(), i);
-                uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
-                proof.ToBytes(proof_data);
-                cout << "i: " << num << std::endl;
-                cout << "challenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
-                cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
-                LargeBits quality =
-                    verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
-                if (quality.GetSize() == 256 && quality == qualities[i]) {
-                    cout << "quality: " << quality << endl;
-                    cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
-                    success++;
-                } else {
-                    cout << "Proof verification failed." << endl;
-                    exit(1);
+            try {
+                vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
+
+                for (uint32_t i = 0; i < qualities.size(); i++) {
+                    LargeBits proof = prover.GetFullProof(hash.data(), i);
+                    uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
+                    proof.ToBytes(proof_data);
+                    cout << "i: " << num << std::endl;
+                    cout << "challenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
+                    cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                    LargeBits quality =
+                        verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
+                    if (quality.GetSize() == 256 && quality == qualities[i]) {
+                        cout << "quality: " << quality << endl;
+                        cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
+                        success++;
+                    } else {
+                        cout << "Proof verification failed." << endl;
+                    }
+                    delete[] proof_data;
                 }
-                delete[] proof_data;
+            } catch (const std::exception error) {
+                cout << "Threw: " << error.what() << endl;
+                continue;
             }
         }
         std::cout << "Total success: " << success << "/" << iterations << ", "

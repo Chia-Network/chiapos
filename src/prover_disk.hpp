@@ -42,6 +42,7 @@ struct plot_header {
     uint8_t fmt_desc[50];
 };
 
+
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
 class DiskProver {
@@ -66,7 +67,7 @@ public:
         // 2 bytes   - memo length
         // x bytes   - memo
 
-        disk_file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        safeRead(disk_file, (uint8_t*)&header, sizeof(header));
         if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)) != 0)
             throw std::invalid_argument("Invalid plot header magic");
 
@@ -81,24 +82,24 @@ public:
 
         memcpy(this->id, header.id, sizeof(header.id));
         this->k = header.k;
-        disk_file.seekg(offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
+        safeSeek(disk_file, offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
 
         uint8_t size_buf[2];
-        disk_file.read(reinterpret_cast<char*>(size_buf), 2);
+        safeRead(disk_file, size_buf, 2);
         this->memo_size = Util::TwoBytesToInt(size_buf);
         this->memo = new uint8_t[this->memo_size];
-        disk_file.read(reinterpret_cast<char*>(this->memo), this->memo_size);
+        safeRead(disk_file, this->memo, this->memo_size);
 
         this->table_begin_pointers = std::vector<uint64_t>(11, 0);
         this->C2 = std::vector<uint64_t>();
 
         uint8_t pointer_buf[8];
         for (uint8_t i = 1; i < 11; i++) {
-            disk_file.read(reinterpret_cast<char*>(pointer_buf), 8);
+            safeRead(disk_file, pointer_buf, 8);
             this->table_begin_pointers[i] = Util::EightBytesToInt(pointer_buf);
         }
 
-        disk_file.seekg(table_begin_pointers[9]);
+        safeSeek(disk_file, table_begin_pointers[9]);
 
         uint8_t c2_size = (Util::ByteAlign(k) / 8);
         uint32_t c2_entries = (table_begin_pointers[10] - table_begin_pointers[9]) / c2_size;
@@ -110,7 +111,7 @@ public:
         // read from disk the C1 and C3 entries.
         auto* c2_buf = new uint8_t[c2_size];
         for (uint32_t i = 0; i < c2_entries - 1; i++) {
-            disk_file.read(reinterpret_cast<char*>(c2_buf), c2_size);
+            safeRead(disk_file, c2_buf, c2_size);
             this->C2.push_back(Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue());
         }
 
@@ -241,6 +242,32 @@ private:
     std::vector<uint64_t> table_begin_pointers;
     std::vector<uint64_t> C2;
 
+    // Using this method instead of simply seeking will prevent segfaults that would arise when
+    // continuing the process of looking up qualities.
+    void safeSeek(std::ifstream& disk_file, uint64_t seek_location) {
+        if ((disk_file.rdstate() & std::ifstream::goodbit) != 0) {
+            throw std::invalid_argument("safeSeed: provided input stream goodbit != 0.");
+        }
+
+        disk_file.seekg(seek_location);
+
+        if ((disk_file.rdstate() & std::ifstream::goodbit) != 0) {
+            std::cout << "goodbit, failbit, badbit, eofbit: " <<   (disk_file.rdstate() & std::ifstream::goodbit) <<  (disk_file.rdstate() & std::ifstream::failbit) << (disk_file.rdstate() & std::ifstream::badbit) << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
+            throw std::runtime_error("goodbit!=0 after seeking to" + std::to_string(seek_location));
+        }
+    }
+
+    void safeRead(std::ifstream& disk_file, uint8_t* target, uint64_t size) {
+        if ((disk_file.rdstate() & std::ifstream::goodbit) != 0) {
+            throw std::invalid_argument("safeRead: rovided input stream goodbit != 0.");
+        }
+        disk_file.read(reinterpret_cast<char*>(target), size);
+        if ((disk_file.rdstate() & std::ifstream::goodbit) != 0) {
+            std::cout << "goodbit, failbit, badbit, eofbit: " <<   (disk_file.rdstate() & std::ifstream::goodbit) <<  (disk_file.rdstate() & std::ifstream::failbit) << (disk_file.rdstate() & std::ifstream::badbit) << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
+            throw std::runtime_error("goodbit!=0 after reading size" + std::to_string(size));
+        }
+    }
+
     // Reads exactly one line point (pair of two k bit back-pointers) from the given table.
     // The entry at index "position" is read. First, the park index is calculated, then
     // the park is read, and finally, entry deltas are added up to the position that we
@@ -249,18 +276,19 @@ private:
     {
         uint64_t park_index = position / kEntriesPerPark;
         uint32_t park_size_bits = EntrySizes::CalculateParkSize(k, table_index) * 8;
-        disk_file.seekg(table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
+
+        safeSeek(disk_file, table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
 
         // This is the checkpoint at the beginning of the park
         uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
         auto* line_point_bin = new uint8_t[line_point_size + 7];
-        disk_file.read(reinterpret_cast<char*>(line_point_bin), line_point_size);
+        safeRead(disk_file, line_point_bin, line_point_size);
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs
         uint32_t stubs_size_bits = EntrySizes::CalculateStubsSize(k) * 8;
         auto* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
-        disk_file.read(reinterpret_cast<char*>(stubs_bin), stubs_size_bits / 8);
+        safeRead(disk_file, stubs_bin, stubs_size_bits/8);
 
         // Reads EPP deltas
         uint32_t max_deltas_size_bits = EntrySizes::CalculateMaxDeltasSize(k, table_index) * 8;
@@ -268,7 +296,11 @@ private:
 
         // Reads the size of the encoded deltas object
         uint16_t encoded_deltas_size = 0;
-        disk_file.read(reinterpret_cast<char*>(&encoded_deltas_size), sizeof(uint16_t));
+        safeRead(disk_file, (uint8_t*)&encoded_deltas_size, sizeof(uint16_t));
+
+        if (encoded_deltas_size * 8 > max_deltas_size_bits) {
+            throw std::invalid_argument("Invalid size for deltas: " + std::to_string(encoded_deltas_size));
+        }
 
         std::vector<uint8_t> deltas;
 
@@ -276,10 +308,10 @@ private:
             // Uncompressed
             encoded_deltas_size &= 0x7fff;
             deltas.resize(encoded_deltas_size);
-            disk_file.read(reinterpret_cast<char*>(deltas.data()), encoded_deltas_size);
+            safeRead(disk_file, deltas.data(), encoded_deltas_size);
         } else {
             // Compressed
-            disk_file.read(reinterpret_cast<char*>(deltas_bin), encoded_deltas_size);
+            safeRead(disk_file, deltas_bin, encoded_deltas_size);
 
             // Decodes the deltas
             double R = kRValues[table_index - 1];
@@ -394,14 +426,14 @@ private:
         uint32_t c1_entry_size = Util::ByteAlign(k) / 8;
 
         auto* c1_entry_bytes = new uint8_t[c1_entry_size];
-        disk_file.seekg(table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
+        safeSeek(disk_file, table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
 
         uint64_t curr_f7 = c2_entry_f;
         uint64_t prev_f7 = c2_entry_f;
         broke = false;
         // Goes through C2 entries until we find the correct C1 checkpoint.
         for (uint64_t start = 0; start < kCheckpoint1Interval; start++) {
-            disk_file.read(reinterpret_cast<char*>(c1_entry_bytes), c1_entry_size);
+            safeRead(disk_file, c1_entry_bytes, c1_entry_size);
             Bits c1_entry = Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
             uint64_t read_f7 = c1_entry.Slice(0, k).GetValue();
 
@@ -442,24 +474,24 @@ private:
         if (double_entry) {
             // In this case, we read the previous park as well as the current one
             c1_index -= 1;
-            disk_file.seekg(table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
-            disk_file.read(reinterpret_cast<char*>(c1_entry_bytes), Util::ByteAlign(k) / 8);
+            safeSeek(disk_file, table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
+            safeRead(disk_file, c1_entry_bytes, Util::ByteAlign(k) / 8);
             Bits c1_entry_bits = Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
             next_f7 = curr_f7;
             curr_f7 = c1_entry_bits.Slice(0, k).GetValue();
 
-            disk_file.seekg(table_begin_pointers[10] + c1_index * c3_entry_size);
+            safeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
 
-            disk_file.read(reinterpret_cast<char*>(encoded_size_buf), 2);
+            safeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-            disk_file.read(reinterpret_cast<char*>(bit_mask), c3_entry_size - 2);
+            safeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             p7_positions =
                 GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
 
-            disk_file.read(reinterpret_cast<char*>(encoded_size_buf), 2);
+            safeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-            disk_file.read(reinterpret_cast<char*>(bit_mask), c3_entry_size - 2);
+            safeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             c1_index++;
             curr_p7_pos = c1_index * kCheckpoint1Interval;
@@ -469,10 +501,10 @@ private:
                 p7_positions.end(), second_positions.begin(), second_positions.end());
 
         } else {
-            disk_file.seekg(table_begin_pointers[10] + c1_index * c3_entry_size);
-            disk_file.read(reinterpret_cast<char*>(encoded_size_buf), 2);
+            safeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
+            safeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-            disk_file.read(reinterpret_cast<char*>(bit_mask), c3_entry_size - 2);
+            safeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             p7_positions =
                 GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
@@ -494,14 +526,14 @@ private:
         // P7.
         auto* p7_park_buf = new uint8_t[p7_park_size_bytes];
         uint64_t park_index = (p7_positions[0] == 0 ? 0 : p7_positions[0]) / kEntriesPerPark;
-        disk_file.seekg(table_begin_pointers[7] + park_index * p7_park_size_bytes);
-        disk_file.read(reinterpret_cast<char*>(p7_park_buf), p7_park_size_bytes);
+        safeSeek(disk_file, table_begin_pointers[7] + park_index * p7_park_size_bytes);
+        safeRead(disk_file, p7_park_buf, p7_park_size_bytes);
         ParkBits p7_park = ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
         for (uint64_t i = 0; i < p7_positions[p7_positions.size() - 1] - p7_positions[0] + 1; i++) {
             uint64_t new_park_index = (p7_positions[i]) / kEntriesPerPark;
             if (new_park_index > park_index) {
-                disk_file.seekg(table_begin_pointers[7] + new_park_index * p7_park_size_bytes);
-                disk_file.read(reinterpret_cast<char*>(p7_park_buf), p7_park_size_bytes);
+                safeSeek(disk_file, table_begin_pointers[7] + new_park_index * p7_park_size_bytes);
+                safeRead(disk_file, p7_park_buf, p7_park_size_bytes);
                 p7_park = ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
             }
             uint32_t start_bit_index = (p7_positions[i] % kEntriesPerPark) * (k + 1);
