@@ -132,7 +132,7 @@ class TestPythonBindings(unittest.TestCase):
 
         pr = DiskProver(str(Path("myplotbad.dat")))
 
-        iterations: int = 5000000
+        iterations: int = 50000
         v = Verifier()
         successes = 0
         failures = 0
