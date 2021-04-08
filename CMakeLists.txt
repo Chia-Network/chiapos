@@ -47,7 +47,7 @@ set(FSE_FILES
 
 include_directories(
   ${INCLUDE_DIRECTORIES}
-  ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/include
   ${cxxopts_SOURCE_DIR}/include
   ${gulrak_SOURCE_DIR}/include/ghc
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
