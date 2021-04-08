@@ -63,6 +63,9 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 
 #endif
 
+#define TINYFORMAT_ERROR(strError) throw std::runtime_error(strError)
+#include <tinyformat.h>
+
 // compiler-specific byte swap macros.
 #if defined(_MSC_VER)
 
@@ -387,6 +390,38 @@ namespace Util {
 #else
         return __builtin_popcountl(n);
 #endif /* defined(_WIN32) ... defined(__x86_64__) */
+    }
+
+    inline std::ostream& LogStream(std::ostream* pStreamIn = nullptr)
+    {
+        static std::ostream* pStream = &std::cout;
+        if (pStreamIn != nullptr) {
+            pStream = pStreamIn;
+        }
+        return *pStream;
+    }
+
+    template<typename... Args>
+    void Log(std::ostream& stream, const std::string& strFormat, const Args&... args)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        std::string strTinyFormatted;
+        try {
+            strTinyFormatted = tinyformat::format(strFormat.c_str(), args...);
+        } catch (const std::runtime_error &e) {
+            stream << "tinyformat::format(" << strFormat << ") failed with: " << std::string(e.what()) << std::endl;
+            return;
+        }
+        stream << strTinyFormatted << std::flush;
+#endif
+    }
+
+    template<typename... Args>
+    void Log(const std::string& strFormat, const Args&... args)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        Log(LogStream(), strFormat, args...);
+#endif
     }
 }
 
