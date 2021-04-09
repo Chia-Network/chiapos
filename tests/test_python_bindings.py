@@ -6,7 +6,7 @@ from secrets import token_bytes
 
 
 class TestPythonBindings(unittest.TestCase):
-    def xtest_k_21(self):
+    def test_k_21(self):
         plot_seed: bytes = bytes(
             [
                 5,
