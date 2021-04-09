@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) try {
                     }
                     delete[] proof_data;
                 }
-            } catch (const std::exception error) {
+            } catch (const std::exception& error) {
                 cout << "Threw: " << error.what() << endl;
                 continue;
             }
