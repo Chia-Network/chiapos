@@ -259,6 +259,7 @@ private:
     }
 
     static void SafeRead(std::ifstream& disk_file, uint8_t* target, uint64_t size) {
+        int64_t pos = disk_file.tellg();
         disk_file.read(reinterpret_cast<char*>(target), size);
 
         if (disk_file.fail()) {
@@ -268,7 +269,8 @@ private:
                       << (disk_file.rdstate() & std::ifstream::badbit)
                       << (disk_file.rdstate() & std::ifstream::eofbit)
                       << std::endl;
-            throw std::runtime_error("badbit or failbit after reading size " + std::to_string(size));
+            throw std::runtime_error("badbit or failbit after reading size " +
+                    std::to_string(size) + " at position " + std::to_string(pos));
         }
     }
 
