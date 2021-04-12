@@ -247,18 +247,28 @@ private:
     static void SafeSeek(std::ifstream& disk_file, uint64_t seek_location) {
         disk_file.seekg(seek_location);
 
-        if (disk_file.bad() || disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: " <<   (disk_file.rdstate() & std::ifstream::goodbit) <<  (disk_file.rdstate() & std::ifstream::failbit) << (disk_file.rdstate() & std::ifstream::badbit) << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
-            throw std::runtime_error("badbit or failbit after seeking to" + std::to_string(seek_location));
+        if (disk_file.fail()) {
+            std::cout << "goodbit, failbit, badbit, eofbit: "
+                      << (disk_file.rdstate() & std::ifstream::goodbit)
+                      << (disk_file.rdstate() & std::ifstream::failbit)
+                      << (disk_file.rdstate() & std::ifstream::badbit)
+                      << (disk_file.rdstate() & std::ifstream::eofbit)
+                      << std::endl;
+            throw std::runtime_error("badbit or failbit after seeking to " + std::to_string(seek_location));
         }
     }
 
     static void SafeRead(std::ifstream& disk_file, uint8_t* target, uint64_t size) {
         disk_file.read(reinterpret_cast<char*>(target), size);
 
-        if (disk_file.bad() || disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: " <<   (disk_file.rdstate() & std::ifstream::goodbit) <<  (disk_file.rdstate() & std::ifstream::failbit) << (disk_file.rdstate() & std::ifstream::badbit) << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
-            throw std::runtime_error("badbit or failbit after reading size" + std::to_string(size));
+        if (disk_file.fail()) {
+            std::cout << "goodbit, failbit, badbit, eofbit: "
+                      << (disk_file.rdstate() & std::ifstream::goodbit)
+                      << (disk_file.rdstate() & std::ifstream::failbit)
+                      << (disk_file.rdstate() & std::ifstream::badbit)
+                      << (disk_file.rdstate() & std::ifstream::eofbit)
+                      << std::endl;
+            throw std::runtime_error("badbit or failbit after reading size " + std::to_string(size));
         }
     }
 
