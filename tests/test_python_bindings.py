@@ -2,12 +2,11 @@ import unittest
 from chiapos import DiskProver, DiskPlotter, Verifier
 from hashlib import sha256
 from pathlib import Path
+from secrets import token_bytes
 
 
 class TestPythonBindings(unittest.TestCase):
     def test_k_21(self):
-        challenge: bytes = bytes([i for i in range(0, 32)])
-
         plot_seed: bytes = bytes(
             [
                 5,
@@ -99,7 +98,64 @@ class TestPythonBindings(unittest.TestCase):
             == "80e32f560f3a4347760d6baae8d16fbaf484948088bff05c51bdcc24b7bc40d9"
         )
         print(f"\nPlotfile asserted sha256: {plot_hash}\n")
-        Path("myplot.dat").unlink()
+
+    def test_faulty_plot_doesnt_crash(self):
+        if Path("myplot.dat").exists():
+            Path("myplot.dat").unlink()
+        if Path("myplotbad.dat").exists():
+            Path("myplotbad.dat").unlink()
+
+        plot_id: bytes = bytes([i for i in range(32, 64)])
+        pl = DiskPlotter()
+        pl.create_plot_disk(
+            ".",
+            ".",
+            ".",
+            "myplot.dat",
+            21,
+            bytes([1, 2, 3, 4, 5]),
+            plot_id,
+            300,
+            32,
+            8192,
+            8,
+            False,
+        )
+        f = open("myplot.dat", "rb")
+        all_data = bytearray(f.read())
+        f.close()
+        assert len(all_data) > 20000000
+        all_data_bad = all_data[:20000000] + bytearray(token_bytes(10000)) + all_data[20100000:]
+        f_bad = open("myplotbad.dat", "wb")
+        f_bad.write(all_data_bad)
+        f_bad.close()
+
+        pr = DiskProver(str(Path("myplotbad.dat")))
+
+        iterations: int = 50000
+        v = Verifier()
+        successes = 0
+        failures = 0
+        for i in range(iterations):
+            if i % 100 == 0:
+                print(i)
+            challenge = sha256(i.to_bytes(4, "big")).digest()
+            try:
+                for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
+                    proof = pr.get_full_proof(challenge, index)
+                    computed_quality = v.validate_proof(
+                        plot_id, pr.get_size(), challenge, proof
+                    )
+                    if computed_quality == quality:
+                        successes += 1
+                    else:
+                        print("Did not validate")
+                        failures += 1
+            except Exception as e:
+                print(f"Exception: {e}")
+                failures += 1
+        print(f"Successes: {successes}")
+        print(f"Failures: {failures}")
 
 
 if __name__ == "__main__":

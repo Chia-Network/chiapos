@@ -20,7 +20,6 @@
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
 #include "disk.hpp"
-#include "encoding.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "sort_manager.hpp"
@@ -931,12 +930,12 @@ TEST_CASE("FileDisk")
     write_disk_file(d);
 
     std::uint32_t val = 0;
-    for (int i = 0; i < num_test_entries; ++i) {
+    for (uint32_t i = 0; i < num_test_entries; ++i) {
         d.Read(i * 4, reinterpret_cast<std::uint8_t*>(&val), 4);
-        CHECK(i == val);
+        REQUIRE(i == val);
     }
 
-    for (int i = num_test_entries - 1; i > 0; --i) {
+    for (uint32_t i = num_test_entries - 1; i > 0; --i) {
         d.Read(i * 4, reinterpret_cast<std::uint8_t*>(&val), 4);
         CHECK(i == val);
     }
@@ -951,14 +950,14 @@ TEST_CASE("BufferedDisk")
 
     BufferedDisk bd(&d, num_test_entries * 4);
 
-    for (int i = 0; i < num_test_entries; ++i) {
+    for (uint32_t i = 0; i < num_test_entries; ++i) {
         auto const val = *reinterpret_cast<std::uint32_t const*>(bd.Read(i * 4, 4));
         CHECK(i == val);
     }
 
     // don't go all the way down to 0, every backwards read cursor movement will
     // print a warning
-    for (int i = num_test_entries - 1; i > num_test_entries / 2 + 200; --i) {
+    for (uint32_t i = num_test_entries - 1; i > num_test_entries / 2 + 200; --i) {
         auto const val = *reinterpret_cast<std::uint32_t const*>(bd.Read(i * 4, 4));
         CHECK(i == val);
     }
@@ -981,14 +980,14 @@ TEST_CASE("FilteredDisk")
         }
         FilteredDisk fd(std::move(bd), std::move(filter), 4);
 
-        for (int i = 0; i < num_test_entries / 2 - 1; ++i) {
+        for (uint32_t i = 0; i < num_test_entries / 2 - 1; ++i) {
             auto const val = *reinterpret_cast<std::uint32_t const*>(fd.Read(i * 4, 4));
             CHECK((i * 2) + 1 == val);
         }
 
         // don't go all the way down to 0, every backwards read cursor movement will
         // print a warning
-        for (int i = num_test_entries / 2 - 1; i > num_test_entries / 2 + 200; --i) {
+        for (uint32_t i = num_test_entries / 2 - 1; i > num_test_entries / 2 + 200; --i) {
             auto const val = *reinterpret_cast<std::uint32_t const*>(fd.Read(i * 4, 4));
             CHECK((i * 2) + 1 == val);
         }
@@ -1004,14 +1003,14 @@ TEST_CASE("FilteredDisk")
         }
         FilteredDisk fd(std::move(bd), std::move(filter), 4);
 
-        for (int i = 0; i < num_test_entries / 2 - 1; ++i) {
+        for (uint32_t i = 0; i < num_test_entries / 2 - 1; ++i) {
             auto const val = *reinterpret_cast<std::uint32_t const*>(fd.Read(i * 4, 4));
             CHECK((i * 2) == val);
         }
 
         // don't go all the way down to 0, every backwards read cursor movement will
         // print a warning
-        for (int i = num_test_entries / 2 - 1; i > num_test_entries / 2 + 200; --i) {
+        for (uint32_t i = num_test_entries / 2 - 1; i > num_test_entries / 2 + 200; --i) {
             auto const val = *reinterpret_cast<std::uint32_t const*>(fd.Read(i * 4, 4));
             CHECK((i * 2) == val);
         }
