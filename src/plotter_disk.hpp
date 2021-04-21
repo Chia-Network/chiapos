@@ -382,21 +382,31 @@ public:
                 }
             } else {
                 if (!bCopied) {
-                    fs::copy(
-                        tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
+                    fs::rename(tmp_2_filename, final_filename, ec);
                     if (ec.value() != 0) {
-                        std::cout << "Could not copy " << tmp_2_filename << " to "
-                                  << final_2_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Copied final file from " << tmp_2_filename << " to "
-                                  << final_2_filename << std::endl;
-                        copy.PrintElapsed("Copy time =");
-                        bCopied = true;
+                        fs::copy(
+                            tmp_2_filename,
+                            final_2_filename,
+                            fs::copy_options::overwrite_existing,
+                            ec);
+                        if (ec.value() != 0) {
+                            std::cout << "Could not copy " << tmp_2_filename << " to "
+                                      << final_2_filename << ". Error " << ec.message()
+                                      << ". Retrying in five minutes." << std::endl;
+                        } else {
+                            std::cout << "Copied final file from " << tmp_2_filename << " to "
+                                      << final_2_filename << std::endl;
+                            copy.PrintElapsed("Copy time =");
+                            bCopied = true;
 
-                        bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
+                            bool removed_2 = fs::remove(tmp_2_filename);
+                            std::cout << "Removed temp2 file " << tmp_2_filename << "? "
+                                      << removed_2 << std::endl;
+                        }
+                    } else {
+                        bRenamed = true;
+                        std::cout << "Renamed final file from " << tmp_2_filename << " to "
+                                  << final_filename << std::endl;
                     }
                 }
                 if (bCopied && (!bRenamed)) {
