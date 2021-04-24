@@ -63,6 +63,15 @@ Attacks that can provide significant space savings for the final file.
 
 Finally, python bindings are provided in the python-bindings directory.
 
+
+### Dependencies
+
+Dependency install example for Ubuntu:
+
+```bash
+sudo apt install libpython3.8-dev cmake
+```
+
 ### Install
 
 ```bash
