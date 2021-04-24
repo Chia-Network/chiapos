@@ -48,6 +48,10 @@ struct Disk {
 };
 
 #if ENABLE_LOGGING
+// logging is currently unix / bsd only: use <fstream> or update
+// calls to ::open and ::write to port to windows
+#include <fcntl.h>
+#include <unistd.h>
 #include <mutex>
 #include <unordered_map>
 #include <cinttypes>
