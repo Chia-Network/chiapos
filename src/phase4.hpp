@@ -129,11 +129,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
             deltas_to_write.clear();
             ++num_C1_entries;
         } else {
-            if (entry_y == prev_y) {
-                deltas_to_write.push_back(0);
-            } else {
-                deltas_to_write.push_back(entry_y - prev_y);
-            }
+            deltas_to_write.push_back(entry_y - prev_y);
             prev_y = entry_y;
         }
         if (show_progress && f7_position % progress_update_increment == 0) {
