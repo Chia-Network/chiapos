@@ -261,7 +261,6 @@ void* phase1_thread(THREADDATA* ptd)
             } else if (y_bucket == bucket + 1) {
                 bucket_R.emplace_back(left_entry);
             } else {
-                // cout << "matching! " << bucket << " and " << bucket + 1 << endl;
                 // This is reached when we have finished adding stuff to bucket_R and bucket_L,
                 // so now we can compare entries in both buckets to find matches. If two entries
                 // match, match, the result is written to the right table. However the writing
@@ -277,7 +276,7 @@ void* phase1_thread(THREADDATA* ptd)
                         // Compute all matches between the two buckets and save indeces.
                         idx_count = f.FindMatches(bucket_L, bucket_R, idx_L, idx_R);
                         if(idx_count >= 10000) {
-                            std::cout << "sanity check: idx_count exceeded 10000!" << std::endl;
+                            Util::Log("sanity check: idx_count exceeded 10000!\n");
                             exit(0);
                         }
                         // We mark entries as used if they took part in a match.
@@ -600,7 +599,7 @@ std::vector<uint64_t> RunPhase1(
     bool const enable_bitfield,
     bool const show_progress)
 {
-    std::cout << "Computing table 1" << std::endl;
+    Util::Log("Computing table 1\n");
     globals.stripe_size = stripe_size;
     globals.num_threads = num_threads;
     Timer f1_start_time;
@@ -637,7 +636,7 @@ std::vector<uint64_t> RunPhase1(
     }
 
     uint64_t prevtableentries = 1ULL << k;
-    f1_start_time.PrintElapsed("F1 complete, time:");
+    Util::LogElapsed("F1 complete", f1_start_time);
     globals.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;
 
@@ -666,7 +665,7 @@ std::vector<uint64_t> RunPhase1(
             }
         }
 
-        std::cout << "Computing table " << int{table_index + 1} << std::endl;
+        Util::Log("Computing table %s\n", int{table_index + 1});
         // Start of parallel execution
 
         FxCalculator f(k, table_index + 1);  // dummy to load static table
@@ -730,7 +729,7 @@ std::vector<uint64_t> RunPhase1(
         // end of parallel execution
 
         // Total matches found in the left table
-        std::cout << "\tTotal matches: " << globals.matches << std::endl;
+        Util::Log("\tTotal matches: %s\n", globals.matches);
 
         table_sizes[table_index] = globals.left_writer_count;
         table_sizes[table_index + 1] = globals.right_writer_count;
@@ -754,7 +753,7 @@ std::vector<uint64_t> RunPhase1(
         }
 
         prevtableentries = globals.right_writer_count;
-        table_timer.PrintElapsed("Forward propagation table time:");
+        Util::LogElapsed("Forward propagation table", table_timer);
         if (show_progress) {
             progress(1, table_index, 6);
         }

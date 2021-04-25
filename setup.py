@@ -112,6 +112,7 @@ ext_modules = [
             get_pybind_include(user=True),
             "src",
             "uint128_t",
+            "lib/include",
             ".",
         ],
     ),

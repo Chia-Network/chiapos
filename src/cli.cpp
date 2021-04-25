@@ -23,8 +23,6 @@
 
 using std::string;
 using std::vector;
-using std::endl;
-using std::cout;
 
 void HexToBytes(const string &hex, uint8_t *result)
 {
@@ -55,11 +53,11 @@ string Strip0x(const string &hex)
 
 void HelpAndQuit(cxxopts::Options options)
 {
-    cout << options.help({""}) << endl;
-    cout << "./ProofOfSpace create" << endl;
-    cout << "./ProofOfSpace prove <challenge>" << endl;
-    cout << "./ProofOfSpace verify <proof> <challenge>" << endl;
-    cout << "./ProofOfSpace check" << endl;
+    Util::Log(options.help({""}) + "\n");
+    Util::Log("./ProofOfSpace create\n");
+    Util::Log("./ProofOfSpace prove <challenge>\n");
+    Util::Log("./ProofOfSpace verify <proof> <challenge>\n");
+    Util::Log("./ProofOfSpace check\n");
     exit(0);
 }
 
@@ -70,6 +68,7 @@ int main(int argc, char *argv[]) try {
         .show_positional_help();
 
     // Default values
+    fs::path logFilePath;
     uint8_t k = 20;
     uint32_t num_buckets = 0;
     uint32_t num_stripes = 0;
@@ -86,6 +85,7 @@ int main(int argc, char *argv[]) try {
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
+            "l, log", "Create a debug logfile in the provided directory", cxxopts::value<fs::path>(logFilePath))(
             "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
             "r, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
                 "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
@@ -106,26 +106,37 @@ int main(int argc, char *argv[]) try {
 
     auto result = options.parse(argc, argv);
 
+    std::unique_ptr<std::ofstream> logFile;
+    if (!logFilePath.empty()) {
+        if (!fs::is_directory(logFilePath)) {
+            throw std::invalid_argument("Invalid logfile directory");
+        }
+        logFile = std::make_unique<std::ofstream>(logFilePath / (id + ".log"));
+        if (logFile->is_open()) {
+            Util::LogStream(logFile.get());
+        } else {
+            throw std::invalid_argument("Failed to open logfile");
+        }
+    }
+
     if (result.count("help") || argc < 2) {
         HelpAndQuit(options);
     }
     operation = argv[1];
-    std::cout << "operation: " << operation << std::endl;
+    Util::Log("operation: %s\n", operation);
 
     if (operation == "help") {
         HelpAndQuit(options);
     } else if (operation == "create") {
-        cout << "Generating plot for k=" << static_cast<int>(k) << " filename=" << filename
-             << " id=" << id << endl
-             << endl;
+        Util::Log("Generating plot for k=%s filename=%s id=%s\n", static_cast<int>(k), filename, id);
         id = Strip0x(id);
         if (id.size() != 64) {
-            cout << "Invalid ID, should be 32 bytes (hex)" << endl;
+            Util::Log("Invalid ID, should be 32 bytes (hex)\n");
             exit(1);
         }
         memo = Strip0x(memo);
         if (memo.size() % 2 != 0) {
-            cout << "Invalid memo, should be only whole bytes (hex)" << endl;
+            Util::Log("Invalid memo, should be only whole bytes (hex)\n");
             exit(1);
         }
         std::vector<uint8_t> memo_bytes(memo.size() / 2);
@@ -155,11 +166,10 @@ int main(int argc, char *argv[]) try {
         if (argc < 3) {
             HelpAndQuit(options);
         }
-        cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl
-             << endl;
+        Util::Log("Proving using filename=%s challenge=%s", filename, argv[2]);
         string challenge = Strip0x(argv[2]);
         if (challenge.size() != 64) {
-            cout << "Invalid challenge, should be 32 bytes" << endl;
+            Util::Log("Invalid challenge, should be 32 bytes\n");
             exit(1);
         }
         uint8_t challenge_bytes[32];
@@ -173,18 +183,18 @@ int main(int argc, char *argv[]) try {
                 uint8_t *proof_data = new uint8_t[8 * k];
                 LargeBits proof = prover.GetFullProof(challenge_bytes, i);
                 proof.ToBytes(proof_data);
-                cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                Util::Log("Proof: 0x %s\n", Util::HexStr(proof_data, k * 8));
                 delete[] proof_data;
             }
             if (qualities.empty()) {
-                cout << "No proofs found." << endl;
+                Util::Log(std::cerr, "No proofs found.\n");
                 exit(1);
             }
         } catch (const std::exception& ex) {
-            std::cout << "Error proving. " << ex.what() << std::endl;
+            Util::Log(std::cerr, "Error proving: %s.\n", ex.what());
             exit(1);
         } catch (...) {
-            std::cout << "Error proving. " << std::endl;
+            Util::Log(std::cerr, "Unknown error proving.\n");
             exit(1);
         }
     } else if (operation == "verify") {
@@ -197,21 +207,19 @@ int main(int argc, char *argv[]) try {
         string proof = Strip0x(argv[2]);
         string challenge = Strip0x(argv[3]);
         if (id.size() != 64) {
-            cout << "Invalid ID, should be 32 bytes" << endl;
+            Util::Log("Invalid ID, should be 32 bytes\n");
             exit(1);
         }
         if (challenge.size() != 64) {
-            cout << "Invalid challenge, should be 32 bytes" << endl;
+            Util::Log("Invalid challenge, should be 32 bytes\n");
             exit(1);
         }
         if (proof.size() % 16) {
-            cout << "Invalid proof, should be a multiple of 8 bytes" << endl;
+            Util::Log("Invalid proof, should be a multiple of 8 bytes\n");
             exit(1);
         }
         k = proof.size() / 16;
-        cout << "Verifying proof=" << argv[2] << " for challenge=" << argv[3]
-             << " and k=" << static_cast<int>(k) << endl
-             << endl;
+        Util::Log("Verifying proof=%s for challenge=%s and k=%s\n", argv[2], argv[3], static_cast<int>(k));
         uint8_t id_bytes[32];
         uint8_t challenge_bytes[32];
         uint8_t *proof_bytes = new uint8_t[proof.size() / 2];
@@ -222,9 +230,9 @@ int main(int argc, char *argv[]) try {
         LargeBits quality =
             verifier.ValidateProof(id_bytes, k, challenge_bytes, proof_bytes, k * 8);
         if (quality.GetSize() == 256) {
-            cout << "Proof verification suceeded. Quality: " << quality << endl;
+            Util::Log("Proof verification suceeded. Quality: %s\n", quality);
         } else {
-            cout << "Proof verification failed." << endl;
+            Util::Log("Proof verification failed.\n");
             exit(1);
         }
         delete[] proof_bytes;
@@ -256,36 +264,35 @@ int main(int argc, char *argv[]) try {
                     LargeBits proof = prover.GetFullProof(hash.data(), i);
                     uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
-                    cout << "i: " << num << std::endl;
-                    cout << "challenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
-                    cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
+                    Util::Log("i: %d\n", num);
+                    Util::Log("challenge: 0x%s\n", Util::HexStr(hash.data(), 256 / 8));
+                    Util::Log("proof: 0x%s\n", Util::HexStr(proof_data, k * 8));
                     LargeBits quality =
                         verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
                     if (quality.GetSize() == 256 && quality == qualities[i]) {
-                        cout << "quality: " << quality << endl;
-                        cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
+                        Util::Log("quality: %s\n", quality);
+                        Util::Log("Proof verification suceeded. k = %d\n", static_cast<int>(k));
                         success++;
                     } else {
-                        cout << "Proof verification failed." << endl;
+                        Util::Log("Proof verification failed.");
                     }
                     delete[] proof_data;
                 }
             } catch (const std::exception& error) {
-                cout << "Threw: " << error.what() << endl;
+                Util::Log("Threw: %s\n", error.what());
                 continue;
             }
         }
-        std::cout << "Total success: " << success << "/" << iterations << ", "
-                  << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
+        Util::Log("Total success: %s/%s, %s%%\n",success, iterations, 100 * ((double)success / (double)iterations));
         if (show_progress) { progress(4, 1, 1); }
     } else {
-        cout << "Invalid operation. Use create/prove/verify/check" << endl;
+        Util::Log("Invalid operation. Use create/prove/verify/check\n");
     }
     return 0;
 } catch (const cxxopts::OptionException &e) {
-    cout << "error parsing options: " << e.what() << endl;
+    Util::Log("error parsing options: %s\n", e.what());
     return 1;
 } catch (const std::exception &e) {
-    std::cerr << "Caught exception: " << e.what() << endl;
+    Util::Log(std::cerr, "Caught exception: %s\n", e.what());
     throw e;
 }

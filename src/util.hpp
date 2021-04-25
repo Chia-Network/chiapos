@@ -31,6 +31,15 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <time.h>
+#define localtime_r(a, b) (localtime_s(b, a) == 0 ? b : NULL)
+#endif
+
+namespace Util {
+    std::string GetLocalTimeString();
+}
+
 template <typename Int>
 constexpr inline Int cdiv(Int a, int b) { return (a + b - 1) / b; }
 
@@ -53,6 +62,9 @@ std::ostream &operator<<(std::ostream &strm, uint128_t const &v)
 }
 
 #endif
+
+#define TINYFORMAT_ERROR(strError) throw std::runtime_error(strError)
+#include <tinyformat.h>
 
 // compiler-specific byte swap macros.
 #if defined(_MSC_VER)
@@ -93,24 +105,17 @@ public:
 #endif
     }
 
-    static char *GetNow()
-    {
-        auto now = std::chrono::system_clock::now();
-        auto tt = std::chrono::system_clock::to_time_t(now);
-        return ctime(&tt);  // ctime includes newline
-    }
-
-    void PrintElapsed(const std::string &name) const
+    friend std::ostream& operator<< (std::ostream & out, const Timer& timer)
     {
         auto end = std::chrono::steady_clock::now();
         auto wall_clock_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 end - this->wall_clock_time_start_)
-                                 .count();
+            end - timer.wall_clock_time_start_)
+            .count();
 
 #if _WIN32
         FILETIME nowft_[6];
-        nowft_[0] = ft_[0];
-        nowft_[1] = ft_[1];
+        nowft_[0] = timer.ft_[0];
+        nowft_[1] = timer.ft_[1];
 
         ::GetProcessTimes(::GetCurrentProcess(), &nowft_[5], &nowft_[4], &nowft_[3], &nowft_[2]);
         ULARGE_INTEGER u[4];
@@ -123,13 +128,12 @@ public:
         double cpu_time_ms = user + kernel;
 #else
         double cpu_time_ms =
-            1000.0 * (static_cast<double>(clock()) - this->cpu_time_start_) / CLOCKS_PER_SEC;
+            1000.0 * (static_cast<double>(clock()) - timer.cpu_time_start_) / CLOCKS_PER_SEC;
 #endif
 
         double cpu_ratio = static_cast<int>(10000 * (cpu_time_ms / wall_clock_ms)) / 100.0;
 
-        std::cout << name << " " << (wall_clock_ms / 1000.0) << " seconds. CPU (" << cpu_ratio
-                  << "%) " << Timer::GetNow();
+        return out << tfm::format("%s seconds. CPU (%s%%)", wall_clock_ms, cpu_ratio);
     }
 
 private:
@@ -283,6 +287,19 @@ namespace Util {
         }
     }
 
+    inline std::string GetLocalTimeString()
+    {
+        char buffer[100];
+        auto now = std::chrono::system_clock::now();
+        auto tt = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm;
+        localtime_r(&tt, &now_tm);
+        if (strftime(buffer, sizeof buffer, "%d-%m-%Y %H:%M:%S", &now_tm) == 0) {
+            return "GetLocalTimeString failed.";
+        }
+        return buffer;
+    }
+
     inline uint64_t ExtractNum(
         const uint8_t *bytes,
         uint32_t len_bytes,
@@ -372,6 +389,45 @@ namespace Util {
 #else
         return __builtin_popcountl(n);
 #endif /* defined(_WIN32) ... defined(__x86_64__) */
+    }
+
+    inline std::ostream& LogStream(std::ostream* pStreamIn = nullptr)
+    {
+        static std::ostream* pStream = &std::cout;
+        if (pStreamIn != nullptr) {
+            pStream = pStreamIn;
+        }
+        return *pStream;
+    }
+
+    template<typename... Args>
+    void Log(std::ostream& stream, const std::string& strFormat, const Args&... args)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        std::string strTinyFormatted;
+        try {
+            strTinyFormatted = tinyformat::format(strFormat.c_str(), args...);
+        } catch (const std::runtime_error &e) {
+            stream << "tinyformat::format(" << strFormat << ") failed with: " << std::string(e.what()) << std::endl;
+            return;
+        }
+        stream << strTinyFormatted << std::flush;
+#endif
+    }
+
+    template<typename... Args>
+    void Log(const std::string& strFormat, const Args&... args)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        Log(LogStream(), strFormat, args...);
+#endif
+    }
+
+    void LogElapsed(const std::string& strEvent, const Timer& timer)
+    {
+#ifdef _UTIL_LOGS_ENABLED_
+        Log("%s - time: %s %s\n", strEvent, timer, GetLocalTimeString());
+#endif
     }
 }
 

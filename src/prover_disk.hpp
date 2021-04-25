@@ -248,12 +248,11 @@ private:
         disk_file.seekg(seek_location);
 
         if (disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: "
-                      << (disk_file.rdstate() & std::ifstream::goodbit)
-                      << (disk_file.rdstate() & std::ifstream::failbit)
-                      << (disk_file.rdstate() & std::ifstream::badbit)
-                      << (disk_file.rdstate() & std::ifstream::eofbit)
-                      << std::endl;
+            Util::Log("goodbit: %s, failbit: %s, badbit: %s, eofbit: %s\n",
+                      disk_file.rdstate() & std::ifstream::goodbit,
+                      disk_file.rdstate() & std::ifstream::failbit,
+                      disk_file.rdstate() & std::ifstream::badbit,
+                      disk_file.rdstate() & std::ifstream::eofbit);
             throw std::runtime_error("badbit or failbit after seeking to " + std::to_string(seek_location));
         }
     }
@@ -263,12 +262,11 @@ private:
         disk_file.read(reinterpret_cast<char*>(target), size);
 
         if (disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: "
-                      << (disk_file.rdstate() & std::ifstream::goodbit)
-                      << (disk_file.rdstate() & std::ifstream::failbit)
-                      << (disk_file.rdstate() & std::ifstream::badbit)
-                      << (disk_file.rdstate() & std::ifstream::eofbit)
-                      << std::endl;
+            Util::Log("goodbit: %s, failbit: %s, badbit: %s, eofbit: %s\n",
+                      disk_file.rdstate() & std::ifstream::goodbit,
+                      disk_file.rdstate() & std::ifstream::failbit,
+                      disk_file.rdstate() & std::ifstream::badbit,
+                      disk_file.rdstate() & std::ifstream::eofbit);
             throw std::runtime_error("badbit or failbit after reading size " +
                     std::to_string(size) + " at position " + std::to_string(pos));
         }

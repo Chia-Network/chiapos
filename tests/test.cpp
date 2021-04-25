@@ -172,37 +172,34 @@ TEST_CASE("Bits")
     SECTION("Slicing and manipulating")
     {
         Bits g = Bits(13271, 15);
-        cout << "G: " << g << endl;
-        cout << "G Slice: " << g.Slice(4, 9) << endl;
-        cout << "G Slice: " << g.Slice(0, 9) << endl;
-        cout << "G Slice: " << g.Slice(9, 10) << endl;
-        cout << "G Slice: " << g.Slice(9, 15) << endl;
-        cout << "G Slice: " << g.Slice(9, 9) << endl;
+        Util::Log("G: %s\n",g);
+        Util::Log("G Slice: %s\n", g.Slice(4, 9));
+        Util::Log("G Slice: %s\n", g.Slice(0, 9));
+        Util::Log("G Slice: %s\n", g.Slice(9, 10));
+        Util::Log("G Slice: %s\n", g.Slice(9, 15));
+        Util::Log("G Slice: %s\n", g.Slice(9, 9));
         REQUIRE(g.Slice(9, 9) == Bits());
 
         uint8_t bytes[2];
         g.ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
-             << endl;
-        cout << "Back to Bits: " << Bits(bytes, 2, 16) << endl;
+        Util::Log("bytes: %s %s\n", static_cast<int>(bytes[0]), static_cast<int>(bytes[1]));
+        Util::Log("Back to Bits: %s\n", Bits(bytes, 2, 16));
 
         Bits(256, 9).ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
-             << endl;
-        cout << "Back to Bits: " << Bits(bytes, 2, 16) << endl;
+        Util::Log("bytes: %s %s\n", static_cast<int>(bytes[0]), static_cast<int>(bytes[1]));
+        Util::Log("Back to Bits: %s\n", Bits(bytes, 2, 16));
 
-        cout << Bits(640, 11) << endl;
+        Util::Log("%s", Bits(640, 11));
         Bits(640, 11).ToBytes(bytes);
-        cout << "bytes: " << static_cast<int>(bytes[0]) << " " << static_cast<int>(bytes[1])
-             << endl;
+        Util::Log("bytes: %s %s\n", static_cast<int>(bytes[0]), static_cast<int>(bytes[1]));
 
         Bits h = Bits(bytes, 2, 16);
         Bits i = Bits(bytes, 2, 17);
-        cout << "H: " << h << endl;
-        cout << "I: " << i << endl;
+        Util::Log("H: %s\n", h);
+        Util::Log("I: %s\n", i);
 
-        cout << "G: " << g << endl;
-        cout << "size: " << g.GetSize() << endl;
+        Util::Log("G: %s\n", g);
+        Util::Log("size: %s\n", g.GetSize());
 
         Bits shifted = (g << 150);
 
@@ -525,8 +522,7 @@ void TestProofOfSpace(
             REQUIRE(quality_2.GetSize() == 0);
         }
     }
-    std::cout << "Success: " << success << "/" << iterations << " "
-              << (100 * ((double)success / (double)iterations)) << "%" << std::endl;
+    Util::Log("Success: %s/%s %s%%\n",success, iterations, 100 * ((double)success / (double)iterations));
     REQUIRE(success == num_proofs);
     REQUIRE(success > 0.5 * iterations);
     REQUIRE(success < 1.5 * iterations);

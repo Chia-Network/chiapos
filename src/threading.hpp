@@ -64,5 +64,4 @@ namespace Sem {
 
 };
 
-//        std::cout << ptd->index << " waited 0" << std::endl;
 #endif  // CHIAPOS_THREADING_HPP

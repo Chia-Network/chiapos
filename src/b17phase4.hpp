@@ -76,7 +76,7 @@ void b17RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, b17Phase3Res
     auto C3_entry_buf = new uint8_t[size_C3];
     auto P7_entry_buf = new uint8_t[P7_park_size];
 
-    std::cout << "\tStarting to write C1 and C3 tables" << std::endl;
+    Util::Log("\tStarting to write C1 and C3 tables\n");
 
     ParkBits to_write_p7;
     const int progress_update_increment = res.final_entries_written / max_phase4_progress_updates;
@@ -164,8 +164,8 @@ void b17RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, b17Phase3Res
     Bits(0, Util::ByteAlign(k)).ToBytes(C1_entry_buf);
     tmp2_disk.Write(final_file_writer_1, (C1_entry_buf), Util::ByteAlign(k) / 8);
     final_file_writer_1 += Util::ByteAlign(k) / 8;
-    std::cout << "\tFinished writing C1 and C3 tables" << std::endl;
-    std::cout << "\tWriting C2 table" << std::endl;
+    Util::Log("\tFinished writing C1 and C3 tables\n");
+    Util::Log("\tWriting C2 table\n");
 
     for (Bits &C2_entry : C2) {
         C2_entry.ToBytes(C1_entry_buf);
@@ -175,7 +175,7 @@ void b17RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, b17Phase3Res
     Bits(0, Util::ByteAlign(k)).ToBytes(C1_entry_buf);
     tmp2_disk.Write(final_file_writer_1, (C1_entry_buf), Util::ByteAlign(k) / 8);
     final_file_writer_1 += Util::ByteAlign(k) / 8;
-    std::cout << "\tFinished writing C2 table" << std::endl;
+    Util::Log("\tFinished writing C2 table\n");
 
     delete[] C3_entry_buf;
     delete[] C1_entry_buf;
@@ -191,12 +191,10 @@ void b17RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, b17Phase3Res
         final_file_writer_1 += 8;
     }
 
-    std::cout << "\tFinal table pointers:" << std::endl << std::hex;
-
+    Util::Log("\tFinal table pointers:");
     for (int i = 1; i <= 10; i++) {
-        std::cout << "\t" << (i < 8 ? "P" : "C") << (i < 8 ? i : i - 7);
-        std::cout << ": 0x" << res.final_table_begin_pointers[i] << std::endl;
+        Util::Log("\t %s%s: 0x%X\n", i < 8 ? "P" : "C", i < 8 ? i : i - 7,
+                  res.final_table_begin_pointers[i]);
     }
-    std::cout << std::dec;
 }
 #endif  // SRC_CPP_PHASE4_HPP

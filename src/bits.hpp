@@ -108,7 +108,6 @@ public:
     BitsGeneric<T>(uint128_t value, uint32_t size)
     {
         if (size > 64) {
-            // std::cout << "SPLITTING BitsGeneric" << std::endl;
             InitBitsGeneric(value >> 64, size - 64);
             AppendValue((uint64_t)value, 64);
         } else {
@@ -346,8 +345,8 @@ public:
     uint64_t GetValue() const
     {
         if (values_.size() != 1) {
-            std::cout << "Number of 64 bit values is: " << values_.size() << std::endl;
-            std::cout << "Size of bits is: " << GetSize() << std::endl;
+            Util::Log("Number of 64 bit values is: %s\n", values_.size());
+            Util::Log("Size of bits is: %s\n", GetSize());
             throw InvalidStateException(
                 "Number doesn't fit into a 64-bit type. " + std::to_string(GetSize()));
         }
@@ -365,7 +364,7 @@ public:
     void AppendValue(uint128_t value, uint8_t length)
     {
         if (length > 64) {
-            std::cout << "SPLITTING AppendValue" << std::endl;
+            Util::Log("SPLITTING AppendValue\n");
             DoAppendValue(value >> 64, length - 64);
             DoAppendValue((uint64_t)value, 64);
         } else {

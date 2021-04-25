@@ -96,7 +96,7 @@ Phase2Results RunPhase2(
     // the end, just to compact it.
     for (int table_index = 7; table_index > 1; --table_index) {
 
-        std::cout << "Backpropagating on table " << table_index << std::endl;
+        Util::Log("Backpropagating on table %s\n", table_index);
 
         Timer scan_timer;
 
@@ -137,10 +137,10 @@ Phase2Results RunPhase2(
             next_bitfield.set(entry_pos + entry_offset);
         }
 
-        std::cout << "scanned table " << table_index << std::endl;
-        scan_timer.PrintElapsed("scanned time = ");
+        Util::Log("scanned table %s\n", table_index);
+        Util::LogElapsed("scanned", scan_timer);
 
-        std::cout << "sorting table " << table_index << std::endl;
+        Util::Log("sorting table %s\n", table_index);
         Timer sort_timer;
 
         // read the same table again. This time we'll output it to new files:
@@ -224,7 +224,7 @@ Phase2Results RunPhase2(
 
         if (table_index != 7) {
             sort_manager->FlushCache();
-            sort_timer.PrintElapsed("sort time = ");
+            Util::LogElapsed("sort", sort_timer);
 
             // clear disk caches
             disk.FreeMemory();
@@ -262,7 +262,7 @@ Phase2Results RunPhase2(
     new_table_sizes[table_index] = current_bitfield.count(0, table_size);
     BufferedDisk disk(&tmp_1_disks[table_index], table_size * entry_size);
 
-    std::cout << "table " << table_index << " new size: " << new_table_sizes[table_index] << std::endl;
+    Util::Log("table %s new size: %s\n", table_index, new_table_sizes[table_index]);
 
     return {
         FilteredDisk(std::move(disk), std::move(current_bitfield), entry_size)

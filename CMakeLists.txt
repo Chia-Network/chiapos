@@ -2,6 +2,12 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.14 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(UTIL_LOGS_ENABLED ON CACHE BOOL "Enable Util::Log() calls")
+
+if (UTIL_LOGS_ENABLED)
+  add_compile_definitions(_UTIL_LOGS_ENABLED_)
+endif()
+
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE "RELEASE")
 ENDIF()
@@ -47,7 +53,7 @@ set(FSE_FILES
 
 include_directories(
   ${INCLUDE_DIRECTORIES}
-  ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/include
   ${cxxopts_SOURCE_DIR}/include
   ${gulrak_SOURCE_DIR}/include/ghc
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib

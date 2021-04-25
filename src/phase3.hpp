@@ -94,8 +94,7 @@ void WriteParkToFile(
     index += 2 + deltas_size;
 
     if ((uint32_t)(index - park_buffer) > park_buffer_size) {
-        std::cout << "index-park_buffer " << index - park_buffer << " park_buffer_size "
-                  << park_buffer_size << std::endl;
+        Util::Log("index-park_buffer %s park_buffer_size %s\n", index - park_buffer, park_buffer_size);
         throw InvalidStateException(
             "Overflowed park buffer, writing " + std::to_string(index - park_buffer) +
             " bytes. Space: " + std::to_string(park_buffer_size));
@@ -163,8 +162,7 @@ Phase3Results RunPhase3(
     for (int table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         Timer computation_pass_1_timer;
-        std::cout << "Compressing tables " << table_index << " and " << (table_index + 1)
-                  << std::endl;
+        Util::Log("Compressing tables %s and %s\n", table_index, table_index + 1);
 
         // The park size must be constant, for simplicity, but must be big enough to store EPP
         // entries. entry deltas are encoded with variable length, and thus there is no
@@ -328,12 +326,11 @@ Phase3Results RunPhase3(
 
                     if (left_new_pos_1 > ((uint64_t)1 << k) ||
                         left_new_pos_2 > ((uint64_t)1 << k)) {
-                        std::cout << "left or right positions too large" << std::endl;
-                        std::cout << (line_point > ((uint128_t)1 << (2 * k)));
+                        Util::Log("left or right positions too large\n");
+                        Util::Log("%s", line_point > ((uint128_t)1 << (2 * k)));
                         if ((line_point > ((uint128_t)1 << (2 * k)))) {
-                            std::cout << "L, R: " << left_new_pos_1 << " " << left_new_pos_2
-                                      << std::endl;
-                            std::cout << "Line point: " << line_point << std::endl;
+                            Util::Log("L, R: %s %s\n", left_new_pos_1, left_new_pos_2);
+                            Util::Log("Line point: %s\n", line_point);
                             abort();
                         }
                     }
@@ -348,7 +345,7 @@ Phase3Results RunPhase3(
             }
             current_pos += 1;
         }
-        computation_pass_1_timer.PrintElapsed("\tFirst computation pass time:");
+        Util::LogElapsed("\tFirst computation pass", computation_pass_1_timer);
 
         // Remove no longer needed file
         left_disk.Truncate(0);
@@ -471,7 +468,7 @@ Phase3Results RunPhase3(
         R_sort_manager.reset();
         L_sort_manager->FlushCache();
 
-        computation_pass_2_timer.PrintElapsed("\tSecond computation pass time:");
+        Util::LogElapsed("\tSecond computation pass", computation_pass_2_timer);
 
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
@@ -491,7 +488,7 @@ Phase3Results RunPhase3(
         }
 
         Encoding::ANSFree(kRValues[table_index - 1]);
-        std::cout << "\tWrote " << final_entries_written << " entries" << std::endl;
+        Util::Log("\tWrote %s entries\n", final_entries_written);
 
         final_table_begin_pointers[table_index + 1] =
             final_table_begin_pointers[table_index] + (park_index + 1) * park_size_bytes;
@@ -501,7 +498,7 @@ Phase3Results RunPhase3(
         tmp2_disk.Write(final_table_writer, (table_pointer_bytes), 8);
         final_table_writer += 8;
 
-        table_timer.PrintElapsed("Total compress table time:");
+        Util::LogElapsed("Total compress table", table_timer);
 
         left_disk.FreeMemory();
         right_disk.FreeMemory();
