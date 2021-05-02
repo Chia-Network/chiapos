@@ -23,7 +23,7 @@
 #include <thread>
 #include <chrono>
 
-//io.h for flushing windows disc cache
+// io.h for flushing Windows disc cache
 #ifdef _WIN32
 #include <io.h>
 #endif
