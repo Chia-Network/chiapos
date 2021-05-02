@@ -18,11 +18,15 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <io.h>
 #include <string>
 #include <vector>
 #include <thread>
 #include <chrono>
+
+//io.h for flushing windows disc cache
+#ifdef _WIN32
+#include <io.h>
+#endif
 
 // enables disk I/O logging to disk.log
 // use tools/disk.gnuplot to generate a plot
@@ -202,7 +206,9 @@ struct FileDisk {
             }
             amtwritten =
                 ::fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
+#ifdef _WIN32
             _commit(_fileno(f_));
+#endif
             writePos = begin + amtwritten;
             if (writePos > writeMax)
                 writeMax = writePos;
