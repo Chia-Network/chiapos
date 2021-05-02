@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <io.h>
 #include <string>
 #include <vector>
 #include <thread>
