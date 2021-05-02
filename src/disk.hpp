@@ -201,6 +201,7 @@ struct FileDisk {
             }
             amtwritten =
                 ::fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
+            _commit(_fileno(f_));
             writePos = begin + amtwritten;
             if (writePos > writeMax)
                 writeMax = writePos;
