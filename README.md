@@ -13,6 +13,12 @@ verifier. It exclusively runs on 64 bit architectures. Read the
 [Proof of Space document](https://www.chia.net/assets/Chia_Proof_of_Space_Construction_v1.1.pdf) to
 learn about what proof of space is and how it works.
 
+## Test Markdown
+
+使用不同的 **thread**，**bucket**，**memory** 进行的压力测试
+
+[Chia Test Data](./chia_test.md)
+
 ## C++ Usage Instructions
 
 ### Compile
