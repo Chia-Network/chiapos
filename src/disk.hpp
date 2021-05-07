@@ -173,7 +173,7 @@ struct FileDisk {
             readPos = begin + amtread;
             if (amtread != length) {
                 std::cout << "Only read " << amtread << " of " << length << " bytes at offset "
-                          << begin << " from " << filename_ << "with length " << writeMax
+                          << begin << " from " << filename_ << " with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
                 // Close, Reopen, and re-seek the file to recover in case the filesystem
                 // has been remounted.
@@ -211,7 +211,7 @@ struct FileDisk {
                 writeMax = writePos;
             if (amtwritten != length) {
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
-                          << begin << " to " << filename_ << "with length " << writeMax
+                          << begin << " to " << filename_ << " with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
                 // Close, Reopen, and re-seek the file to recover in case the filesystem
                 // has been remounted.
