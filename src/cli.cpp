@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) try {
             "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
             "r, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
                 "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
-            "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
+            "s, stripes", "Size of stripes, default=65536 ", cxxopts::value<uint32_t>(num_stripes))(
             "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
         "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
         "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
