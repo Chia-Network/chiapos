@@ -25,6 +25,15 @@ cmake ../
 cmake --build . -- -j 6
 ```
 
+### Statically linking with GLIBCXX library
+
+```bash
+# GLIBCXX statically compile of ProofOfSpace
+mkdir -p build && cd build
+cmake -DBUILD_PROOF_OF_SPACE_STATIC_GLIBC=ON ../
+cmake --build . -- -j`nproc`
+```
+
 ### Statically linking with musl library
 
 The process requires you to have `musl-gcc` in your `$PATH` environment variable.
