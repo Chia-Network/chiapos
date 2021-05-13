@@ -206,9 +206,6 @@ struct FileDisk {
             }
             amtwritten =
                 ::fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
-#ifdef _WIN32
-            _commit(_fileno(f_));
-#endif
             writePos = begin + amtwritten;
             if (writePos > writeMax)
                 writeMax = writePos;
@@ -219,6 +216,14 @@ struct FileDisk {
                 std::this_thread::sleep_for(5min);
             }
         } while (amtwritten != length);
+    #ifdef _WIN32
+        // Flush Windows Cache after few cycles
+        flush_cyclecount += 1;
+        if (flush_cyclecount >= flush_cyclelimit){
+            flush_cyclecount = 0;
+            _commit(_fileno(f_));
+        }
+    #endif
     }
 
     std::string GetFileName() { return filename_.string(); }
@@ -236,6 +241,12 @@ private:
     uint64_t readPos = 0;
     uint64_t writePos = 0;
     uint64_t writeMax = 0;
+    
+#ifdef _WIN32    
+    uint8_t flush_cyclelimit = 50;
+    uint8_t flush_cyclecount = 0;
+#endif    
+    
     bool bReading = true;
 
     fs::path filename_;
