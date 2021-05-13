@@ -46,7 +46,6 @@
 #include "threading.hpp"
 #include "util.hpp"
 #include "progress.hpp"
-#include "phases.hpp"
 
 struct THREADDATA {
     int index;

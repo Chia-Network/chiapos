@@ -37,6 +37,7 @@
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "exceptions.hpp"
+#include "phases.hpp"
 #include "phase1.hpp"
 #include "phase2.hpp"
 #include "b17phase2.hpp"
@@ -47,7 +48,6 @@
 #include "pos_constants.hpp"
 #include "sort_manager.hpp"
 #include "util.hpp"
-#include "phases.hpp"
 
 #define B17PHASE23
 
