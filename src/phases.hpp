@@ -16,7 +16,10 @@
 #define SRC_CPP_PHASES_HPP_
 
 #pragma once
-enum phase_flags {
+
+#include <cstdint>
+
+enum phase_flags : uint8_t {
     ENABLE_BITFIELD = 1 << 0,
     SHOW_PROGRESS = 1 << 1,
 };
