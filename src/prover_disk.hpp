@@ -22,6 +22,7 @@
 
 #include <algorithm>  // std::min
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -218,7 +219,7 @@ public:
             }
 
             // Gets the 64 leaf x values, concatenated together into a k*64 bit string.
-            std::vector<Bits> xs = GetInputs(disk_file, p7_entries[index], 6);
+            std::vector<Bits> xs = GetInputs(p7_entries[index], 6);
 
             // Sorts them according to proof ordering, where
             // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not stored in
@@ -634,8 +635,10 @@ private:
     // all of the leaves (x values). For example, for depth=5, it fetches the position-th
     // entry in table 5, reading the two back pointers from the line point, and then
     // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(std::ifstream& disk_file, uint64_t position, uint8_t depth)
+    std::vector<Bits> GetInputs(uint64_t position, uint8_t depth)
     {
+        // Create individual file handles to allow parallel processing
+        std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
         uint128_t line_point = ReadLinePoint(disk_file, depth, position);
         std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
 
@@ -646,8 +649,10 @@ private:
             ret.emplace_back(xy.first, k);   // x
             return ret;
         } else {
-            std::vector<Bits> left = GetInputs(disk_file, xy.second, depth - 1);  // y
-            std::vector<Bits> right = GetInputs(disk_file, xy.first, depth - 1);  // x
+            auto left_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.second, (uint8_t)(depth - 1));
+            auto right_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.first, (uint8_t)(depth - 1));
+            std::vector<Bits> left = left_fut.get();  // y
+            std::vector<Bits> right = right_fut.get();  // x
             left.insert(left.end(), right.begin(), right.end());
             return left;
         }
