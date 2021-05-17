@@ -169,6 +169,38 @@ TEST_CASE("Util")
 
 TEST_CASE("Bits")
 {
+    SECTION("Inline Vector")
+    {
+         const size_t test_size = 16384;
+         InlineVector<uint64_t, uint16_t, test_size> test_vector;
+         for(size_t i = 0; i < test_vector.max_size(); i++)
+            test_vector.push_back(i & (64 - 1));
+
+         REQUIRE(test_vector.size() == test_size);
+         for(size_t i = 0; i < test_vector.size(); i++)
+            REQUIRE(test_vector[static_cast<uint16_t>(i)] == (i & (64 - 1)));
+
+         std::vector<uint64_t> std_vector;
+         for(size_t i = 0; i < test_size / 2; i++)
+             std_vector.push_back(test_size - i);
+
+         test_vector = std_vector;
+         REQUIRE(test_vector.size() == std_vector.size());
+
+         for(size_t i = 0; i < test_vector.size(); i++)
+            REQUIRE(test_vector[static_cast<uint16_t>(i)] == (test_size - i));
+
+         InlineVector<uint64_t, uint16_t, test_size> other_vector;
+         for(size_t i = 0; i < test_size / 2 + 256; i++)
+             other_vector.push_back(test_size + i);
+
+         test_vector = other_vector;
+         REQUIRE(test_vector.size() == other_vector.size());
+
+         for(size_t i = 0; i < test_vector.size(); i++)
+            REQUIRE(test_vector[static_cast<uint16_t>(i)] == (test_size + i));
+    }
+
     SECTION("Slicing and manipulating")
     {
         Bits g = Bits(13271, 15);
