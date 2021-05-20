@@ -193,8 +193,9 @@ struct FileDisk {
 #endif
         // Seek and write from memcache
         uint64_t amtwritten;
+        bool errorOnWrite;
         do {
-            if ((bReading) || (begin != writePos)) {
+            if ((bReading) || (begin != writePos) || errorOnWrite) {
 #ifdef _WIN32
                 _fseeki64(f_, begin, SEEK_SET);
 #else
@@ -204,12 +205,14 @@ struct FileDisk {
 #endif
                 bReading = false;
             }
+            errorOnWrite = false;
             amtwritten =
                 ::fwrite(reinterpret_cast<const char *>(memcache), sizeof(uint8_t), length, f_);
             writePos = begin + amtwritten;
             if (writePos > writeMax)
                 writeMax = writePos;
             if (amtwritten != length) {
+                errorOnWrite = true;
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
                           << begin << " to " << filename_ << " with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
