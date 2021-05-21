@@ -28,6 +28,7 @@ using std::endl;
 using std::cout;
 
 thread_pool pool(4);
+synced_stream sync_out;
 
 void HexToBytes(const string &hex, uint8_t *result)
 {

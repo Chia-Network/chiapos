@@ -29,6 +29,7 @@
 using namespace std;
 
 thread_pool pool(4);
+synced_stream sync_out;
 
 uint8_t plot_id_1[] = {35,  2,   52,  4,  51, 55,  23,  84, 91, 10, 111, 12,  13,  222, 151, 16,
                        228, 211, 254, 45, 92, 198, 204, 10, 9,  10, 11,  129, 139, 171, 15,  23};

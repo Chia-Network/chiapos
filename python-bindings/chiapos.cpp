@@ -30,6 +30,7 @@ using std::experimental::optional;
 #include "../src/thread_pool.hpp"
     
 thread_pool pool(4);
+synced_stream sync_out;
  
 namespace py = pybind11;
 
