@@ -301,18 +301,20 @@ public:
             rmap_clean.push_back(r_y);
         }
 
-        uint64_t remove_y = remove - kBC;
+        const uint64_t remove_y = remove - kBC;
         for (size_t pos_L = 0; pos_L < bucket_L.size(); pos_L++) {
-            uint64_t r = bucket_L[pos_L].y - remove_y;
+            const uint64_t r = bucket_L[pos_L].y - remove_y;
             for (uint8_t i = 0; i < kExtraBitsPow; i++) {
-                uint16_t r_target = L_targets[parity][r][i];
-                for (size_t j = 0; j < rmap[r_target].count; j++) {
-                    if(idx_L != nullptr) {
+                const uint16_t r_target = L_targets[parity][r][i];
+                if(idx_L != nullptr) {
+                    for (size_t j = 0; j < rmap[r_target].count; j++) {
                         idx_L[idx_count]=pos_L;
                         idx_R[idx_count]=rmap[r_target].pos + j;
+                        idx_count++;
                     }
-                    idx_count++;
-                }
+                } else {
+		   idx_count += rmap[r_target].count;
+		}
             }
         }
         return idx_count;

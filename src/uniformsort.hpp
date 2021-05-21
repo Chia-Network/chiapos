@@ -30,10 +30,9 @@ namespace UniformSort {
 
     inline static bool IsPositionEmpty(const uint8_t *memory, uint32_t const entry_len)
     {
-        for (uint32_t i = 0; i < entry_len; i++)
-            if (memory[i] != 0)
-                return false;
-        return true;
+       // no entry can be larger than 256 bytes (the blake3 output size)
+       const static uint8_t zeros[256] = {};
+       return memcmp(memory, zeros, entry_len) == 0;
     }
 
     inline void SortToMemory(

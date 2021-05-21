@@ -90,7 +90,7 @@ public:
 
     void AddToCache(const uint8_t *entry)
     {
-        if (this->done) {
+        if (unlikely(this->done)) {
             throw InvalidValueException("Already finished.");
         }
         uint64_t const bucket_index =
@@ -114,7 +114,7 @@ public:
 
     void Truncate(uint64_t new_size) override
     {
-        if (new_size != 0) {
+        if (unlikely(new_size != 0)) {
             assert(false);
             throw InvalidStateException("Invalid Truncate() called on SortManager");
         }
@@ -144,7 +144,7 @@ public:
 
     uint8_t *ReadEntry(uint64_t position)
     {
-        if (position < this->final_position_start) {
+        if (unlikely(position < this->final_position_start)) {
             if (!(position >= this->prev_bucket_position_start)) {
                 throw InvalidStateException("Invalid prev bucket start");
             }
@@ -156,13 +156,12 @@ public:
         while (position >= this->final_position_end) {
             SortBucket();
         }
-        if (!(this->final_position_end > position)) {
+        if (unlikely(!(this->final_position_end > position))) {
             throw InvalidValueException("Position too large");
         }
-        if (!(this->final_position_start <= position)) {
+        if (unlikely(!(this->final_position_start <= position))) {
             throw InvalidValueException("Position too small");
         }
-        assert(memory_start_);
         return memory_start_.get() + (position - this->final_position_start);
     }
 
@@ -178,10 +177,10 @@ public:
 
     void TriggerNewBucket(uint64_t position)
     {
-        if (!(position <= this->final_position_end)) {
+        if (unlikely(!(position <= this->final_position_end))) {
             throw InvalidValueException("Triggering bucket too late");
         }
-        if (!(position >= this->final_position_start)) {
+        if (unlikely(!(position >= this->final_position_start))) {
             throw InvalidValueException("Triggering bucket too early");
         }
 
@@ -269,7 +268,7 @@ private:
         }
 
         this->done = true;
-        if (next_bucket_to_sort >= buckets_.size()) {
+        if (unlikely(next_bucket_to_sort >= buckets_.size())) {
             throw InvalidValueException("Trying to sort bucket which does not exist.");
         }
         uint64_t const bucket_i = this->next_bucket_to_sort;
