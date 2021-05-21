@@ -64,12 +64,16 @@ b17Phase3Results b17RunPhase3(
     uint8_t pos_size = k;
     uint8_t line_point_size = 2 * k - 1;
 
+    // file size is not really know at this point, but it doesn't matter as
+    // we're only writing
+    BufferedDisk tmp2_buffered_disk(&tmp2_disk, 0);
+
     std::vector<uint64_t> final_table_begin_pointers(12, 0);
     final_table_begin_pointers[1] = header_size;
 
     uint8_t table_pointer_bytes[8];
     Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[1]);
-    tmp2_disk.Write(header_size - 10 * 8, table_pointer_bytes, 8);
+    tmp2_buffered_disk.Write(header_size - 10 * 8, table_pointer_bytes, 8);
 
     uint64_t final_entries_written = 0;
     uint32_t right_entry_size_bytes = 0;
@@ -380,7 +384,7 @@ b17Phase3Results b17RunPhase3(
             if (index % kEntriesPerPark == 0) {
                 if (index != 0) {
                     WriteParkToFile(
-                        tmp2_disk,
+                        tmp2_buffered_disk,
                         final_table_begin_pointers[table_index],
                         park_index,
                         park_size_bytes,
@@ -427,7 +431,7 @@ b17Phase3Results b17RunPhase3(
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
             WriteParkToFile(
-                tmp2_disk,
+                tmp2_buffered_disk,
                 final_table_begin_pointers[table_index],
                 park_index,
                 park_size_bytes,
@@ -449,7 +453,7 @@ b17Phase3Results b17RunPhase3(
 
         final_table_writer = header_size - 8 * (10 - table_index);
         Util::IntToEightBytes(table_pointer_bytes, final_table_begin_pointers[table_index + 1]);
-        tmp2_disk.Write(final_table_writer, (table_pointer_bytes), 8);
+        tmp2_buffered_disk.Write(final_table_writer, (table_pointer_bytes), 8);
         final_table_writer += 8;
 
         table_timer.PrintElapsed("Total compress table time:");
@@ -458,6 +462,7 @@ b17Phase3Results b17RunPhase3(
 
     L_sort_manager->ChangeMemory(memory, memory_size);
     delete[] park_buffer;
+    tmp2_buffered_disk.FreeMemory();
 
     // These results will be used to write table P7 and the checkpoint tables in phase 4.
     return b17Phase3Results{

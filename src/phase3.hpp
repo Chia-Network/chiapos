@@ -43,7 +43,7 @@ struct Phase3Results {
 // is: [2k bits of first_line_point]  [EPP-1 stubs] [Deltas size] [EPP-1 deltas]....
 // [first_line_point] ...
 void WriteParkToFile(
-    FileDisk &final_disk,
+    Disk &final_disk,
     uint64_t table_start,
     uint64_t park_index,
     uint32_t park_size_bytes,
@@ -132,6 +132,10 @@ Phase3Results RunPhase3(
 {
     uint8_t const pos_size = k;
     uint8_t const line_point_size = 2 * k - 1;
+
+    // file size is not really know at this point, but it doesn't matter as
+    // we're only writing
+    BufferedDisk tmp2_buffered_disk(&tmp2_disk, 0);
 
     std::vector<uint64_t> final_table_begin_pointers(12, 0);
     final_table_begin_pointers[1] = header_size;
@@ -429,7 +433,7 @@ Phase3Results RunPhase3(
             if (index % kEntriesPerPark == 0) {
                 if (index != 0) {
                     WriteParkToFile(
-                        tmp2_disk,
+                        tmp2_buffered_disk,
                         final_table_begin_pointers[table_index],
                         park_index,
                         park_size_bytes,
@@ -476,7 +480,7 @@ Phase3Results RunPhase3(
         if (park_deltas.size() > 0) {
             // Since we don't have a perfect multiple of EPP entries, this writes the last ones
             WriteParkToFile(
-                tmp2_disk,
+                tmp2_buffered_disk,
                 final_table_begin_pointers[table_index],
                 park_index,
                 park_size_bytes,
@@ -510,6 +514,7 @@ Phase3Results RunPhase3(
 
     L_sort_manager->FreeMemory();
     park_buffer.reset();
+    tmp2_buffered_disk.FreeMemory();
 
     // These results will be used to write table P7 and the checkpoint tables in phase 4.
     return Phase3Results{
