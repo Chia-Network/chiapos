@@ -88,7 +88,6 @@ namespace QuickSort {
             #pragma omp task
             SortInner(memory, memory_len, L, bits_begin, begin, lo);
         }
-        #pragma omp taskwait
     }
 
     inline void Sort(
