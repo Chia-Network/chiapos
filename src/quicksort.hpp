@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <chrono>
 
 #include "util.hpp"
 
@@ -32,9 +33,10 @@ namespace QuickSort {
         uint32_t L,
         uint32_t bits_begin,
         uint64_t begin,
-        uint64_t end,
-        uint8_t *pivot_space)
+        uint64_t end)
     {
+        auto const _pivot_space = std::make_unique<uint8_t[]>(L);
+        auto *pivot_space = _pivot_space.get();
         if (end - begin <= 5) {
             for (uint64_t i = begin + 1; i < end; i++) {
                 uint64_t j = i;
@@ -76,12 +78,17 @@ namespace QuickSort {
         }
         memcpy(memory + lo * L, pivot_space, L);
         if (lo - begin <= end - lo) {
-            SortInner(memory, memory_len, L, bits_begin, begin, lo, pivot_space);
-            SortInner(memory, memory_len, L, bits_begin, lo + 1, end, pivot_space);
+            #pragma omp task
+            SortInner(memory, memory_len, L, bits_begin, begin, lo);
+            #pragma omp task
+            SortInner(memory, memory_len, L, bits_begin, lo + 1, end);
         } else {
-            SortInner(memory, memory_len, L, bits_begin, lo + 1, end, pivot_space);
-            SortInner(memory, memory_len, L, bits_begin, begin, lo, pivot_space);
+            #pragma omp task
+            SortInner(memory, memory_len, L, bits_begin, lo + 1, end);
+            #pragma omp task
+            SortInner(memory, memory_len, L, bits_begin, begin, lo);
         }
+        #pragma omp taskwait
     }
 
     inline void Sort(
@@ -91,8 +98,13 @@ namespace QuickSort {
         uint32_t const bits_begin)
     {
         uint64_t const memory_len = (uint64_t)entry_len * num_entries;
-        auto const pivot_space = std::make_unique<uint8_t[]>(entry_len);
-        SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries, pivot_space.get());
+        const auto start = std::chrono::high_resolution_clock::now();
+        #pragma omp parallel
+        #pragma omp single
+        SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries);
+        const auto end = std::chrono::high_resolution_clock::now();
+        const auto elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+        std::cout << "Parallel quick sort took " << elapsed << " mSec" << std::endl;
     }
 
 }
