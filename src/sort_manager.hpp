@@ -291,8 +291,9 @@ private:
         bool const last_bucket = (bucket_i == buckets_.size() - 1)
             || buckets_[bucket_i + 1].write_pointer == 0;
 
-        bool const force_quicksort = (strategy_ == strategy_t::quicksort)
-            || (strategy_ == strategy_t::quicksort_last && last_bucket);
+        //bool const force_quicksort = (strategy_ == strategy_t::quicksort)
+        //    || (strategy_ == strategy_t::quicksort_last && last_bucket);
+        bool const force_quicksort = true;
 
         // Do SortInMemory algorithm if it fits in the memory
         // (number of entries required * entry_size_) <= total memory available
