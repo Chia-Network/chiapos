@@ -1,6 +1,18 @@
-#ifdef __x86_64__
-.intel_syntax noprefix
+#if defined(__ELF__) && defined(__linux__)
+.section .note.GNU-stack,"",%progbits
+#endif
 
+#if defined(__ELF__) && defined(__CET__) && defined(__has_include)
+#if __has_include(<cet.h>)
+#include <cet.h>
+#endif
+#endif
+
+#if !defined(_CET_ENDBR)
+#define _CET_ENDBR
+#endif
+
+.intel_syntax noprefix
 .global _blake3_hash_many_avx512
 .global blake3_hash_many_avx512
 .global blake3_compress_in_place_avx512
@@ -16,6 +28,7 @@
 .p2align  6
 _blake3_hash_many_avx512:
 blake3_hash_many_avx512:
+        _CET_ENDBR
         push    r15
         push    r14
         push    r13
@@ -2373,6 +2386,7 @@ blake3_hash_many_avx512:
 .p2align 6
 _blake3_compress_in_place_avx512:
 blake3_compress_in_place_avx512:
+        _CET_ENDBR
         vmovdqu xmm0, xmmword ptr [rdi]
         vmovdqu xmm1, xmmword ptr [rdi+0x10]
         movzx   eax, r8b
@@ -2455,6 +2469,7 @@ blake3_compress_in_place_avx512:
 .p2align 6
 _blake3_compress_xof_avx512:
 blake3_compress_xof_avx512:
+        _CET_ENDBR
         vmovdqu xmm0, xmmword ptr [rdi]
         vmovdqu xmm1, xmmword ptr [rdi+0x10]
         movzx   eax, r8b
@@ -2568,5 +2583,3 @@ BLAKE3_IV_2:
         .long   0x3C6EF372
 BLAKE3_IV_3:
         .long   0xA54FF53A
-
-#endif // __x86_64__

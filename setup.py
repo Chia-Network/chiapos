@@ -103,6 +103,8 @@ ext_modules = [
             "src/b3/blake3_dispatch.c",
             "src/b3/blake3_avx2.c",
             "src/b3/blake3_avx512.c",
+            "src/b3/blake3_neon.c",
+            "src/b3/blake3_sse2.c",
             "src/b3/blake3_sse41.c",
             "src/chacha8.c",
         ],
