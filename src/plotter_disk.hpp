@@ -169,15 +169,15 @@ public:
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
 
         // The table0 file will be used for sort on disk spare. tables 1-7 are stored in their own
-        // file.
+        // file. Ensure all paths are canonical.
         tmp_1_filenames.push_back(fs::path(tmp_dirname) / fs::path(filename + ".sort.tmp"));
         for (size_t i = 1; i <= 7; i++) {
             tmp_1_filenames.push_back(
-                fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
+                fs::weakly_canonical(fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp")));
         }
-        fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
-        fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
-        fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
+        fs::path tmp_2_filename = fs::weakly_canonical(fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp"));
+        fs::path final_2_filename = fs::weakly_canonical(fs::path(final_dirname) / fs::path(filename + ".2.tmp"));
+        fs::path final_filename = fs::weakly_canonical(fs::path(final_dirname) / fs::path(filename));
 
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
@@ -364,6 +364,7 @@ public:
             fs::remove(p);
         }
 
+        bool bHardlinked = false;
         bool bCopied = false;
         bool bRenamed = false;
         Timer copy;
@@ -381,7 +382,25 @@ public:
                               << final_filename << std::endl;
                 }
             } else {
-                if (!bCopied) {
+                if (!bHardlinked) {
+                    fs::create_hard_link(
+                        tmp_2_filename, final_2_filename, ec);
+                    if (ec.value() != 0) {
+                        std::cout << "Could not hardlink " << final_2_filename << " to "
+                                  << tmp_2_filename << ". Error " << ec.message()
+                                  << ". Trying to copy instead." << std::endl;
+                    } else {
+                        std::cout << "Hardlinked final file from " << final_2_filename << " to "
+                                  << tmp_2_filename << std::endl;
+                        copy.PrintElapsed("Link time =");
+                        bHardlinked = true;
+
+                        bool removed_2 = fs::remove(tmp_2_filename);
+                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
+                                  << std::endl;
+                    }
+                }
+                if (!bHardlinked && !bCopied) {
                     fs::copy(
                         tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
                     if (ec.value() != 0) {
@@ -399,7 +418,7 @@ public:
                                   << std::endl;
                     }
                 }
-                if (bCopied && (!bRenamed)) {
+                if ((bCopied || bHardlinked) && (!bRenamed)) {
                     fs::rename(final_2_filename, final_filename, ec);
                     if (ec.value() != 0) {
                         std::cout << "Could not rename " << tmp_2_filename << " to "
