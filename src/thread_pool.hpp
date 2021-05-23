@@ -428,7 +428,9 @@ public:
     template <typename... T>
     void println(const T &...items)
     {
-        print(items..., '\n');
+        const std::scoped_lock lock(stream_mutex);
+        (out_stream << ... << items);
+        out_stream << std::endl;
     }
 
 private:
