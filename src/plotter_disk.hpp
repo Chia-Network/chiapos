@@ -168,17 +168,6 @@ public:
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
 
-        // The table0 file will be used for sort on disk spare. tables 1-7 are stored in their own
-        // file. Ensure all paths are canonical.
-        tmp_1_filenames.push_back(fs::path(tmp_dirname) / fs::path(filename + ".sort.tmp"));
-        for (size_t i = 1; i <= 7; i++) {
-            tmp_1_filenames.push_back(
-                fs::weakly_canonical(fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp")));
-        }
-        fs::path tmp_2_filename = fs::weakly_canonical(fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp"));
-        fs::path final_2_filename = fs::weakly_canonical(fs::path(final_dirname) / fs::path(filename + ".2.tmp"));
-        fs::path final_filename = fs::weakly_canonical(fs::path(final_dirname) / fs::path(filename));
-
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
             throw InvalidValueException("Temp directory " + tmp_dirname + " does not exist");
@@ -191,6 +180,23 @@ public:
         if (!fs::exists(final_dirname)) {
             throw InvalidValueException("Final directory " + final_dirname + " does not exist");
         }
+        
+        // Ensure all paths are canonical.
+        fs::path tmp_dirname_canonical = fs::canonical(fs::path(tmp_dirname));
+        fs::path tmp2_dirname_canonical = fs::canonical(fs::path(tmp2_dirname));
+        fs::path final_dirname_canonical = fs::canonical(fs::path(final_dirname));
+
+        // The table0 file will be used for sort on disk spare. tables 1-7 are stored in their own
+        // file.
+        tmp_1_filenames.push_back(tmp_dirname_canonical / fs::path(filename + ".sort.tmp"));
+        for (size_t i = 1; i <= 7; i++) {
+            tmp_1_filenames.push_back(
+                tmp_dirname_canonical / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
+        }
+        fs::path tmp_2_filename = tmp2_dirname_canonical / fs::path(filename + ".2.tmp");
+        fs::path final_2_filename = final_dirname_canonical / fs::path(filename + ".2.tmp");
+        fs::path final_filename = final_dirname_canonical / fs::path(filename);
+
         for (fs::path& p : tmp_1_filenames) {
             fs::remove(p);
         }
