@@ -164,6 +164,11 @@ public:
         std::cout << "Using " << num_buckets << " buckets" << std::endl;
         std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size
                   << std::endl;
+        std::cout << "Using optimized chiapos";
+#ifdef GIT_COMMIT_HASH
+        std::cout << " - " << GIT_COMMIT_HASH;
+#endif
+        std::cout << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
