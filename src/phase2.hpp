@@ -15,10 +15,8 @@
 #ifndef SRC_CPP_PHASE2_HPP_
 #define SRC_CPP_PHASE2_HPP_
 #include <vector>
-#include <queue>
 #include <algorithm> //std::copy
 #include <thread>
-#include <mutex>
 #include <atomic>
 #include <chrono> // this_thread::sleep_for
 
@@ -28,6 +26,7 @@
 #include "bitfield.hpp"
 #include "bitfield_index.hpp"
 #include "progress.hpp"
+#include "concurrent_queue.hpp"
 
 struct Phase2Results
 {
@@ -62,35 +61,28 @@ class exit_flag
         bool operator !() const noexcept { return !static_cast<bool>(*this); }
 };
 
-void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t const k, uint8_t const pos_offset_size, int16_t const entry_size, std::queue<std::shared_ptr<SCANTHREADDATA>>* q, std::mutex *qm, exit_flag *exitflag)
+void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t const k, uint8_t const pos_offset_size, int16_t const entry_size, concurrent_queue<std::shared_ptr<SCANTHREADDATA>>* q, exit_flag *exitflag)
 {
-    bool waiting_flag = false;
     while (1)
     {
-        if(waiting_flag){ // to avoid overlocking
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            waiting_flag=false;
-        }
-        int64_t chunk;
-        int64_t read_index;
-        std::shared_ptr<uint8_t> entry_chunk;
-        {
-            std::lock_guard<std::mutex> l(*qm);
-            if (q->empty()) {
-                if (*exitflag) {
-                    break;
-                }else{
-                    waiting_flag=true;
-                    continue;
-                }
+        if (q->empty()) {
+            if (*exitflag) {
+                break;
+            }else{
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                continue;
             }
-            assert(!q->empty());
-            auto d = q->front();
-            chunk = d->chunk;
-            read_index = d->read_index;
-            entry_chunk = d->entry;
-            q->pop();
         }
+        assert(!q->empty());
+        const auto od = q->pop();
+        if(od == boost::none)
+        {
+            continue;
+        }
+        const auto d = od.get();
+        std::shared_ptr<uint8_t> entry_chunk = d->entry;
+        int64_t chunk = d->chunk;
+        int64_t read_index = d->read_index;
 
         for(int64_t r = 0; r < chunk; ++r){
             uint8_t const* entry = entry_chunk.get() + r*entry_size;
@@ -208,13 +200,12 @@ Phase2Results RunPhase2(
             }
         }else{
             std::cout << "parallel scanning" << std::endl;
-            std::mutex queue_mutex;
             std::vector<std::thread> threads;
-            std::queue<std::shared_ptr<SCANTHREADDATA> > q;
+            concurrent_queue<std::shared_ptr<SCANTHREADDATA> > q;
             exit_flag exitflag;
 
             for (int i = 0; i < num_threads; ++i) {
-                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, entry_size, &q, &queue_mutex, &exitflag);
+                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, entry_size, &q, &exitflag);
             }
             std::cout << "thread created" << std::endl;
 
@@ -224,16 +215,13 @@ Phase2Results RunPhase2(
             for (int64_t read_index = 0; read_index < table_size; read_index+=chunk_size, read_cursor += entry_size*chunk_size)
             {
                 const auto chunk = std::min(table_size-read_index-1, chunk_size);
-                if(chunk==0) continue;
+                if(chunk<=0) continue; // for debug
                 uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
                 std::shared_ptr<uint8_t> sp(new uint8_t[chunk*entry_size+1]);
                 //memcpy(sp.get(), entry, entry_size);
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
-                {
-                    std::lock_guard<std::mutex> l(queue_mutex);
-                    q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
-                }
+                q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
             }
             
             exitflag.exit();
