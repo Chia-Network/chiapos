@@ -45,11 +45,11 @@ struct Phase2Results
 
 struct SCANTHREADDATA
 {
-    int table_index;
+    int64_t chunk;
     int64_t read_index;
     std::shared_ptr<uint8_t> entry;
-    SCANTHREADDATA(int table_index_, int64_t read_index_, std::shared_ptr<uint8_t> entry_)
-    : table_index(table_index_), read_index(read_index_), entry(entry_)
+    SCANTHREADDATA(int64_t chunk_, int64_t read_index_, std::shared_ptr<uint8_t> entry_)
+    : chunk(chunk_), read_index(read_index_), entry(entry_)
     {}
 };
 
@@ -62,18 +62,18 @@ class exit_flag
         bool operator !() const noexcept { return !static_cast<bool>(*this); }
 };
 
-void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t const k, uint8_t const pos_offset_size, std::queue<std::shared_ptr<SCANTHREADDATA>>* q, std::mutex *qm, exit_flag *exitflag)
+void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t const k, uint8_t const pos_offset_size, int16_t const entry_size, std::queue<std::shared_ptr<SCANTHREADDATA>>* q, std::mutex *qm, exit_flag *exitflag)
 {
     bool waiting_flag = false;
     while (1)
     {
         if(waiting_flag){ // to avoid overlocking
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
             waiting_flag=false;
         }
-        int table_index;
+        int64_t chunk;
         int64_t read_index;
-        std::shared_ptr<uint8_t> entry;
+        std::shared_ptr<uint8_t> entry_chunk;
         {
             std::lock_guard<std::mutex> l(*qm);
             if (q->empty()) {
@@ -86,25 +86,28 @@ void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t co
             }
             assert(!q->empty());
             auto d = q->front();
-            table_index = d->table_index;
+            chunk = d->chunk;
             read_index = d->read_index;
-            entry = d->entry;
+            entry_chunk = d->entry;
             q->pop();
         }
 
-        uint64_t entry_pos_offset = 0;
-        if (!current_bitfield->get(read_index))
-        {
-            // This entry should be dropped.
-            continue;
-        }
-        entry_pos_offset = Util::SliceInt64FromBytes(entry.get(), 0, pos_offset_size);
+        for(int64_t r = 0; r < chunk; ++r){
+            uint8_t const* entry = entry_chunk.get() + r*entry_size;
+            uint64_t entry_pos_offset = 0;
+            if (!current_bitfield->get(read_index+r))
+            {
+                // This entry should be dropped.
+                continue;
+            }
+            entry_pos_offset = Util::SliceInt64FromBytes(entry, 0, pos_offset_size);
 
-        uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
-        uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
-        // mark the two matching entries as used (pos and pos+offset)
-        next_bitfield->set(entry_pos);
-        next_bitfield->set(entry_pos + entry_offset);
+            uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
+            uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
+            // mark the two matching entries as used (pos and pos+offset)
+            next_bitfield->set(entry_pos);
+            next_bitfield->set(entry_pos + entry_offset);
+        }
     }
     return 0;
 }
@@ -210,24 +213,31 @@ Phase2Results RunPhase2(
             std::queue<std::shared_ptr<SCANTHREADDATA> > q;
             exit_flag exitflag;
 
-            for (int i = 0; i < 1; ++i) {
-                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, &q, &queue_mutex, &exitflag);
+            for (int i = 0; i < num_threads; ++i) {
+                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, entry_size, &q, &queue_mutex, &exitflag);
             }
+            std::cout << "thread created" << std::endl;
 
-            for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
+            //TODO: chunk_size should be determined by memory usage
+            const int64_t chunk_size = 128*1024*1024/entry_size > entry_size ? 128*1024*1024/entry_size : entry_size;
+
+            for (int64_t read_index = 0; read_index < table_size; read_index+=chunk_size, read_cursor += entry_size*chunk_size)
             {
-                uint8_t const* entry = disk.Read(read_cursor, entry_size);
-                std::shared_ptr<uint8_t> sp(new uint8_t[128]);
+                const auto chunk = std::min(table_size-read_index-1, chunk_size);
+                if(chunk==0) continue;
+                uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
+                std::shared_ptr<uint8_t> sp(new uint8_t[chunk*entry_size+1]);
                 //memcpy(sp.get(), entry, entry_size);
-                std::copy(entry, entry+entry_size, sp.get());
+                std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 {
                     std::lock_guard<std::mutex> l(queue_mutex);
-                    q.push(std::make_shared<SCANTHREADDATA>(table_index,read_index,sp));
+                    q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
                 }
             }
             
             exitflag.exit();
+            std::cout << "finished making jobs" << std::endl;
             for (auto& t : threads) {
                 t.join();
             }
