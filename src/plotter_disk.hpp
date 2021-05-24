@@ -304,6 +304,7 @@ public:
                     memory_size,
                     num_buckets,
                     log_num_buckets,
+                    num_threads,
                     show_progress);
                 p2.PrintElapsed("Time for phase 2 =");
 

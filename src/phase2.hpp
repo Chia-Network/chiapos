@@ -14,6 +14,13 @@
 
 #ifndef SRC_CPP_PHASE2_HPP_
 #define SRC_CPP_PHASE2_HPP_
+#include <vector>
+#include <queue>
+#include <algorithm> //std::copy
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <chrono> // this_thread::sleep_for
 
 #include "disk.hpp"
 #include "entry_sizes.hpp"
@@ -36,6 +43,73 @@ struct Phase2Results
     std::vector<uint64_t> table_sizes;
 };
 
+struct SCANTHREADDATA
+{
+    int table_index;
+    int64_t read_index;
+    std::shared_ptr<uint8_t> entry;
+    SCANTHREADDATA(int table_index_, int64_t read_index_, std::shared_ptr<uint8_t> entry_)
+    : table_index(table_index_), read_index(read_index_), entry(entry_)
+    {}
+};
+
+class exit_flag
+{
+    std::atomic<bool> exited_{false};
+    public:
+        void exit() { exited_.store(true, std::memory_order_release); }
+        explicit operator bool() const noexcept { return exited_.load(std::memory_order_acquire); }
+        bool operator !() const noexcept { return !static_cast<bool>(*this); }
+};
+
+void* ScanThread(bitfield* current_bitfield, bitfield* next_bitfield, uint8_t const k, uint8_t const pos_offset_size, std::queue<std::shared_ptr<SCANTHREADDATA>>* q, std::mutex *qm, exit_flag *exitflag)
+{
+    bool waiting_flag = false;
+    while (1)
+    {
+        if(waiting_flag){ // to avoid overlocking
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            waiting_flag=false;
+        }
+        int table_index;
+        int64_t read_index;
+        std::shared_ptr<uint8_t> entry;
+        {
+            std::lock_guard<std::mutex> l(*qm);
+            if (q->empty()) {
+                if (*exitflag) {
+                    break;
+                }else{
+                    waiting_flag=true;
+                    continue;
+                }
+            }
+            assert(!q->empty());
+            auto d = q->front();
+            table_index = d->table_index;
+            read_index = d->read_index;
+            entry = d->entry;
+            q->pop();
+        }
+
+        uint64_t entry_pos_offset = 0;
+        if (!current_bitfield->get(read_index))
+        {
+            // This entry should be dropped.
+            continue;
+        }
+        entry_pos_offset = Util::SliceInt64FromBytes(entry.get(), 0, pos_offset_size);
+
+        uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
+        uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
+        // mark the two matching entries as used (pos and pos+offset)
+        next_bitfield->set(entry_pos);
+        next_bitfield->set(entry_pos + entry_offset);
+    }
+    return 0;
+}
+
+
 // Backpropagate takes in as input, a file on which forward propagation has been done.
 // The purpose of backpropagate is to eliminate any dead entries that don't contribute
 // to final values in f7, to minimize disk usage. A sort on disk is applied to each table,
@@ -50,6 +124,7 @@ Phase2Results RunPhase2(
     uint64_t memory_size,
     uint32_t const num_buckets,
     uint32_t const log_num_buckets,
+    uint8_t const num_threads,
     bool const show_progress)
 {
     // After pruning each table will have 0.865 * 2^k or fewer entries on
@@ -112,29 +187,50 @@ Phase2Results RunPhase2(
         // for table 7
 
         int64_t read_cursor = 0;
-        for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
-        {
-            uint8_t const* entry = disk.Read(read_cursor, entry_size);
+        if(table_index==7){
+            for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
+            {
+                uint8_t const* entry = disk.Read(read_cursor, entry_size);
 
-            uint64_t entry_pos_offset = 0;
-            if (table_index == 7) {
+                uint64_t entry_pos_offset = 0;
                 // table 7 is special, we never drop anything, so just build
                 // next_bitfield
                 entry_pos_offset = Util::SliceInt64FromBytes(entry, k, pos_offset_size);
-            } else {
-                if (!current_bitfield.get(read_index))
-                {
-                    // This entry should be dropped.
-                    continue;
-                }
-                entry_pos_offset = Util::SliceInt64FromBytes(entry, 0, pos_offset_size);
+
+                uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
+                uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
+                // mark the two matching entries as used (pos and pos+offset)
+                next_bitfield.set(entry_pos);
+                next_bitfield.set(entry_pos + entry_offset);
+            }
+        }else{
+            std::cout << "parallel scanning" << std::endl;
+            std::mutex queue_mutex;
+            std::vector<std::thread> threads;
+            std::queue<std::shared_ptr<SCANTHREADDATA> > q;
+            exit_flag exitflag;
+
+            for (int i = 0; i < 1; ++i) {
+                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, &q, &queue_mutex, &exitflag);
             }
 
-            uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
-            uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
-            // mark the two matching entries as used (pos and pos+offset)
-            next_bitfield.set(entry_pos);
-            next_bitfield.set(entry_pos + entry_offset);
+            for (int64_t read_index = 0; read_index < table_size; ++read_index, read_cursor += entry_size)
+            {
+                uint8_t const* entry = disk.Read(read_cursor, entry_size);
+                std::shared_ptr<uint8_t> sp(new uint8_t[128]);
+                //memcpy(sp.get(), entry, entry_size);
+                std::copy(entry, entry+entry_size, sp.get());
+
+                {
+                    std::lock_guard<std::mutex> l(queue_mutex);
+                    q.push(std::make_shared<SCANTHREADDATA>(table_index,read_index,sp));
+                }
+            }
+            
+            exitflag.exit();
+            for (auto& t : threads) {
+                t.join();
+            }
         }
 
         std::cout << "scanned table " << table_index << std::endl;
