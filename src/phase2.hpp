@@ -50,7 +50,7 @@ Phase2Results RunPhase2(
     uint64_t memory_size,
     uint32_t const num_buckets,
     uint32_t const log_num_buckets,
-    bool const show_progress)
+    uint8_t const flags)
 {
     // After pruning each table will have 0.865 * 2^k or fewer entries on
     // average
@@ -245,7 +245,7 @@ Phase2Results RunPhase2(
         if (table_index != 7) {
             tmp_1_disks[table_index].Truncate(0);
         }
-        if (show_progress) {
+        if (flags & SHOW_PROGRESS) {
             progress(2, 8 - table_index, 6);
         }
     }
