@@ -162,6 +162,7 @@ public:
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
         std::cout << "Using " << num_buckets << " buckets" << std::endl;
+        std::cout << "Final Directory is: " << final_dirname << std::endl;
         std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size
                   << std::endl;
 
