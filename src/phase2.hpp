@@ -169,6 +169,7 @@ void* SortThread(bitfield* current_bitfield,
             bytes[r].reset(bytes_ptr);
         }
 
+        int64_t writer_counter_of_this_thread = 0;
         for(int64_t r = 0; r < chunk; ++r){
             uint8_t const* entry = entry_chunk.get() + r*entry_size;
             uint64_t entry_pos_offset = Util::SliceInt64FromBytes(entry, 0, pos_offset_size);
@@ -189,14 +190,15 @@ void* SortThread(bitfield* current_bitfield,
             // The new entry is slightly different. Metadata is dropped, to
             // save space, and the counter of the entry is written (sort_key). We
             // use this instead of (y + pos + offset) since its smaller.
-            uint128_t new_entry = static_cast<uint128_t>(write_counter+r) << write_counter_shift;
+            uint128_t new_entry = static_cast<uint128_t>(write_counter + writer_counter_of_this_thread) << write_counter_shift;
             new_entry |= (uint128_t)entry_pos_offset << pos_offset_shift;
-            Util::IntTo16Bytes(bytes[r].get(), new_entry);
+            Util::IntTo16Bytes(bytes[writer_counter_of_this_thread].get(), new_entry);
+            writer_counter_of_this_thread++;
         }
 
         {
             std::lock_guard<std::mutex> lock(*smm);
-            for(int64_t r = 0; r < chunk; ++r){
+            for(int64_t r = 0; r < writer_counter_of_this_thread; ++r){
                 sort_manager->AddToCache(bytes[r].get());
             }
         }
@@ -426,7 +428,9 @@ Phase2Results RunPhase2(
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SORTTHREADDATA>(chunk,read_index,write_counter,sp));
-                write_counter += chunk;
+                for(int64_t r = 0; r < chunk; ++r){
+                    if (current_bitfield.get(read_index+r)) write_counter++;
+                }
             }
 
             exitflag.exit();
