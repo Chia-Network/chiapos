@@ -413,7 +413,7 @@ public:
 
             // 这里读文件
             for (auto const& fname : tmp_1_filenames)
-                tmp_1_disks.emplace_back(fname, FileDisk::retryOpenFlag);
+                tmp_1_disks.emplace_back(fname, 0b10 /* FileDisk::retryOpenFlag*/);
 
             FileDisk tmp2_disk(tmp_2_filename);
 
