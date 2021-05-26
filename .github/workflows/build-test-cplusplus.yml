@@ -21,7 +21,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install boost
+    - name: Install boost on Windows
       if: startsWith(matrix.os, 'windows')
       uses: MarkusJx/install-boost@v1.0.1
       with:
