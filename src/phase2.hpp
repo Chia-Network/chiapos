@@ -317,7 +317,7 @@ Phase2Results RunPhase2(
             {
                 const auto chunk = std::min(table_size-read_index, chunk_size);
                 uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
-                std::shared_ptr<uint8_t> sp(new uint8_t[chunk*entry_size]);
+                std::shared_ptr<uint8_t> sp(new uint8_t[chunk*entry_size+1]);
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
@@ -419,7 +419,7 @@ Phase2Results RunPhase2(
             {
                 const auto chunk = std::min(table_size-read_index, chunk_size);
                 uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
-                auto sp_ptr = new(std::nothrow) uint8_t[chunk*entry_size];
+                auto sp_ptr = new(std::nothrow) uint8_t[chunk*entry_size+1];
                 if(!sp_ptr){
                     std::cout << "spptr nullptr!" << std::endl;
                     exit(1);
