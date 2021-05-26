@@ -27,6 +27,11 @@ using std::experimental::optional;
 #include "../src/prover_disk.hpp"
 #include "../src/verifier.hpp"
 
+#include "../src/thread_pool.hpp"
+    
+thread_pool pool(4);
+synced_stream sync_out;
+ 
 namespace py = pybind11;
 
 PYBIND11_MODULE(chiapos, m)

@@ -35,7 +35,7 @@ namespace QuickSort {
         uint64_t end,
         uint8_t *pivot_space)
     {
-        if (end - begin <= 5) {
+        if (end - begin <= 32) {
             for (uint64_t i = begin + 1; i < end; i++) {
                 uint64_t j = i;
                 memcpy(pivot_space, memory + i * L, L);

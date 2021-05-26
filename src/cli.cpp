@@ -20,11 +20,15 @@
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
+#include "thread_pool.hpp"
 
 using std::string;
 using std::vector;
 using std::endl;
 using std::cout;
+
+thread_pool pool(4);
+synced_stream sync_out;
 
 void HexToBytes(const string &hex, uint8_t *result)
 {

@@ -41,8 +41,7 @@ struct SmallVector {
 
     SmallVector& operator=(const SmallVector& other)
     {
-        count_ = other.count_;
-        for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
+	memcpy(this, &other, sizeof(SmallVector));
         return (*this);
     }
 

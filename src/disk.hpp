@@ -35,8 +35,8 @@ using namespace std::chrono_literals; // for operator""min;
 #include "./util.hpp"
 #include "bitfield.hpp"
 
-constexpr uint64_t write_cache = 1024 * 1024;
-constexpr uint64_t read_ahead = 1024 * 1024;
+constexpr uint64_t write_cache = 4 * 1024 * 1024;
+constexpr uint64_t read_ahead = 4 * 1024 * 1024;
 
 struct Disk {
     virtual uint8_t const* Read(uint64_t begin, uint64_t length) = 0;
@@ -321,6 +321,10 @@ struct BufferedDisk : Disk
         }
 
         disk_->Write(begin, memcache, length);
+
+        // if a write was requested to an unexpected location, also flush the
+        // cache
+        FlushCache();
     }
 
     void Truncate(uint64_t const new_size) override
