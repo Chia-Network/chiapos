@@ -24,8 +24,8 @@ using std::experimental::optional;
 #include <pybind11/stl.h>
 
 #include "../src/plotter_disk.hpp"
+#include "../src/plotter_disk_pipeline.hpp"
 #include "../src/prover_disk.hpp"
-#include "../src/prover_disk_pipeline.hpp"
 #include "../src/verifier.hpp"
 
 namespace py = pybind11;
