@@ -21,6 +21,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Install boost
+      if: startsWith(matrix.os, 'windows')
+      uses: MarkusJx/install-boost@v1.0.1
+      with:
+        boost_version: 1.71.0
+
     - name: cmake, RunTests with Windows
       if: startsWith(matrix.os, 'windows')
       run: |
@@ -34,7 +40,7 @@ jobs:
       if: startsWith(matrix.os, 'ubuntu')
       run: |
         sudo apt update
-        sudo apt-get install valgrind -y
+        sudo apt-get install valgrind libboost-dev -y
         mkdir build
         cd build
         cmake ../
