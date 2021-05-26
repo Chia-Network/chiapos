@@ -25,6 +25,7 @@ using std::experimental::optional;
 
 #include "../src/plotter_disk.hpp"
 #include "../src/prover_disk.hpp"
+#include "../src/prover_disk_pipeline.hpp"
 #include "../src/verifier.hpp"
 
 namespace py = pybind11;
@@ -55,25 +56,109 @@ PYBIND11_MODULE(chiapos, m)
                 std::string id_str(id);
                 const uint8_t *id_ptr = reinterpret_cast<const uint8_t *>(id_str.data());
                 try {
-                    dp.CreatePlotDisk(tmp_dir,
-                                      tmp2_dir,
-                                      final_dir,
-                                      filename,
-                                      k,
-                                      memo_ptr,
-                                      len(memo),
-                                      id_ptr,
-                                      len(id),
-                                      buffmegabytes,
-                                      num_buckets,
-                                      stripe_size,
-                                      num_threads,
-                                      nobitfield ? 0 : ENABLE_BITFIELD);
+                    dp.CreatePlotDisk(
+                        tmp_dir,
+                        tmp2_dir,
+                        final_dir,
+                        filename,
+                        k,
+                        memo_ptr,
+                        len(memo),
+                        id_ptr,
+                        len(id),
+                        buffmegabytes,
+                        num_buckets,
+                        stripe_size,
+                        num_threads,
+                        nobitfield ? 0 : ENABLE_BITFIELD);
                 } catch (const std::exception &e) {
                     std::cout << "Caught plotting error: " << e.what() << std::endl;
                     throw e;
                 }
             });
+
+    // begin edison add it
+    py::class_<PipelineDiskPlotter>(m, "PipelineDiskPlotter")
+        .def(py::init<>())
+        .def(
+            "create_plot_disk_phase1",
+            [](PipelineDiskPlotter &dp,
+               const std::string tmp_dir,
+               const std::string tmp2_dir,
+               const std::string final_dir,
+               const std::string filename,
+               uint8_t k,
+               const py::bytes &memo,
+               const py::bytes &id,
+               uint32_t buffmegabytes,
+               uint32_t num_buckets,
+               uint32_t stripe_size,
+               uint8_t num_threads,
+               bool nobitfield) {
+                std::string memo_str(memo);
+                const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
+                std::string id_str(id);
+                const uint8_t *id_ptr = reinterpret_cast<const uint8_t *>(id_str.data());
+                try {
+                    dp.CreatePlotDiskPhase1(
+                        tmp_dir,
+                        tmp2_dir,
+                        final_dir,
+                        filename,
+                        k,
+                        memo_ptr,
+                        len(memo),
+                        id_ptr,
+                        len(id),
+                        buffmegabytes,
+                        num_buckets,
+                        stripe_size,
+                        num_threads,
+                        nobitfield ? 0 : ENABLE_BITFIELD);
+                } catch (const std::exception &e) {
+                    std::cout << "Caught plotting error: " << e.what() << std::endl;
+                    throw e;
+                }
+            })
+        .def(
+            "create_plot_disk_phase234",
+            [](PipelineDiskPlotter &dp,
+               const std::string tmp_dir,
+               const std::string tmp2_dir,
+               const std::string final_dir,
+               const std::string filename,
+               uint8_t k,
+               const py::bytes &memo,
+               const py::bytes &id,
+               uint32_t buffmegabytes,
+               uint32_t num_buckets,
+               uint32_t stripe_size,
+               bool nobitfield) {
+                std::string memo_str(memo);
+                const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
+                std::string id_str(id);
+                const uint8_t *id_ptr = reinterpret_cast<const uint8_t *>(id_str.data());
+                try {
+                    dp.CreatePlotDiskPhase234(
+                        tmp_dir,
+                        tmp2_dir,
+                        final_dir,
+                        filename,
+                        k,
+                        memo_ptr,
+                        len(memo),
+                        id_ptr,
+                        len(id),
+                        buffmegabytes,
+                        num_buckets,
+                        stripe_size,
+                        nobitfield ? 0 : ENABLE_BITFIELD);
+                } catch (const std::exception &e) {
+                    std::cout << "Caught plotting error: " << e.what() << std::endl;
+                    throw e;
+                }
+            });
+    // end edison add it
 
     py::class_<DiskProver>(m, "DiskProver")
         .def(py::init<const std::string &>())

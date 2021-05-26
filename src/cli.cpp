@@ -15,16 +15,17 @@
 #include <ctime>
 #include <set>
 
-#include "cxxopts.hpp"
 #include "../lib/include/picosha2.hpp"
+#include "cxxopts.hpp"
 #include "plotter_disk.hpp"
+#include "plotter_disk_pipeline.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
 
+using std::cout;
+using std::endl;
 using std::string;
 using std::vector;
-using std::endl;
-using std::cout;
 
 void HexToBytes(const string &hex, uint8_t *result)
 {
@@ -63,11 +64,11 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
-int main(int argc, char *argv[]) try {
+int main(int argc, char *argv[])
+try {
     cxxopts::Options options(
         "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
-    options.positional_help("(create/prove/verify/check) param1 param2 ")
-        .show_positional_help();
+    options.positional_help("(create/prove/verify/check) param1 param2 ").show_positional_help();
 
     // Default values
     uint8_t k = 20;
@@ -85,12 +86,14 @@ int main(int argc, char *argv[]) try {
     bool show_progress = false;
     uint32_t buffmegabytes = 0;
 
+    uint8_t phase = 0;
+
     options.allow_unrecognised_options().add_options()(
-            "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
-            "r, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
-                "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
-            "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
-            "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
+        "k, size", "Plot size", cxxopts::value<uint8_t>(k))(
+        "r, threads", "Number of threads", cxxopts::value<uint8_t>(num_threads))(
+        "u, buckets", "Number of buckets", cxxopts::value<uint32_t>(num_buckets))(
+        "s, stripes", "Size of stripes", cxxopts::value<uint32_t>(num_stripes))(
+        "t, tempdir", "Temporary directory", cxxopts::value<string>(tempdir))(
         "2, tempdir2", "Second Temporary directory", cxxopts::value<string>(tempdir2))(
         "d, finaldir", "Final directory", cxxopts::value<string>(finaldir))(
         "f, file", "Filename", cxxopts::value<string>(filename))(
@@ -100,9 +103,10 @@ int main(int argc, char *argv[]) try {
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
         cxxopts::value<uint32_t>(buffmegabytes))(
-        "p, progress", "Display progress percentage during plotting",
-        cxxopts::value<bool>(show_progress))(
-        "help", "Print help");
+        "h, phase", "phase of plot", cxxopts::value<uint8_t>(phase))(
+        "p, progress",
+        "Display progress percentage during plotting",
+        cxxopts::value<bool>(show_progress))("help", "Print help");
 
     auto result = options.parse(argc, argv);
 
@@ -134,7 +138,6 @@ int main(int argc, char *argv[]) try {
         HexToBytes(memo, memo_bytes.data());
         HexToBytes(id, id_bytes.data());
 
-        DiskPlotter plotter = DiskPlotter();
         uint8_t phases_flags = 0;
         if (!nobitfield) {
             phases_flags = ENABLE_BITFIELD;
@@ -142,7 +145,12 @@ int main(int argc, char *argv[]) try {
         if (show_progress) {
             phases_flags = phases_flags | SHOW_PROGRESS;
         }
-        plotter.CreatePlotDisk(
+
+        if (phase == 0) {
+            cout << "Generating entile plot file" << endl;
+            DiskPlotter plotter = DiskPlotter();
+
+            plotter.CreatePlotDisk(
                 tempdir,
                 tempdir2,
                 finaldir,
@@ -157,12 +165,51 @@ int main(int argc, char *argv[]) try {
                 num_stripes,
                 num_threads,
                 phases_flags);
+        } else {
+            PipelineDiskPlotter plotter = PipelineDiskPlotter();
+
+            if (phase == 1) {
+                cout << "Generating plot file, phase 1" << endl;
+
+                plotter.CreatePlotDiskPhase1(
+                    tempdir,
+                    tempdir2,
+                    finaldir,
+                    filename,
+                    k,
+                    memo_bytes.data(),
+                    memo_bytes.size(),
+                    id_bytes.data(),
+                    id_bytes.size(),
+                    buffmegabytes,
+                    num_buckets,
+                    num_stripes,
+                    num_threads,
+                    phases_flags);
+            } else if (phase == 2) {
+                cout << "Generating plot file, phase 234" << endl;
+
+                plotter.CreatePlotDiskPhase234(
+                    tempdir,
+                    tempdir2,
+                    finaldir,
+                    filename,
+                    k,
+                    memo_bytes.data(),
+                    memo_bytes.size(),
+                    id_bytes.data(),
+                    id_bytes.size(),
+                    buffmegabytes,
+                    num_buckets,
+                    num_stripes,
+                    phases_flags);
+            }
+        }
     } else if (operation == "prove") {
         if (argc < 3) {
             HelpAndQuit(options);
         }
-        cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl
-             << endl;
+        cout << "Proving using filename=" << filename << " challenge=" << argv[2] << endl << endl;
         string challenge = Strip0x(argv[2]);
         if (challenge.size() != 64) {
             cout << "Invalid challenge, should be 32 bytes" << endl;
@@ -186,7 +233,7 @@ int main(int argc, char *argv[]) try {
                 cout << "No proofs found." << endl;
                 exit(1);
             }
-        } catch (const std::exception& ex) {
+        } catch (const std::exception &ex) {
             std::cout << "Error proving. " << ex.what() << std::endl;
             exit(1);
         } catch (...) {
@@ -276,14 +323,16 @@ int main(int argc, char *argv[]) try {
                     }
                     delete[] proof_data;
                 }
-            } catch (const std::exception& error) {
+            } catch (const std::exception &error) {
                 cout << "Threw: " << error.what() << endl;
                 continue;
             }
         }
         std::cout << "Total success: " << success << "/" << iterations << ", "
                   << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
-        if (show_progress) { progress(4, 1, 1); }
+        if (show_progress) {
+            progress(4, 1, 1);
+        }
     } else {
         cout << "Invalid operation. Use create/prove/verify/check" << endl;
     }

@@ -16,30 +16,29 @@
 #define SRC_CPP_DISK_HPP_
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
 #include <thread>
-#include <chrono>
+#include <vector>
 
 // enables disk I/O logging to disk.log
 // use tools/disk.gnuplot to generate a plot
 #define ENABLE_LOGGING 0
 
-using namespace std::chrono_literals; // for operator""min;
-
-#include "chia_filesystem.hpp"
+using namespace std::chrono_literals;  // for operator""min;
 
 #include "./bits.hpp"
 #include "./util.hpp"
 #include "bitfield.hpp"
+#include "chia_filesystem.hpp"
 
 constexpr uint64_t write_cache = 1024 * 1024;
 constexpr uint64_t read_ahead = 1024 * 1024;
 
 struct Disk {
-    virtual uint8_t const* Read(uint64_t begin, uint64_t length) = 0;
+    virtual uint8_t const *Read(uint64_t begin, uint64_t length) = 0;
     virtual void Write(uint64_t begin, const uint8_t *memcache, uint64_t length) = 0;
     virtual void Truncate(uint64_t new_size) = 0;
     virtual std::string GetFileName() = 0;
@@ -52,13 +51,14 @@ struct Disk {
 // calls to ::open and ::write to port to windows
 #include <fcntl.h>
 #include <unistd.h>
+
+#include <cinttypes>
 #include <mutex>
 #include <unordered_map>
-#include <cinttypes>
 
-enum class op_t : int { read, write};
+enum class op_t : int { read, write };
 
-void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t length)
+void disk_log(fs::path const &filename, op_t const op, uint64_t offset, uint64_t length)
 {
     static std::mutex m;
     static std::unordered_map<std::string, int> file_index;
@@ -75,23 +75,26 @@ void disk_log(fs::path const& filename, op_t const op, uint64_t offset, uint64_t
 
     int const index = [&] {
         auto it = file_index.find(filename.string());
-        if (it != file_index.end()) return it->second;
+        if (it != file_index.end())
+            return it->second;
         file_index[filename.string()] = next_file;
 
-        int const len = std::snprintf(buffer, sizeof(buffer)
-            , "# %d %s\n", next_file, filename.string().c_str());
+        int const len = std::snprintf(
+            buffer, sizeof(buffer), "# %d %s\n", next_file, filename.string().c_str());
         ::write(fd, buffer, len);
         return next_file++;
     }();
 
     // timestamp (ms), start-offset, end-offset, operation (0 = read, 1 = write), file_index
-    int const len = std::snprintf(buffer, sizeof(buffer)
-        , "%" PRId64 "\t%" PRIu64 "\t%" PRIu64 "\t%d\t%d\n"
-        , std::chrono::duration_cast<std::chrono::milliseconds>(timestamp).count()
-        , offset
-        , offset + length
-        , int(op)
-        , index);
+    int const len = std::snprintf(
+        buffer,
+        sizeof(buffer),
+        "%" PRId64 "\t%" PRIu64 "\t%" PRIu64 "\t%d\t%d\n",
+        std::chrono::duration_cast<std::chrono::milliseconds>(timestamp).count(),
+        offset,
+        offset + length,
+        int(op),
+        index);
     ::write(fd, buffer, len);
     ::close(fd);
 }
@@ -104,10 +107,18 @@ struct FileDisk {
         Open(writeFlag);
     }
 
+    // 添加一个构造函数，不然默认构造函数 writeFlag 直接把文件清空了
+    FileDisk(const fs::path &filename, uint8_t flags)
+    {
+        filename_ = filename;
+        Open(flags);
+    }
+
     void Open(uint8_t flags = 0)
     {
         // if the file is already open, don't do anything
-        if (f_) return;
+        if (f_)
+            return;
 
         // Opens the file for reading and writing
         do {
@@ -141,7 +152,8 @@ struct FileDisk {
 
     void Close()
     {
-        if (f_ == nullptr) return;
+        if (f_ == nullptr)
+            return;
         ::fclose(f_);
         f_ = nullptr;
         readPos = 0;
@@ -234,7 +246,6 @@ struct FileDisk {
     }
 
 private:
-
     uint64_t readPos = 0;
     uint64_t writePos = 0;
     uint64_t writeMax = 0;
@@ -243,29 +254,27 @@ private:
     fs::path filename_;
     FILE *f_ = nullptr;
 
+public:
     static const uint8_t writeFlag = 0b01;
     static const uint8_t retryOpenFlag = 0b10;
 };
 
-struct BufferedDisk : Disk
-{
-    BufferedDisk(FileDisk* disk, uint64_t file_size) : disk_(disk), file_size_(file_size) {}
+struct BufferedDisk : Disk {
+    BufferedDisk(FileDisk *disk, uint64_t file_size) : disk_(disk), file_size_(file_size) {}
 
-    uint8_t const* Read(uint64_t begin, uint64_t length) override
+    uint8_t const *Read(uint64_t begin, uint64_t length) override
     {
         assert(length < read_ahead);
         NeedReadCache();
         // all allocations need 7 bytes head-room, since
         // SliceInt64FromBytes() may overrun by 7 bytes
-        if (read_buffer_start_ <= begin
-            && read_buffer_start_ + read_buffer_size_ >= begin + length
-            && read_buffer_start_ + read_ahead >= begin + length + 7)
-        {
+        if (read_buffer_start_ <= begin &&
+            read_buffer_start_ + read_buffer_size_ >= begin + length &&
+            read_buffer_start_ + read_ahead >= begin + length + 7) {
             // if the read is entirely inside the buffer, just return it
             return read_buffer_.get() + (begin - read_buffer_start_);
-        }
-        else if (begin >= read_buffer_start_ || begin == 0 || read_buffer_start_ == std::uint64_t(-1)) {
-
+        } else if (
+            begin >= read_buffer_start_ || begin == 0 || read_buffer_start_ == std::uint64_t(-1)) {
             // if the read is beyond the current buffer (i.e.
             // forward-sequential) move the buffer forward and read the next
             // buffer-capacity number of bytes.
@@ -279,16 +288,14 @@ struct BufferedDisk : Disk
             disk_->Read(begin, read_buffer_.get(), amount_to_read);
             read_buffer_size_ = amount_to_read;
             return read_buffer_.get();
-        }
-        else {
+        } else {
             // ideally this won't happen
-            std::cout << "Disk read position regressed. It's optimized for forward scans. Performance may suffer\n"
-                << "   read-offset: " << begin
-                << " read-length: " << length
-                << " file-size: " << file_size_
-                << " read-buffer: [" << read_buffer_start_ << ", " << read_buffer_size_ << "]"
-                << " file: " << disk_->GetFileName()
-                << '\n';
+            std::cout << "Disk read position regressed. It's optimized for forward scans. "
+                         "Performance may suffer\n"
+                      << "   read-offset: " << begin << " read-length: " << length
+                      << " file-size: " << file_size_ << " read-buffer: [" << read_buffer_start_
+                      << ", " << read_buffer_size_ << "]"
+                      << " file: " << disk_->GetFileName() << '\n';
             static uint8_t temp[128];
             // all allocations need 7 bytes head-room, since
             // SliceInt64FromBytes() may overrun by 7 bytes
@@ -345,17 +352,18 @@ struct BufferedDisk : Disk
 
     void FlushCache()
     {
-        if (write_buffer_size_ == 0) return;
+        if (write_buffer_size_ == 0)
+            return;
 
         disk_->Write(write_buffer_start_, write_buffer_.get(), write_buffer_size_);
         write_buffer_size_ = 0;
     }
 
 private:
-
     void NeedReadCache()
     {
-        if (read_buffer_) return;
+        if (read_buffer_)
+            return;
         read_buffer_.reset(new uint8_t[read_ahead]);
         read_buffer_start_ = -1;
         read_buffer_size_ = 0;
@@ -363,13 +371,14 @@ private:
 
     void NeedWriteCache()
     {
-        if (write_buffer_) return;
+        if (write_buffer_)
+            return;
         write_buffer_.reset(new uint8_t[write_cache]);
         write_buffer_start_ = -1;
         write_buffer_size_ = 0;
     }
 
-    FileDisk* disk_;
+    FileDisk *disk_;
 
     uint64_t file_size_;
 
@@ -385,12 +394,9 @@ private:
     uint64_t write_buffer_size_ = 0;
 };
 
-struct FilteredDisk : Disk
-{
+struct FilteredDisk : Disk {
     FilteredDisk(BufferedDisk underlying, bitfield filter, int entry_size)
-        : filter_(std::move(filter))
-        , underlying_(std::move(underlying))
-        , entry_size_(entry_size)
+        : filter_(std::move(filter)), underlying_(std::move(underlying)), entry_size_(entry_size)
     {
         assert(entry_size_ > 0);
         while (!filter_.get(last_idx_)) {
@@ -401,7 +407,7 @@ struct FilteredDisk : Disk
         assert(last_physical_ == last_idx_ * entry_size_);
     }
 
-    uint8_t const* Read(uint64_t begin, uint64_t length) override
+    uint8_t const *Read(uint64_t begin, uint64_t length) override
     {
         // we only support a single read-pass with no going backwards
         assert(begin >= last_logical_);
@@ -417,8 +423,7 @@ struct FilteredDisk : Disk
             last_physical_ += entry_size_;
             ++last_idx_;
 
-            while (begin > last_logical_)
-            {
+            while (begin > last_logical_) {
                 if (filter_.get(last_idx_)) {
                     last_logical_ += entry_size_;
                 }
@@ -446,7 +451,8 @@ struct FilteredDisk : Disk
     void Truncate(uint64_t new_size) override
     {
         underlying_.Truncate(new_size);
-        if (new_size == 0) filter_.free_memory();
+        if (new_size == 0)
+            filter_.free_memory();
     }
     std::string GetFileName() override { return underlying_.GetFileName(); }
     void FreeMemory() override
@@ -456,7 +462,6 @@ struct FilteredDisk : Disk
     }
 
 private:
-
     // only entries whose bit is set should be read
     bitfield filter_;
     BufferedDisk underlying_;
