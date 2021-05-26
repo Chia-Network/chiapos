@@ -43,6 +43,12 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
+    - name: Install boost
+      uses: MarkusJx/install-boost@v1.0.1
+      id: install-boost
+      with:
+        boost_version: 1.71.0
+
     - name: Build ${{ matrix.os }} wheels and test
       uses: joerick/cibuildwheel@v1.10.0
       with:
@@ -74,6 +80,7 @@ jobs:
         # CIBW_ENVIRONMENT_WINDOWS: SETUPTOOLS_USE_DISTUTILS=stdlib
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
 
 #    - name: Set up QEMU on ubuntu x86_64
 #      if: startsWith(matrix.os, 'ubuntu')
