@@ -21,7 +21,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install boost on Windows
+    - name: Install boost
       uses: MarkusJx/install-boost@v1.0.1
       id: install-boost
       with:
@@ -60,6 +60,8 @@ jobs:
         cmake -DCMAKE_BUILD_TYPE=ASAN ../
         cmake --build . -- -j 6
         ./RunTests
+      env:
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
 
     - name: cmake, RunTests with thread sanitizer on Ubuntu
       if: startsWith(matrix.os, 'ubuntu')
@@ -69,3 +71,5 @@ jobs:
         cmake -DCMAKE_BUILD_TYPE=TSAN ../
         cmake --build . -- -j 6
         ./RunTests
+      env:
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
