@@ -33,6 +33,7 @@ jobs:
         boost_version: 1.73.0
 
     - name: cmake, Plot k=27
+      env: BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
       run: |
         mkdir build
         cd build
@@ -48,4 +49,3 @@ jobs:
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
         if [ "$SHACHECK" != "$EXPECTED_SHA" ]; then echo "Sha256sum does not match"; exit 1; else echo "Sha256sum matches 0x1f144aa1...163a"; fi
-      env: BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
