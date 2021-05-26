@@ -33,7 +33,8 @@ jobs:
         boost_version: 1.73.0
 
     - name: cmake, Plot k=27
-      env: BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
+      env: 
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
       run: |
         mkdir build
         cd build
