@@ -26,6 +26,12 @@ jobs:
       with:
         python-version: '3.8'
 
+    - name: Install boost
+      uses: MarkusJx/install-boost@v1.0.1
+      id: install-boost
+      with:
+        boost_version: 1.73.0
+
     - name: cmake, Plot k=27
       run: |
         mkdir build
@@ -42,3 +48,4 @@ jobs:
         SHACHECK=$(sha256sum plots/final/plot.dat)
         echo "$SHACHECK"
         if [ "$SHACHECK" != "$EXPECTED_SHA" ]; then echo "Sha256sum does not match"; exit 1; else echo "Sha256sum matches 0x1f144aa1...163a"; fi
+      env: BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
