@@ -68,7 +68,7 @@ PYBIND11_MODULE(chiapos, m)
                                       num_buckets,
                                       stripe_size,
                                       num_threads,
-                                      nobitfield);
+                                      nobitfield ? 0 : ENABLE_BITFIELD);
                 } catch (const std::exception &e) {
                     std::cout << "Caught plotting error: " << e.what() << std::endl;
                     throw e;
