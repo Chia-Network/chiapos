@@ -78,7 +78,8 @@ void* ScanThread(bitfield* current_bitfield,
                  uint8_t const pos_offset_size,
                  int16_t const entry_size,
                  concurrent_queue<std::shared_ptr<SCANTHREADDATA> >* q,
-                 exit_flag *exitflag)
+                 exit_flag *exitflag,
+                 std::mutex* nbm)
 {
     while (true)
     {
@@ -100,6 +101,12 @@ void* ScanThread(bitfield* current_bitfield,
         int64_t chunk = d->chunk;
         int64_t read_index = d->read_index;
 
+        std::vector<uint64_t> entry_poses;
+        std::vector<uint64_t> entry_offsets;
+        entry_poses.reserve(chunk);
+        entry_offsets.reserve(chunk);
+
+        int64_t set_counter_of_this_thread = 0;
         for(int64_t r = 0; r < chunk; ++r){
             uint8_t const* entry = entry_chunk.get() + r*entry_size;
             uint64_t entry_pos_offset = 0;
@@ -112,9 +119,19 @@ void* ScanThread(bitfield* current_bitfield,
 
             uint64_t entry_pos = entry_pos_offset >> kOffsetSize;
             uint64_t entry_offset = entry_pos_offset & ((1U << kOffsetSize) - 1);
+            entry_poses.emplace_back(entry_pos);
+            entry_offsets.emplace_back(entry_offset);
+
+            set_counter_of_this_thread++;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(*nbm);
+            for(int64_t r = 0; r < set_counter_of_this_thread; ++r){
             // mark the two matching entries as used (pos and pos+offset)
-            next_bitfield->set(entry_pos);
-            next_bitfield->set(entry_pos + entry_offset);
+                next_bitfield->set(entry_poses[r]);
+                next_bitfield->set(entry_poses[r] + entry_offsets[r]);
+            }
         }
     }
     return 0;
@@ -303,10 +320,11 @@ Phase2Results RunPhase2(
             std::cout << "parallel scanning" << std::endl;
             std::vector<std::thread> threads;
             concurrent_queue<std::shared_ptr<SCANTHREADDATA> > q;
+            std::mutex next_bitfield_mutex;
             exit_flag exitflag;
 
             for (int i = 0; i < num_threads; ++i) {
-                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, entry_size, &q, &exitflag);
+                threads.emplace_back(ScanThread, &current_bitfield, &next_bitfield, k, pos_offset_size, entry_size, &q, &exitflag, &next_bitfield_mutex);
             }
             std::cout << "thread created" << std::endl;
 
