@@ -128,7 +128,7 @@ Phase3Results RunPhase3(
     uint64_t memory_size,
     uint32_t num_buckets,
     uint32_t log_num_buckets,
-    const bool show_progress)
+    const uint8_t flags)
 {
     uint8_t const pos_size = k;
     uint8_t const line_point_size = 2 * k - 1;
@@ -505,7 +505,7 @@ Phase3Results RunPhase3(
 
         left_disk.FreeMemory();
         right_disk.FreeMemory();
-        if (show_progress) { progress(3, table_index, 6); }
+        if (flags & SHOW_PROGRESS) { progress(3, table_index, 6); }
     }
 
     L_sort_manager->FreeMemory();

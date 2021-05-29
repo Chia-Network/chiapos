@@ -210,6 +210,16 @@ struct FileDisk {
             if (writePos > writeMax)
                 writeMax = writePos;
             if (amtwritten != length) {
+                // If an error occurs, the resulting value of the file-position indicator for the stream is unspecified.
+                // https://pubs.opengroup.org/onlinepubs/007904975/functions/fwrite.html
+                //
+                // And in the code above if error occurs with 0 bytes written (full disk) it will not reset the pointer
+                // (writePos will still be equal to begin), however it need to be reseted.
+                //
+                // Otherwise this causes #234 - in phase3, when this bucket is read, it goes into endless loop.
+                //
+                // Thanks tinodj!
+                writePos = UINT64_MAX;
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
                           << begin << " to " << filename_ << " with length " << writeMax
                           << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
