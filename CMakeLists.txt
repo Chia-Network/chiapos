@@ -164,8 +164,8 @@ if(Boost_FOUND)
     set(Boost_USE_STATIC_LIBS	OFF)
     set(Boost_USE_MULTITHREADED	ON)
     set(Boost_USE_STATIC_RUNTIME	ON)
-    set(Boost_INCLUDE_DIRS "${BOOST_ROOT}/include")
-    include_directories(${Boost_INCLUDE_DIRS})
+    #set(Boost_INCLUDE_DIR "${BOOST_ROOT}/include")
+    include_directories(${Boost_INCLUDE_DIR})
 endif()
 
 # For OpenMP
