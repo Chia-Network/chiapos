@@ -49,6 +49,7 @@ jobs:
         brew install boost
 
     - name: Install boost
+      if: (startsWith(matrix.os, 'ubuntu') || (startsWith(matrix.os, 'windows')
       uses: MarkusJx/install-boost@v1.0.1
       id: install-boost
       with:
@@ -57,7 +58,7 @@ jobs:
     - name: Set Boost Envrionments Variable
       id: boost-include
       run: |
-        echo "Boost_INCLUDE_DIR=${BOOST_ROOT/include}" >> $GITHUB_ENV
+        echo "Boost_INCLUDE_DIR=${BOOST_ROOT}/include" >> $GITHUB_ENV
       env:
         BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         
