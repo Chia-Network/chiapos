@@ -43,10 +43,10 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
-    - name: Install boost on MacOS
+    - name: Install boost,libomp on MacOS
       if: startsWith(matrix.os, 'macos')
       run: |
-        brew install boost
+        brew install boost libomp
 
     - name: Install boost
       if: (startsWith(matrix.os, 'ubuntu')) || (startsWith(matrix.os, 'windows'))
@@ -59,6 +59,7 @@ jobs:
       id: boost-include
       run: |
         echo "Boost_INCLUDE_DIR=${BOOST_ROOT}/include" >> $GITHUB_ENV
+        echo "${Boost_INCLUDE_DIR}"
       env:
         BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         
