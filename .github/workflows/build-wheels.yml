@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-20.04, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
     - name: Cancel previous runs on the same branch
@@ -43,28 +43,19 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
-    - name: Install boost on ubuntu
-      if: startsWith(matrix.os, 'ubuntu')
-      uses: MarkusJx/install-boost@v1.0.1
-      id: install-boost
-      with:
-        boost_version: 1.71.0
-
-    - name: Install boost on windows
-      if: startsWith(matrix.os, 'windows')
-      uses: MarkusJx/install-boost@v1.0.1
-      id: install-boost
-      with:
-        boost_version: 1.71.0
-
-    - name: Build source distribution on MacOS
+    - name: Install boost on MacOS
       if: startsWith(matrix.os, 'macos')
-      id: install-boost
       run: |
         brew install boost
 
+    - name: Install boost
+      uses: MarkusJx/install-boost@v1.0.1
+      id: install-boost
+      with:
+        boost_version: 1.71.0
+
     - name: Set Boost Envrionments Variable
-      id: boost-includ
+      id: boost-include
       run: |
         echo "$BOOST_ROOT/include" >> $Boost_INCLUDE_DIR
       env:
