@@ -128,16 +128,10 @@ PYBIND11_MODULE(chiapos, m)
                const std::string final_dir,
                const std::string filename,
                uint8_t k,
-               const py::bytes &memo,
-               const py::bytes &id,
                uint32_t buffmegabytes,
                uint32_t num_buckets,
                uint32_t stripe_size,
                bool nobitfield) {
-                std::string memo_str(memo);
-                const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
-                std::string id_str(id);
-                const uint8_t *id_ptr = reinterpret_cast<const uint8_t *>(id_str.data());
                 try {
                     dp.CreatePlotDiskPhase234(
                         tmp_dir,
@@ -145,10 +139,6 @@ PYBIND11_MODULE(chiapos, m)
                         final_dir,
                         filename,
                         k,
-                        memo_ptr,
-                        len(memo),
-                        id_ptr,
-                        len(id),
                         buffmegabytes,
                         num_buckets,
                         stripe_size,

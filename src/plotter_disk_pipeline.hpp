@@ -157,6 +157,7 @@ public:
                   << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
                   << tmp2_dirname << std::endl;
         std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
+        std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
         std::cout << "Using " << num_buckets << " buckets" << std::endl;
@@ -179,8 +180,8 @@ public:
         fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
-        std::string table_sizes_filename =
-            fs::path(tmp_dirname) / fs::path(filename + ".table_sizes.tmp");
+        std::string metadata_filename =
+            fs::path(tmp_dirname) / fs::path(filename + ".meta.tmp");
 
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
@@ -208,8 +209,6 @@ public:
             std::vector<FileDisk> tmp_1_disks;
             for (auto const& fname : tmp_1_filenames) tmp_1_disks.emplace_back(fname);
 
-            FileDisk tmp2_disk(tmp_2_filename);
-
             assert(id_len == kIdLen);
 
             std::cout << std::endl
@@ -234,18 +233,22 @@ public:
 
             // begin edison add it
             {
+                /*
                 int table_idx = 0;
                 for (std::vector<uint64_t>::const_iterator i = table_sizes.begin();
                      i != table_sizes.end();
                      ++i) {
                     std::cout << "table_idx: " << *i << std::endl;
                     ++table_idx;
+                }*/
+                for (int i =0; i < table_sizes.size(); ++i) {
+                    std::cout << "table_sizes[" << i << "]: " << table_sizes[i] << std::endl;
                 }
             }
 
-            std::ofstream table_sizes_file(
-                table_sizes_filename, std::ios::out | std::ios::trunc | std::ios::binary);
-            if (!table_sizes_file.is_open()) {
+            std::ofstream metadata_file(
+                metadata_filename, std::ios::out | std::ios::trunc | std::ios::binary);
+            if (!metadata_file.is_open()) {
                 throw std::runtime_error("Table sizes file not opened correct");
             }
 
@@ -254,9 +257,20 @@ public:
                  i != table_sizes.end();
                  ++i) {
                 Util::IntToEightBytes(table_size_bytes, *i);
-                table_sizes_file.write(reinterpret_cast<char*>(table_size_bytes), 8);
+                metadata_file.write(reinterpret_cast<char*>(table_size_bytes), 8);
             }
-            table_sizes_file.close();
+
+            Util::IntToEightBytes(table_size_bytes, id_len);
+            metadata_file.write(reinterpret_cast<char*>(table_size_bytes), 8);
+            metadata_file.write(reinterpret_cast<const char*>(id), id_len);
+            std::cout << "id: " << Util::HexStr(id, id_len) << ", len: " << id_len << std::endl;                
+
+            Util::IntToEightBytes(table_size_bytes, memo_len);
+            metadata_file.write(reinterpret_cast<char*>(table_size_bytes), 8);
+            metadata_file.write(reinterpret_cast<const char*>(memo), memo_len);
+            std::cout << "memo: " << Util::HexStr(memo, memo_len) << ", len: " << memo_len << std::endl;                
+
+            metadata_file.close();
 
             // end edison add it
         }
@@ -271,10 +285,6 @@ public:
         std::string final_dirname,
         std::string filename,
         uint8_t k,
-        const uint8_t* memo,
-        uint32_t memo_len,
-        const uint8_t* id,
-        uint32_t id_len,
         uint32_t buf_megabytes_input = 0,
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
@@ -357,17 +367,7 @@ public:
         }
 #endif /* defined(_WIN32) || defined(__x86_64__) */
 
-        std::cout << std::endl
-                  << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
-                  << tmp2_dirname << std::endl;
-        std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
-        std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
-        std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
-        std::cout << "Using " << num_buckets << " buckets" << std::endl;
-        std::cout << "Final Directory is: " << final_dirname << std::endl;
-        std::cout << "Using of stripe size " << stripe_size << std::endl;
-        std::cout << "Process ID is: " << ::getpid() << std::endl;
-
+    
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
 
@@ -395,14 +395,59 @@ public:
             throw InvalidValueException("Final directory " + final_dirname + " does not exist");
         }
 
-        std::string table_sizes_filename =
-            fs::path(tmp_dirname) / fs::path(filename + ".table_sizes.tmp");
-        if (!fs::exists(table_sizes_filename)) {
+        std::string metadata_filename =
+            fs::path(tmp_dirname) / fs::path(filename + ".meta.tmp");
+        if (!fs::exists(metadata_filename)) {
             throw InvalidValueException(
-                "table size file " + table_sizes_filename + " does not exist");
+                "metadata file " + metadata_filename + " does not exist");
         }
 
         fs::remove(final_filename);
+
+
+        // begin
+        std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
+
+        // read table size tmp file
+        std::ifstream metadata_file(metadata_filename, std::ios::in | std::ios::binary);
+        uint8_t pointer_buf[8];
+        for (uint8_t i = 0; i < 8; i++) {
+            metadata_file.read(reinterpret_cast<char*>(pointer_buf), 8);
+            table_sizes[i] = Util::EightBytesToInt(pointer_buf);
+        }
+
+        metadata_file.read(reinterpret_cast<char*>(pointer_buf), 8);
+        uint64_t id_len = Util::EightBytesToInt(pointer_buf);
+        std::cout << "id_len: " << id_len << std::endl;
+
+        uint8_t* id = new uint8_t[id_len];
+        metadata_file.read(reinterpret_cast<char*>(id), id_len);
+        std::cout << "id: " << Util::HexStr(id, id_len) << std::endl;
+
+        metadata_file.read(reinterpret_cast<char*>(pointer_buf), 8);
+        uint64_t memo_len = Util::EightBytesToInt(pointer_buf);
+        std::cout << "memo_len: " << memo_len << std::endl;
+
+        uint8_t* memo = new uint8_t[memo_len];
+        metadata_file.read(reinterpret_cast<char*>(memo), memo_len);
+        std::cout << "memo: " << Util::HexStr(memo, memo_len) << std::endl;
+
+        metadata_file.close();
+
+        // end
+
+
+        std::cout << std::endl
+                  << "Starting plotting progress into temporary dirs: " << tmp_dirname << " and "
+                  << tmp2_dirname << std::endl;
+        std::cout << "ID: " << Util::HexStr(id, id_len) << std::endl;
+        std::cout << "Memo: " << Util::HexStr(memo, memo_len) << std::endl;
+        std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
+        std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
+        std::cout << "Using " << num_buckets << " buckets" << std::endl;
+        std::cout << "Final Directory is: " << final_dirname << std::endl;
+        std::cout << "Using of stripe size " << stripe_size << std::endl;
+        std::cout << "Process ID is: " << ::getpid() << std::endl;
 
         std::ios_base::sync_with_stdio(false);
         std::ostream* prevstr = std::cin.tie(NULL);
@@ -411,7 +456,7 @@ public:
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
 
-            // 这里读文件
+            // load FileDisk in read mode
             for (auto const& fname : tmp_1_filenames)
                 tmp_1_disks.emplace_back(fname, 0b10 /* FileDisk::retryOpenFlag*/);
 
@@ -422,17 +467,6 @@ public:
             Timer p1;
             Timer all_phases;
             uint64_t finalsize = 0;
-
-            std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
-
-            // read table size tmp file
-            std::ifstream table_sizes_file(table_sizes_filename, std::ios::in | std::ios::binary);
-            uint8_t pointer_buf[8];
-            for (uint8_t i = 0; i < 8; i++) {
-                table_sizes_file.read(reinterpret_cast<char*>(pointer_buf), 8);
-                table_sizes[i] = Util::EightBytesToInt(pointer_buf);
-            }
-            table_sizes_file.close();
 
             {
                 int table_idx = 0;
@@ -573,7 +607,7 @@ public:
         for (fs::path p : tmp_1_filenames) {
             fs::remove(p);
         }
-        fs::remove(table_sizes_filename);
+        fs::remove(metadata_filename);
 
         bool bCopied = false;
         bool bRenamed = false;
