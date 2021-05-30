@@ -43,12 +43,33 @@ jobs:
         pip install build
         python -m build --sdist --outdir dist .
 
-    - name: Install boost
+    - name: Install boost on ubuntu
+      if: startsWith(matrix.os, 'ubuntu')
       uses: MarkusJx/install-boost@v1.0.1
       id: install-boost
       with:
         boost_version: 1.71.0
 
+    - name: Install boost on windows
+      if: startsWith(matrix.os, 'windows')
+      uses: MarkusJx/install-boost@v1.0.1
+      id: install-boost
+      with:
+        boost_version: 1.71.0
+
+    - name: Build source distribution on MacOS
+      if: startsWith(matrix.os, 'macos')
+      id: install-boost
+      run: |
+        brew install boost
+
+    - name: Set Boost Envrionments Variable
+      id: boost-includ
+      run: |
+        echo "$BOOST_ROOT/include" >> $Boost_INCLUDE_DIR
+      env:
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
+        
     - name: Build ${{ matrix.os }} wheels and test
       uses: joerick/cibuildwheel@v1.10.0
       with:
@@ -58,6 +79,7 @@ jobs:
         CIBW_BUILD: 'cp37-* cp38-* cp39-*'
         CIBW_SKIP: '*-manylinux_i686 *-win32'
         # we need boost
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
         # CIBW_ARCHS_MACOS: x86_64 arm64 universal2
         CIBW_ARCHS_MACOS: x86_64
         CIBW_TEST_SKIP: '*_arm64 *_universal2:arm64'
@@ -80,7 +102,6 @@ jobs:
         # CIBW_ENVIRONMENT_WINDOWS: SETUPTOOLS_USE_DISTUTILS=stdlib
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests -s
-        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
 
 #    - name: Set up QEMU on ubuntu x86_64
 #      if: startsWith(matrix.os, 'ubuntu')
