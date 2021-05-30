@@ -47,8 +47,8 @@ struct SCANTHREADDATA
 {
     int64_t const chunk;
     int64_t const read_index;
-    std::shared_ptr<uint8_t[]> entry;
-    SCANTHREADDATA(int64_t chunk_, int64_t read_index_, std::shared_ptr<uint8_t[]> entry_)
+    std::shared_ptr<uint8_t> entry;
+    SCANTHREADDATA(int64_t chunk_, int64_t read_index_, std::shared_ptr<uint8_t> entry_)
     : chunk(chunk_), read_index(read_index_), entry(entry_)
     {}
 };
@@ -58,8 +58,8 @@ struct SORTTHREADDATA
     int64_t const chunk;
     int64_t const read_index;
     int64_t const write_counter;
-    std::shared_ptr<uint8_t[]> entry;
-    SORTTHREADDATA(int64_t chunk_, int64_t read_index_, int64_t write_counter_, std::shared_ptr<uint8_t[]> entry_)
+    std::shared_ptr<uint8_t> entry;
+    SORTTHREADDATA(int64_t chunk_, int64_t read_index_, int64_t write_counter_, std::shared_ptr<uint8_t> entry_)
     : chunk(chunk_), read_index(read_index_), write_counter(write_counter_), entry(entry_)
     {}
 };
@@ -98,7 +98,7 @@ void* ScanThread(bitfield* current_bitfield,
             continue;
         }
         const auto d = od.get();
-        std::shared_ptr<uint8_t[]> entry_chunk = d->entry;
+        std::shared_ptr<uint8_t> entry_chunk = d->entry;
         int64_t chunk = d->chunk;
         int64_t read_index = d->read_index;
 
@@ -166,7 +166,7 @@ void* SortThread(bitfield* current_bitfield,
             continue;
         }
         const auto d = od.get();
-        std::shared_ptr<uint8_t[]> entry_chunk = d->entry;
+        std::shared_ptr<uint8_t> entry_chunk = d->entry;
         int64_t chunk = d->chunk;
         int64_t read_index = d->read_index;
         int64_t write_counter = d->write_counter;
@@ -341,7 +341,8 @@ Phase2Results RunPhase2(
                     std::cout << "spptr nullptr!" << std::endl;
                     exit(1);
                 }
-                std::shared_ptr<uint8_t[]> sp(sp_ptr);
+                // std::shared_ptr<uint8_t[]> sp(sp_ptr); //C++20
+                std::shared_ptr<uint8_t> sp(sp_ptr, std::default_delete<uint8_t[]>()); // shared_ptr does'nt support array in C++ 17
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
@@ -448,7 +449,8 @@ Phase2Results RunPhase2(
                     std::cout << "spptr nullptr!" << std::endl;
                     exit(1);
                 }
-                std::shared_ptr<uint8_t[]> sp(sp_ptr);
+                //std::shared_ptr<uint8_t[]> sp(sp_ptr);
+                std::shared_ptr<uint8_t> sp(sp_ptr, std::default_delete<uint8_t[]>()); // shared_ptr does'nt support array in C++ 17
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SORTTHREADDATA>(chunk,read_index,write_counter,sp));

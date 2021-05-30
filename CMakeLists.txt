@@ -161,7 +161,7 @@ target_compile_features(RunTests PUBLIC cxx_std_17)
 # For Boost
 find_package(Boost REQUIRED)
 if(Boost_FOUND)
-    set(Boost_USE_STATIC_LIBS	OFF)
+    set(Boost_USE_STATIC_LIBS	ON)
     set(Boost_USE_MULTITHREADED	ON)
     set(Boost_USE_STATIC_RUNTIME	ON)
     set(Boost_ARCHITECTURE "-x64")
