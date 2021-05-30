@@ -108,7 +108,7 @@ void* ScanThread(bitfield* current_bitfield,
 
         int64_t set_counter_of_this_thread = 0;
         for(int64_t r = 0; r < chunk; ++r){
-            uint8_t const* entry = entry_chunk.get() + r*entry_size;
+            uint8_t const* entry = reinterpret_cast<uint8_t*>(entry_chunk.get()) + r*entry_size;
             uint64_t entry_pos_offset = 0;
             if (!current_bitfield->get(read_index+r))
             {
@@ -335,7 +335,7 @@ Phase2Results RunPhase2(
             {
                 const auto chunk = std::min(table_size-read_index, chunk_size);
                 uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
-                std::shared_ptr<uint8_t[]> sp(new uint8_t[(chunk+1)*entry_size]);
+                auto sp = std::make_shared<uint8_t[]>((chunk+1)*entry_size);
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SCANTHREADDATA>(chunk,read_index,sp));
@@ -437,12 +437,7 @@ Phase2Results RunPhase2(
             {
                 const auto chunk = std::min(table_size-read_index, chunk_size);
                 uint8_t const* entry = disk.Read(read_cursor, chunk*entry_size);
-                auto sp_ptr = new(std::nothrow) uint8_t[(chunk+1)*entry_size];
-                if(!sp_ptr){
-                    std::cout << "spptr nullptr!" << std::endl;
-                    exit(1);
-                }
-                std::shared_ptr<uint8_t[]> sp(sp_ptr);
+                auto sp = std::make_shared<uint8_t[]>((chunk+1)*entry_size);
                 std::copy(entry, entry + chunk*entry_size, sp.get());
 
                 q.push(std::make_shared<SORTTHREADDATA>(chunk,read_index,write_counter,sp));

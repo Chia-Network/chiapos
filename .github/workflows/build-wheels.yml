@@ -48,8 +48,13 @@ jobs:
       run: |
         brew install boost libomp
 
+    - name: Install boost on Ubuntu
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get install -y libboost-dev
+
     - name: Install boost
-      if: (startsWith(matrix.os, 'ubuntu')) || (startsWith(matrix.os, 'windows'))
+      if: startsWith(matrix.os, 'windows')
       uses: MarkusJx/install-boost@v1.0.1
       id: install-boost
       with:
