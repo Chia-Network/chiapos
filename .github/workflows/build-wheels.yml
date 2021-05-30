@@ -53,7 +53,7 @@ jobs:
       run: |
         sudo apt-get install -y libboost-dev
 
-    - name: Install boost
+    - name: Install boost on windows
       if: startsWith(matrix.os, 'windows')
       uses: MarkusJx/install-boost@v1.0.1
       id: install-boost

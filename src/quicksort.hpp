@@ -24,6 +24,7 @@
 #include <chrono>
 
 #include "util.hpp"
+#include "thread_pool.hpp"
 
 namespace QuickSort {
 
@@ -33,11 +34,12 @@ namespace QuickSort {
         uint32_t L,
         uint32_t bits_begin,
         uint64_t begin,
-        uint64_t end)
+        uint64_t end,
+        thread_pool& pool)
     {
         auto const _pivot_space = std::make_unique<uint8_t[]>(L);
         auto *pivot_space = _pivot_space.get();
-        if (end - begin <= 5) {
+        if (end - begin <= 32) {
             for (uint64_t i = begin + 1; i < end; i++) {
                 uint64_t j = i;
                 memcpy(pivot_space, memory + i * L, L);
@@ -78,15 +80,11 @@ namespace QuickSort {
         }
         memcpy(memory + lo * L, pivot_space, L);
         if (lo - begin <= end - lo) {
-            #pragma omp task
-            SortInner(memory, memory_len, L, bits_begin, begin, lo);
-            #pragma omp task
-            SortInner(memory, memory_len, L, bits_begin, lo + 1, end);
+            pool.push_task(SortInner, memory, memory_len, L, bits_begin, begin, lo, std::ref(pool));
+            pool.push_task(SortInner, memory, memory_len, L, bits_begin, lo + 1, end, std::ref(pool));
         } else {
-            #pragma omp task
-            SortInner(memory, memory_len, L, bits_begin, lo + 1, end);
-            #pragma omp task
-            SortInner(memory, memory_len, L, bits_begin, begin, lo);
+            pool.push_task(SortInner, memory, memory_len, L, bits_begin, lo + 1, end, std::ref(pool));
+            pool.push_task(SortInner, memory, memory_len, L, bits_begin, begin, lo, std::ref(pool));
         }
     }
 
@@ -97,10 +95,10 @@ namespace QuickSort {
         uint32_t const bits_begin)
     {
         uint64_t const memory_len = (uint64_t)entry_len * num_entries;
+        static thread_pool pool;
         const auto start = std::chrono::high_resolution_clock::now();
-        #pragma omp parallel
-        #pragma omp single
-        SortInner(memory, memory_len, entry_len, bits_begin, 0, num_entries);
+        pool.push_task(SortInner, memory, memory_len, entry_len, bits_begin, 0, num_entries, std::ref(pool));
+        pool.wait_for_tasks();
         const auto end = std::chrono::high_resolution_clock::now();
         const auto elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
         std::cout << "Parallel quick sort took " << elapsed << " mSec" << std::endl;

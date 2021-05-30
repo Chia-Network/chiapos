@@ -168,18 +168,6 @@ if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIR})
 endif()
 
-# For OpenMP
-find_package(OpenMP REQUIRED)
-if(OpenMP_FOUND)
-    if (MSVC)
-    	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -openmp:llvm -openmp:experimental")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm -openmp:experimental")
-    else()
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    endif()
-endif()
-
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(chiapos PRIVATE fse Threads::Threads ${Boost_LIBRARIES})
   target_link_libraries(ProofOfSpace fse Threads::Threads ${Boost_LIBRARIES})
