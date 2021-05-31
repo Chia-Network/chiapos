@@ -150,6 +150,8 @@ try {
             cout << "Generating entile plot file" << endl;
             DiskPlotter plotter = DiskPlotter();
 
+            std::cout << "tempdir2: " << tempdir2 << std::endl;
+
             plotter.CreatePlotDisk(
                 tempdir,
                 tempdir2,

@@ -613,6 +613,7 @@ public:
         bool bRenamed = false;
         Timer copy;
         
+        std::cout << "tmp_2_filename: " << tmp_2_filename << std::endl;
         std::cout << "tmp_2_filename.parent_path: " << tmp_2_filename.parent_path() << std::endl;
         std::cout << "final_filename.parent_path: " << final_filename.parent_path() << std::endl;
 
