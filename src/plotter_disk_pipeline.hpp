@@ -177,6 +177,11 @@ public:
                 fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
         }
         fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
+        std::cout << "fk tmp2_dirname 1: " << tmp2_dirname 
+          << ", path: " << fs::path(tmp2_dirname) 
+          << ", tmp_2_filename: " << tmp_2_filename
+          << std::endl;
+        
         fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
@@ -379,6 +384,11 @@ public:
                 fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
         }
         fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
+        std::cout << "fk tmp2_dirname 1: " << tmp2_dirname 
+          << ", path: " << fs::path(tmp2_dirname) 
+          << ", tmp_2_filename: " << tmp_2_filename
+          << std::endl;
+
         fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
