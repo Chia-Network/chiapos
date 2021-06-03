@@ -179,6 +179,7 @@ public:
         }
         fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
         fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
+        fs::path final_tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename);
         fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
 
         // Check if the paths exist
@@ -382,34 +383,34 @@ public:
                               << final_filename << std::endl;
                 }
             } else {
-                if (!bCopied) {
-                    fs::copy(
-                        tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not copy " << tmp_2_filename << " to "
-                                  << final_2_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Copied final file from " << tmp_2_filename << " to "
-                                  << final_2_filename << std::endl;
-                        copy.PrintElapsed("Copy time =");
-                        bCopied = true;
-
-                        bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
-                    }
-                }
-                if (bCopied && (!bRenamed)) {
-                    fs::rename(final_2_filename, final_filename, ec);
+                if (!bRenamed) {
+                    fs::rename(tmp_2_filename, final_tmp_2_filename, ec);
                     if (ec.value() != 0) {
                         std::cout << "Could not rename " << tmp_2_filename << " to "
+                                  << final_tmp_2_filename << ". Error " << ec.message()
+                                  << ". Retrying in five minutes." << std::endl;
+                    } else {
+                        std::cout << "Renamed final file from " << tmp_2_filename << " to "
+                                  << final_tmp_2_filename << std::endl;
+                        bRenamed = true;
+                        if (!bCopied){
+                        fs::copy(
+                        final_tmp_2_filename, final_filename, fs::copy_options::overwrite_existing, ec);
+                    if (ec.value() != 0) {
+                        std::cout << "Could not copy " << final_tmp_2_filename << " to "
                                   << final_filename << ". Error " << ec.message()
                                   << ". Retrying in five minutes." << std::endl;
                     } else {
-                        std::cout << "Renamed final file from " << final_2_filename << " to "
+                        std::cout << "Copied final file from " << final_tmp_2_filename << " to "
                                   << final_filename << std::endl;
-                        bRenamed = true;
+                        copy.PrintElapsed("Copy time =");
+                        bCopied = true;
+
+                        bool removed_2 = fs::remove(final_tmp_2_filename);
+                        std::cout << "Removed temp2 file " << final_tmp_2_filename << "? " << removed_2
+                                  << std::endl;
+                         }
+                      }
                     }
                 }
             }
