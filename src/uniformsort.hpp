@@ -65,25 +65,27 @@ namespace UniformSort {
                 read_pos += buf_size * entry_len;
             }
             buf_size--;
+            auto* swap_ptr_a = buffer.get() + buf_ptr;
+            auto* swap_ptr_b = swap_space.get();
             // First unique bits in the entry give the expected position of it in the sorted array.
             // We take 'bucket_length' bits starting with the first unique one.
             uint64_t pos =
-                Util::ExtractNum(buffer.get() + buf_ptr, entry_len, bits_begin, bucket_length) *
+                Util::ExtractNum(swap_ptr_a, entry_len, bits_begin, bucket_length) *
                 entry_len;
+            
             // As long as position is occupied by a previous entry...
             while (!IsPositionEmpty(memory + pos, entry_len) && pos < memory_len) {
                 // ...store there the minimum between the two and continue to push the higher one.
                 if (Util::MemCmpBits(
-                        memory + pos, buffer.get() + buf_ptr, entry_len, bits_begin) > 0) {
-                    memcpy(swap_space.get(), memory + pos, entry_len);
-                    memcpy(memory + pos, buffer.get() + buf_ptr, entry_len);
-                    memcpy(buffer.get() + buf_ptr, swap_space.get(), entry_len);
-                    swaps++;
+                        memory + pos, swap_ptr_a, entry_len, bits_begin) > 0) {
+                    memcpy(swap_ptr_b, memory + pos, entry_len);
+                    memcpy(memory + pos, swap_ptr_a, entry_len);
+                    std::swap(swap_ptr_a, swap_ptr_b);
                 }
                 pos += entry_len;
             }
             // Push the entry in the first free spot.
-            memcpy(memory + pos, buffer.get() + buf_ptr, entry_len);
+            memcpy(memory + pos, swap_ptr_a, entry_len);
             buf_ptr += entry_len;
         }
         uint64_t entries_written = 0;
