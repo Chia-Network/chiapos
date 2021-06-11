@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
                     cout << "i: " << num << " Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                     LargeBits quality = verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k*8);
                     if (quality.GetSize() == 2*k) {
-                        cout << "Proof verification suceeded. k = " << static_cast<int>(k)
+                        cout << "Proof verification succeeded. k = " << static_cast<int>(k)
                              << " Quality: " << quality << endl;
                         success++;
                     } else {
