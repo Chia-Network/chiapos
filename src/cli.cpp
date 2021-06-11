@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) try {
                         verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
                     if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
-                        cout << "Proof verification suceeded. k = " << static_cast<int>(k) << endl;
+                        cout << "Proof verification succeeded. k = " << static_cast<int>(k) << endl;
                         success++;
                     } else {
                         cout << "Proof verification failed." << endl;
