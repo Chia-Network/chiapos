@@ -1,10 +1,14 @@
 #include "chacha8.h"
 
-#ifdef _MSC_VER
-
-#include <intrin.h>
 #include <string.h>
-
+#if defined(_MSC_VER)
+#include <intrin.h>
+#elif defined(__GNUC__) && defined(__x86_64__)
+__inline static unsigned int __attribute__((__always_inline__, __artificial__, __gnu_inline__)) _rotl(unsigned int value, int count)
+{
+    // count &= 31;
+    return (value << count) | (value >> (-count & 31));
+}
 #endif
 
 #define U32TO32_LITTLE(v) (v)
@@ -51,7 +55,7 @@ void chacha8_keysetup(struct chacha8_ctx *x, const uint8_t *k, uint32_t kbits, c
     }
 }
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__GNUC__) && defined(__x86_64__)
 
 typedef struct {
     uint32_t a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p;
