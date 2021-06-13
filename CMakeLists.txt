@@ -134,7 +134,6 @@ set(BLAKE3_SRC
     ${blake3_SOURCE_DIR}/c/blake3.c
     ${blake3_SOURCE_DIR}/c/blake3_portable.c
     ${blake3_SOURCE_DIR}/c/blake3_dispatch.c
-    ${blake3_SOURCE_DIR}/c/blake3_avx2.c
     ${blake3_SOURCE_DIR}/c/blake3_avx2_x86-64_unix.S
     ${blake3_SOURCE_DIR}/c/blake3_avx512_x86-64_unix.S
     ${blake3_SOURCE_DIR}/c/blake3_sse41_x86-64_unix.S
