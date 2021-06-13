@@ -196,7 +196,7 @@ if platform.system() == "Windows":
         url="https://github.com/Chia-Network/chiapos",
         setup_requires=["pybind11"],
         ext_modules=ext_modules,
-        cmdclass={"build_ext": BuildExt},
+        cmdclass=dict(build_ext=CMakeBuild),
         zip_safe=False,
     )
 else:
