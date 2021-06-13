@@ -37,6 +37,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(gulrak)
 
+FetchContent_Declare(
+  blake3
+  GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
+  GIT_TAG        0.3.8
+)
+FetchContent_MakeAvailable(blake3)
+
 set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
 set(FSE_FILES
     ${FSE_LIB}/fse_compress.c
@@ -50,6 +57,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/include
   ${cxxopts_SOURCE_DIR}/include
   ${gulrak_SOURCE_DIR}/include/ghc
+  ${blake3_SOURCE_DIR}/c
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
@@ -106,27 +114,29 @@ ENDIF()
 
 IF (WIN32)
 set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
-    src/b3/blake3_avx2.c
-    src/b3/blake3_avx512.c
-    src/b3/blake3_sse41.c
+    ${blake3_SOURCE_DIR}/c/blake3.c
+    ${blake3_SOURCE_DIR}/c/blake3_portable.c
+    ${blake3_SOURCE_DIR}/c/blake3_dispatch.c
+    ${blake3_SOURCE_DIR}/c/blake3_avx2.c
+    ${blake3_SOURCE_DIR}/c/blake3_avx512.c
+    ${blake3_SOURCE_DIR}/c/blake3_sse41.c
+    ${blake3_SOURCE_DIR}/c/blake3_sse2_x86-64_windows_gnu.S
 )
 ELSEIF(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64")
 set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
+    ${blake3_SOURCE_DIR}/c/blake3.c
+    ${blake3_SOURCE_DIR}/c/blake3_neon.c
+    ${blake3_SOURCE_DIR}/c/blake3_dispatch.c
 )
 ELSE()
 set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
-    src/b3/blake3_avx2_x86-64_unix.S
-    src/b3/blake3_avx512_x86-64_unix.S
-    src/b3/blake3_sse41_x86-64_unix.S
+    ${blake3_SOURCE_DIR}/c/blake3.c
+    ${blake3_SOURCE_DIR}/c/blake3_portable.c
+    ${blake3_SOURCE_DIR}/c/blake3_dispatch.c
+    ${blake3_SOURCE_DIR}/c/blake3_avx2_x86-64_unix.S
+    ${blake3_SOURCE_DIR}/c/blake3_avx512_x86-64_unix.S
+    ${blake3_SOURCE_DIR}/c/blake3_sse41_x86-64_unix.S
+    ${blake3_SOURCE_DIR}/c/blake3_sse2_x86-64_unix.S
 )
 ENDIF()
 
