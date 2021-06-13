@@ -72,52 +72,6 @@ class CMakeBuild(build_ext):
         )
 
 
-class get_pybind_include(object):
-    """Helper class to determine the pybind11 include path
-
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked."""
-
-    def __init__(self, user=False):
-        self.user = user
-
-    def __str__(self):
-        import pybind11
-
-        return pybind11.get_include(self.user)
-
-
-ext_modules = [
-    Extension(
-        "chiapos",
-        [
-            "lib/FiniteStateEntropy/lib/entropy_common.c",
-            "lib/FiniteStateEntropy/lib/fse_compress.c",
-            "lib/FiniteStateEntropy/lib/fse_decompress.c",
-            "lib/FiniteStateEntropy/lib/hist.c",
-            "python-bindings/chiapos.cpp",
-            "uint128_t/uint128_t.cpp",
-            "src/b3/blake3.c",
-            "src/b3/blake3_portable.c",
-            "src/b3/blake3_dispatch.c",
-            "src/b3/blake3_avx2.c",
-            "src/b3/blake3_avx512.c",
-            "src/b3/blake3_sse41.c",
-            "src/chacha8.c",
-        ],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True),
-            "src",
-            "uint128_t",
-            ".",
-        ],
-    ),
-]
-
-
 # As of Python 3.6, CCompiler has a `has_flag` method.
 # cf http://bugs.python.org/issue26689
 def has_flag(compiler, flagname):
@@ -183,33 +137,17 @@ class BuildExt(build_ext):
         build_ext.build_extensions(self)
 
 
-if platform.system() == "Windows":
-    setup(
-        name="chiapos",
-        author="Mariano Sorgente",
-        author_email="mariano@chia.net",
-        description="Chia proof of space plotting, proving, and verifying (wraps C++)",
-        license="Apache License",
-        python_requires=">=3.7",
-        long_description=open("README.md").read(),
-        long_description_content_type="text/markdown",
-        url="https://github.com/Chia-Network/chiapos",
-        ext_modules=[CMakeExtension("chiapos", ".")],
-        cmdclass=dict(build_ext=CMakeBuild),
-        zip_safe=False,
-    )
-else:
-    setup(
-        name="chiapos",
-        author="Mariano Sorgente",
-        author_email="mariano@chia.net",
-        description="Chia proof of space plotting, proving, and verifying (wraps C++)",
-        license="Apache License",
-        python_requires=">=3.7",
-        long_description=open("README.md").read(),
-        long_description_content_type="text/markdown",
-        url="https://github.com/Chia-Network/chiavdf",
-        ext_modules=[CMakeExtension("chiapos", ".")],
-        cmdclass=dict(build_ext=CMakeBuild),
-        zip_safe=False,
-    )
+setup(
+    name="chiapos",
+    author="Mariano Sorgente",
+    author_email="mariano@chia.net",
+    description="Chia proof of space plotting, proving, and verifying (wraps C++)",
+    license="Apache License",
+    python_requires=">=3.7",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/Chia-Network/chiavdf",
+    ext_modules=[CMakeExtension("chiapos", ".")],
+    cmdclass=dict(build_ext=CMakeBuild),
+    zip_safe=False,
+)

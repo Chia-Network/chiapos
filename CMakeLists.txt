@@ -123,11 +123,13 @@ set(BLAKE3_SRC
     ${blake3_SOURCE_DIR}/c/blake3_sse2.c
     ${blake3_SOURCE_DIR}/c/blake3_sse2_x86-64_windows_gnu.S
 )
-ELSEIF(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64" OR (Linux AND CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64))
+ELSEIF(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+message(STATUS "Detected Apple arm64 or Linux aarch64")
 set(BLAKE3_SRC
     ${blake3_SOURCE_DIR}/c/blake3.c
-    ${blake3_SOURCE_DIR}/c/blake3_neon.c
+    ${blake3_SOURCE_DIR}/c/blake3_portable.c
     ${blake3_SOURCE_DIR}/c/blake3_dispatch.c
+    ${blake3_SOURCE_DIR}/c/blake3_neon.c
 )
 ELSE()
 set(BLAKE3_SRC
