@@ -194,8 +194,7 @@ if platform.system() == "Windows":
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
         url="https://github.com/Chia-Network/chiapos",
-        setup_requires=["pybind11"],
-        ext_modules=ext_modules,
+        ext_modules=[CMakeExtension("chiapos", ".")],
         cmdclass=dict(build_ext=CMakeBuild),
         zip_safe=False,
     )
