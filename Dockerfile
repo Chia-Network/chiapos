@@ -29,4 +29,3 @@ FROM ubuntu:20.04
 COPY --from=builder /app/build /app
 
 CMD ["/app/ProofOfSpace"]
-

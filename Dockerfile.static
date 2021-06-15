@@ -1,0 +1,32 @@
+FROM kayuii/crossbuild as builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV CROSS_TRIPLE=x86_64-linux-gnu
+
+RUN apt-get update -y
+
+RUN apt-get install -y --no-install-recommends \
+  file \
+  git \
+  python3 \
+  python3-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workdir
+COPY . .
+
+RUN mkdir -p build
+
+WORKDIR /workdir/build
+
+RUN cmake -DBUILD_PROOF_OF_SPACE_STATICALLY=ON ../ \
+  && cmake --build . -- -j `nproc`
+
+# FROM ubuntu:20.04
+FROM alpine:3.13.5
+
+WORKDIR /app
+
+COPY --from=builder /workdir/build/ProofOfSpace /app
+
+# CMD ["/app/ProofOfSpace"]
