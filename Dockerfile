@@ -1,6 +1,7 @@
 FROM ubuntu:20.04 as builder
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BUILD_PROOF_OF_SPACE_STATICALLY=OFF
 
 RUN apt-get update -y
 
@@ -20,7 +21,7 @@ COPY . .
 RUN mkdir -p build
 
 WORKDIR /app/build
-RUN cmake ../
+RUN cmake -DBUILD_PROOF_OF_SPACE_STATICALLY=${BUILD_PROOF_OF_SPACE_STATICALLY} ../
 RUN cmake --build . -- -j `nproc`
 
 
@@ -29,4 +30,3 @@ FROM ubuntu:20.04
 COPY --from=builder /app/build /app
 
 CMD ["/app/ProofOfSpace"]
-
