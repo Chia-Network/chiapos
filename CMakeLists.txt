@@ -141,9 +141,7 @@ add_executable(ProofOfSpace
 option(BUILD_PROOF_OF_SPACE_STATICALLY "Build ProofOfSpace target statically" OFF)
 IF (BUILD_PROOF_OF_SPACE_STATICALLY)
   message("Statically build ProofOfSpace")
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  set(CMAKE_EXE_LINKER_FLAGS "-Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive")
-  target_link_libraries(ProofOfSpace -static)
+  target_link_libraries(ProofOfSpace -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
 ENDIF()
 
 add_executable(RunTests
