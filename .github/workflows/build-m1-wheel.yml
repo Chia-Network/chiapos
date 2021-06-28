@@ -37,6 +37,14 @@ jobs:
         arch -arm64 pip wheel -w dist .
         arch -arm64 delocate-wheel -v dist/*.whl
 
+    - name: Test wheel
+      run: |
+        arch -arm64 python3 -m venv venv
+        . ./venv/bin/activate
+        arch -arm64 pip install ./dist/*.whl
+        arch -arm64 pip install pytest
+        arch -arm64 ./venv/bin/py.test -v ./tests -s
+
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
