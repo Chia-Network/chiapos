@@ -1,0 +1,47 @@
+name: Build Wheels
+
+on: [push, pull_request]
+
+jobs:
+  build_wheels:
+    name: Build wheel on Mac M1
+    runs-on: [m1]
+    strategy:
+      fail-fast: false
+
+    steps:
+    - name: Cancel previous runs on the same branch
+      if: ${{ github.ref != 'refs/heads/main' }}
+      uses: styfle/cancel-workflow-action@0.7.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Lint source with flake8
+      run: |
+        arch -arm64 /opt/homebrew/bin/python -m pip install --upgrade pip
+        arch -arm64 /opt/homebrew/bin/pip3.9 install flake8
+        arch -arm64 flake8 tests setup.py
+
+    - name: Lint source with mypy
+      run: |
+        arch -arm64 /opt/homebrew/bin/pip3.9 install mypy
+        arch -arm64 mypy --config-file mypi.ini setup.py tests
+
+#    - name: Build source distribution on MacOS
+#      run: |
+#        arch -arm64 /opt/homebrew/bin/pip3.9 install build
+#        arch -arm64 /opt/homebrew/bin/python3.9 -m build --sdist --outdir dist .
+
+    - name: Build ${{ matrix.os }} wheels and test
+      run: |
+        arch -arm64 /opt/homebrew/bin/pip3.9 wheel -w dist .
+        arch -arm64 delocate-wheel -v dist/*.whl
+
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: ./dist
