@@ -558,13 +558,11 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
         // to increase CPU efficency.
         f1.CalculateBuckets(x, loopcount, f1_entries.get());
         for (uint32_t i = 0; i < loopcount; i++) {
-            uint8_t to_write[16];
             uint128_t entry;
 
             entry = (uint128_t)f1_entries[i] << (128 - kExtraBits - k);
             entry |= (uint128_t)x << (128 - kExtraBits - 2 * k);
-            Util::IntTo16Bytes(to_write, entry);
-            memcpy(&(right_writer_buf[i * entry_size_bytes]), to_write, 16);
+            Util::IntTo16Bytes(&right_writer_buf[i * entry_size_bytes], entry);
             right_writer_count++;
             x++;
         }
@@ -597,8 +595,7 @@ std::vector<uint64_t> RunPhase1(
     uint32_t const log_num_buckets,
     uint32_t const stripe_size,
     uint8_t const num_threads,
-    bool const enable_bitfield,
-    bool const show_progress)
+    uint8_t const flags)
 {
     std::cout << "Computing table 1" << std::endl;
     globals.stripe_size = stripe_size;
@@ -656,7 +653,7 @@ std::vector<uint64_t> RunPhase1(
         uint32_t compressed_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index, false);
         right_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, table_index + 1, true);
 
-        if (enable_bitfield && table_index != 1) {
+        if (flags & ENABLE_BITFIELD && table_index != 1) {
             // We only write pos and offset to tables 2-6 after removing
             // metadata
             compressed_entry_size_bytes = cdiv(k + kOffsetSize, 8);
@@ -755,7 +752,7 @@ std::vector<uint64_t> RunPhase1(
 
         prevtableentries = globals.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
-        if (show_progress) {
+        if (flags & SHOW_PROGRESS) {
             progress(1, table_index, 6);
         }
     }

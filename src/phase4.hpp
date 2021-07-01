@@ -40,7 +40,7 @@
 // C2 (checkpoint values into)
 // C3 (deltas of f7s between C1 checkpoints)
 void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &res,
-               const bool show_progress, const int max_phase4_progress_updates)
+               const uint8_t flags, const int max_phase4_progress_updates)
 {
     uint32_t P7_park_size = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
     uint64_t number_of_p7_parks =
@@ -132,7 +132,7 @@ void RunPhase4(uint8_t k, uint8_t pos_size, FileDisk &tmp2_disk, Phase3Results &
             deltas_to_write.push_back(entry_y - prev_y);
             prev_y = entry_y;
         }
-        if (show_progress && f7_position % progress_update_increment == 0) {
+        if (flags & SHOW_PROGRESS && f7_position % progress_update_increment == 0) {
             progress(4, f7_position, res.final_entries_written);
         }
     }

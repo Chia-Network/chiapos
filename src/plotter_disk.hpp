@@ -37,6 +37,7 @@
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "exceptions.hpp"
+#include "phases.hpp"
 #include "phase1.hpp"
 #include "phase2.hpp"
 #include "b17phase2.hpp"
@@ -70,8 +71,7 @@ public:
         uint32_t num_buckets_input = 0,
         uint64_t stripe_size_input = 0,
         uint8_t num_threads_input = 0,
-        bool nobitfield = false,
-        bool show_progress = false)
+        uint8_t phases_flags = ENABLE_BITFIELD)
     {
         // Increases the open file limit, we will open a lot of files.
 #ifndef _WIN32
@@ -150,7 +150,7 @@ public:
         }
 
 #if defined(_WIN32) || defined(__x86_64__)
-        if (!nobitfield && !Util::HavePopcnt()) {
+        if (phases_flags & ENABLE_BITFIELD && !Util::HavePopcnt()) {
             throw InvalidValueException("Bitfield plotting not supported by CPU");
         }
 #endif /* defined(_WIN32) || defined(__x86_64__) */
@@ -162,8 +162,10 @@ public:
         std::cout << "Plot size is: " << static_cast<int>(k) << std::endl;
         std::cout << "Buffer size is: " << buf_megabytes << "MiB" << std::endl;
         std::cout << "Using " << num_buckets << " buckets" << std::endl;
+        std::cout << "Final Directory is: " << final_dirname << std::endl;
         std::cout << "Using " << (int)num_threads << " threads of stripe size " << stripe_size
                   << std::endl;
+        std::cout << "Process ID is: " << ::getpid() << std::endl;
 
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
@@ -233,13 +235,12 @@ public:
                 log_num_buckets,
                 stripe_size,
                 num_threads,
-                !nobitfield,
-                show_progress);
+                phases_flags);
             p1.PrintElapsed("Time for phase 1 =");
 
             uint64_t finalsize=0;
 
-            if(nobitfield)
+            if((phases_flags & ENABLE_BITFIELD) == 0)
             {
                 // Memory to be used for sorting and buffers
                 std::unique_ptr<uint8_t[]> memory(new uint8_t[memory_size + 7]);
@@ -260,7 +261,7 @@ public:
                     memory_size,
                     num_buckets,
                     log_num_buckets,
-                    show_progress);
+                    phases_flags);
                 p2.PrintElapsed("Time for phase 2 =");
 
                 // Now we open a new file, where the final contents of the plot will be stored.
@@ -283,14 +284,14 @@ public:
                     memory_size,
                     num_buckets,
                     log_num_buckets,
-                    show_progress);
+                    phases_flags);
                 p3.PrintElapsed("Time for phase 3 =");
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p4;
-                b17RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
+                b17RunPhase4(k, k + 1, tmp2_disk, res, phases_flags, 16);
                 p4.PrintElapsed("Time for phase 4 =");
                 finalsize = res.final_table_begin_pointers[11];
             }
@@ -310,7 +311,7 @@ public:
                     memory_size,
                     num_buckets,
                     log_num_buckets,
-                    show_progress);
+                    phases_flags);
                 p2.PrintElapsed("Time for phase 2 =");
 
                 // Now we open a new file, where the final contents of the plot will be stored.
@@ -331,14 +332,14 @@ public:
                     memory_size,
                     num_buckets,
                     log_num_buckets,
-                    show_progress);
+                    phases_flags);
                 p3.PrintElapsed("Time for phase 3 =");
 
                 std::cout << std::endl
                       << "Starting phase 4/4: Write Checkpoint tables into " << tmp_2_filename
                       << " ... " << Timer::GetNow();
                 Timer p4;
-                RunPhase4(k, k + 1, tmp2_disk, res, show_progress, 16);
+                RunPhase4(k, k + 1, tmp2_disk, res, phases_flags, 16);
                 p4.PrintElapsed("Time for phase 4 =");
                 finalsize = res.final_table_begin_pointers[11];
             }
