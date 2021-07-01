@@ -196,7 +196,6 @@ public:
                 tmp_dirname_canonical / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
         }
         fs::path tmp_2_filename = tmp2_dirname_canonical / fs::path(filename + ".2.tmp");
-        fs::path final_2_filename = final_dirname_canonical / fs::path(filename + ".2.tmp");
         fs::path final_filename = final_dirname_canonical / fs::path(filename);
 
         for (fs::path& p : tmp_1_filenames) {
@@ -371,82 +370,49 @@ public:
             fs::remove(p);
         }
 
-        bool bHardlinked = false;
-        bool bCopied = false;
-        bool bRenamed = false;
+        bool bMoved = false;
         Timer copy;
         do {
             std::error_code ec;
-            if (tmp_2_filename.parent_path() == final_filename.parent_path()) {
+            if (!bMoved) {
                 fs::rename(tmp_2_filename, final_filename, ec);
                 if (ec.value() != 0) {
                     std::cout << "Could not rename " << tmp_2_filename << " to " << final_filename
-                              << ". Error " << ec.message() << ". Retrying in five minutes."
+                              << ". Error " << ec.message() << ". Trying to copy instead."
                               << std::endl;
                 } else {
-                    bRenamed = true;
+                    bMoved = true;
                     std::cout << "Renamed final file from " << tmp_2_filename << " to "
                               << final_filename << std::endl;
                 }
-            } else {
-                if (!bHardlinked) {
-                    fs::create_hard_link(
-                        tmp_2_filename, final_2_filename, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not hardlink " << final_2_filename << " to "
-                                  << tmp_2_filename << ". Error " << ec.message()
-                                  << ". Trying to copy instead." << std::endl;
-                    } else {
-                        std::cout << "Hardlinked final file from " << final_2_filename << " to "
-                                  << tmp_2_filename << std::endl;
-                        copy.PrintElapsed("Link time =");
-                        bHardlinked = true;
+            } 
+            if (!bMoved) {
+                fs::copy(
+                    tmp_2_filename, final_filename, fs::copy_options::overwrite_existing, ec);
+                if (ec.value() != 0) {
+                    std::cout << "Could not copy " << tmp_2_filename << " to "
+                                << final_filename << ". Error " << ec.message()
+                                << ". Retrying in five minutes." << std::endl;
+                } else {
+                    std::cout << "Copied final file from " << tmp_2_filename << " to "
+                                << final_filename << std::endl;
+                    copy.PrintElapsed("Copy time =");
+                    bMoved = true;
 
-                        bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
-                    }
-                }
-                if (!bHardlinked && !bCopied) {
-                    fs::copy(
-                        tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not copy " << tmp_2_filename << " to "
-                                  << final_2_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Copied final file from " << tmp_2_filename << " to "
-                                  << final_2_filename << std::endl;
-                        copy.PrintElapsed("Copy time =");
-                        bCopied = true;
-
-                        bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
-                    }
-                }
-                if ((bCopied || bHardlinked) && (!bRenamed)) {
-                    fs::rename(final_2_filename, final_filename, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not rename " << tmp_2_filename << " to "
-                                  << final_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Renamed final file from " << final_2_filename << " to "
-                                  << final_filename << std::endl;
-                        bRenamed = true;
-                    }
+                    bool removed_2 = fs::remove(tmp_2_filename);
+                    std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
+                                << std::endl;
                 }
             }
 
-            if (!bRenamed) {
+            if (!bMoved) {
 #ifdef _WIN32
                 Sleep(5 * 60000);
 #else
                 sleep(5 * 60);
 #endif
             }
-        } while (!bRenamed);
+        } while (!bMoved);
     }
 
 private:
