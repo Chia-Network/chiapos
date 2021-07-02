@@ -167,32 +167,44 @@ public:
             // our two x values in the leaves.
             uint8_t last_5_bits = challenge[31] & 0x1f;
 
-            for (uint64_t position : p7_entries) {
-                // This inner loop goes from table 6 to table 1, getting the two backpointers,
-                // and following one of them.
-                for (uint8_t table_index = 6; table_index > 1; table_index--) {
-                    uint128_t line_point = ReadLinePoint(disk_file, table_index, position);
+            // Use tasks to make sure the order of "qualities" correct
+            std::vector<std::future<void>> tasks;
+            for (int i = 0; i < p7_entries.size(); i++) {
+                tasks.push_back(async(std::launch::async, [&, i] {
+                    uint64_t position = p7_entries[i];
+                    // Open the plot file for each task
+                    std::ifstream disk_file_(filename, std::ios::in | std::ios::binary);
+                    // This inner loop goes from table 6 to table 1, getting the two backpointers,
+                    // and following one of them.
+                    for (uint8_t table_index = 6; table_index > 1; table_index--) {
+                        uint128_t line_point = ReadLinePoint(disk_file_, table_index, position);
 
-                    auto xy = Encoding::LinePointToSquare(line_point);
-                    assert(xy.first >= xy.second);
+                        auto xy = Encoding::LinePointToSquare(line_point);
+                        assert(xy.first >= xy.second);
 
-                    if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
-                        position = xy.second;
-                    } else {
-                        position = xy.first;
+                        if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
+                            position = xy.second;
+                        } else {
+                            position = xy.first;
+                        }
                     }
-                }
-                uint128_t new_line_point = ReadLinePoint(disk_file, 1, position);
-                auto x1x2 = Encoding::LinePointToSquare(new_line_point);
+                    uint128_t new_line_point = ReadLinePoint(disk_file_, 1, position);
+                    auto x1x2 = Encoding::LinePointToSquare(new_line_point);
 
-                // The final two x values (which are stored in the same location) are hashed
-                std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
-                memcpy(hash_input.data(), challenge, 32);
-                (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
-                    .ToBytes(hash_input.data() + 32);
-                std::vector<unsigned char> hash(picosha2::k_digest_size);
-                picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-                qualities.emplace_back(hash.data(), 32, 256);
+                    // The final two x values (which are stored in the same location) are hashed
+                    std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+                    memcpy(hash_input.data(), challenge, 32);
+                    (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
+                        .ToBytes(hash_input.data() + 32);
+                    std::vector<unsigned char> hash(picosha2::k_digest_size);
+                    picosha2::hash256(
+                        hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+                    // Wait for previous appending finish, order matters
+                    if (i > 0) {
+                        tasks[i - 1].wait();
+                    }
+                    qualities.emplace_back(hash.data(), 32, 256);
+                }));
             }
         }  // Scope for disk_file
         return qualities;
