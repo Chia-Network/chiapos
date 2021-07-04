@@ -1,0 +1,140 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      
+  creationTimestamp: "2021-05-15T08:18:46Z"
+  generation: 3
+  labels:
+    app: chia
+    version: v18
+  name: chia-con2-1
+  resourceVersion: "979518313"
+  selfLink: /apis/extensions/v1beta1/namespaces/dora-apps/daemonsets/chia-con2-1
+  uid: 2b6b5939-b556-11eb-8a3b-00e0ed58b373
+spec:
+  minReadySeconds: 30
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chia
+      version: v18
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: chia
+        owner: "1366780503"
+        version: v18
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: com/disk
+                operator: In
+                values:
+                - 12x800g
+                - 12x960g
+            - matchExpressions:
+              - key: com/cpu
+                operator: In
+                values:
+                - cpu8160
+      containers:
+      - env:
+        - name: FIRST_TMPDIR
+          value: /diskmount/1
+        - name: SECOND_TMPDIR
+          value: /diskm/2
+        - name: FINAL_DIR
+          value: /diskm/2
+        image: chia-cmd:v18
+        imagePullPolicy: IfNotPresent
+        name: chia
+        resources:
+          limits:
+            cpu: "4"
+            memory: 12Gi
+          requests:
+            cpu: "2"
+            memory: 10Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /diskmount/1
+          name: chia-volume1
+        - mountPath: /diskm/2
+          name: chia-volume2
+      - env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: APP_DEBUG
+          value: "false"
+        - name: SERVICE_ADDR
+          value: http://localhost:12345
+        - name: SERVICE_NAME
+          value: xs-chia-v18
+        - name: RESPONSE_TIMEOUT
+          value: "604800"
+        - name: CONCURRENCY
+          value: "2"
+        image: consumer:20210510104536-3-master
+        imagePullPolicy: IfNotPresent
+        name: task-consumer
+        resources:
+          limits:
+            cpu: 200m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 1Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /app/boots-task-consumer.conf
+          name: boots-task-consumer-config-file
+          subPath: boots-task-consumer.conf
+        - mountPath: /app/applog
+          name: pods-log
+          subPathExpr: task-consumer/applog
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 90
+      tolerations:
+      - effect: NoSchedule
+        key: com/nodetype
+        operator: Equal
+        value: storage-computing
+      volumes:
+      - hostPath:
+          path: /disk1/dora-data
+          type: ""
+        name: chia-volume1
+      - hostPath:
+          path: /disk13/dora-data1
+          type: ""
+        name: chia-volume2
+      - emptyDir: {}
+        name: pods-log
+      - configMap:
+          defaultMode: 420
+          name: boots-task-consumer-config
+        name: boots-task-consumer-config-file
+  templateGeneration: 3
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10
+    type: RollingUpdate

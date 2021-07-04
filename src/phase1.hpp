@@ -27,25 +27,24 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <thread>
-#include <memory>
-#include <mutex>
-
-#include "chia_filesystem.hpp"
 
 #include "calculate_bucket.hpp"
+#include "chia_filesystem.hpp"
 #include "entry_sizes.hpp"
 #include "exceptions.hpp"
 #include "pos_constants.hpp"
+#include "progress.hpp"
 #include "sort_manager.hpp"
 #include "threading.hpp"
 #include "util.hpp"
-#include "progress.hpp"
 
 struct THREADDATA {
     int index;
@@ -135,8 +134,10 @@ void* phase1_thread(THREADDATA* ptd)
     // writing results to the right table.
     uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
     uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
-    std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * right_entry_size_bytes + 7]);
-    std::unique_ptr<uint8_t[]> left_writer_buf(new uint8_t[left_buf_entries * compressed_entry_size_bytes + 7]);
+    std::unique_ptr<uint8_t[]> right_writer_buf(
+        new uint8_t[right_buf_entries * right_entry_size_bytes + 7]);
+    std::unique_ptr<uint8_t[]> left_writer_buf(
+        new uint8_t[left_buf_entries * compressed_entry_size_bytes + 7]);
 
     FxCalculator f(k, table_index + 1);
 
@@ -268,7 +269,7 @@ void* phase1_thread(THREADDATA* ptd)
                 // happens in the next iteration of the loop, since we need to remap positions.
                 uint16_t idx_L[10000];
                 uint16_t idx_R[10000];
-                int32_t idx_count=0;
+                int32_t idx_count = 0;
 
                 if (!bucket_L.empty()) {
                     not_dropped.clear();
@@ -276,12 +277,12 @@ void* phase1_thread(THREADDATA* ptd)
                     if (!bucket_R.empty()) {
                         // Compute all matches between the two buckets and save indeces.
                         idx_count = f.FindMatches(bucket_L, bucket_R, idx_L, idx_R);
-                        if(idx_count >= 10000) {
+                        if (idx_count >= 10000) {
                             std::cout << "sanity check: idx_count exceeded 10000!" << std::endl;
                             exit(0);
                         }
                         // We mark entries as used if they took part in a match.
-                        for (int32_t i=0; i < idx_count; i++) {
+                        for (int32_t i = 0; i < idx_count; i++) {
                             bucket_L[idx_L[i]].used = true;
                             if (end_of_table) {
                                 bucket_R[idx_R[i]].used = true;
@@ -334,8 +335,8 @@ void* phase1_thread(THREADDATA* ptd)
                             if (left_writer_count >= left_buf_entries) {
                                 throw InvalidStateException("Left writer count overrun");
                             }
-                            uint8_t* tmp_buf =
-                                left_writer_buf.get() + left_writer_count * compressed_entry_size_bytes;
+                            uint8_t* tmp_buf = left_writer_buf.get() +
+                                               left_writer_count * compressed_entry_size_bytes;
 
                             left_writer_count++;
                             // memset(tmp_buf, 0xff, compressed_entry_size_bytes);
@@ -357,7 +358,7 @@ void* phase1_thread(THREADDATA* ptd)
                     current_entries_to_write = std::move(future_entries_to_write);
                     future_entries_to_write.clear();
 
-                    for (int32_t i=0; i < idx_count; i++) {
+                    for (int32_t i = 0; i < idx_count; i++) {
                         PlotEntry& L_entry = bucket_L[idx_L[i]];
                         PlotEntry& R_entry = bucket_R[idx_R[i]];
 
@@ -433,8 +434,8 @@ void* phase1_thread(THREADDATA* ptd)
                         }
 
                         if (bStripeStartPair) {
-                            uint8_t* right_buf =
-                                right_writer_buf.get() + right_writer_count * right_entry_size_bytes;
+                            uint8_t* right_buf = right_writer_buf.get() +
+                                                 right_writer_count * right_entry_size_bytes;
                             new_entry.ToBytes(right_buf);
                             right_writer_count++;
                         }
@@ -479,7 +480,8 @@ void* phase1_thread(THREADDATA* ptd)
         }
 
         // If we needed new bucket, we already waited
-        // Do not wait if we are the first thread, since we are guaranteed that everything is written
+        // Do not wait if we are the first thread, since we are guaranteed that everything is
+        // written
         if (!need_new_bucket && !first_thread) {
             Sem::Wait(ptd->theirs);
         }
@@ -488,7 +490,8 @@ void* phase1_thread(THREADDATA* ptd)
         uint32_t const startbyte = ysize / 8;
         uint32_t const endbyte = (ysize + pos_size + 7) / 8 - 1;
         uint64_t const shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
-        uint64_t const correction = (globals.left_writer_count - stripe_start_correction) << shiftamt;
+        uint64_t const correction = (globals.left_writer_count - stripe_start_correction)
+                                    << shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
@@ -506,7 +509,8 @@ void* phase1_thread(THREADDATA* ptd)
         }
         if (table_index < 6) {
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(right_writer_buf.get() + i * right_entry_size_bytes);
+                globals.R_sort_manager->AddToCache(
+                    right_writer_buf.get() + i * right_entry_size_bytes);
             }
         } else {
             // Writes out the right table for table 7
@@ -519,7 +523,9 @@ void* phase1_thread(THREADDATA* ptd)
         globals.right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
-            globals.left_writer, left_writer_buf.get(), left_writer_count * compressed_entry_size_bytes);
+            globals.left_writer,
+            left_writer_buf.get(),
+            left_writer_count * compressed_entry_size_bytes);
         globals.left_writer += left_writer_count * compressed_entry_size_bytes;
         globals.left_writer_count += left_writer_count;
 
@@ -545,8 +551,7 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
     for (uint64_t lp = index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + globals.num_threads)
-    {
+         lp = lp + globals.num_threads) {
         // For each pair x, y in the batch
 
         uint64_t right_writer_count = 0;
@@ -567,6 +572,7 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
             x++;
         }
 
+        // TODO 锁的粒度太大，线程之间会互相抢占进行磁盘写入
         std::lock_guard<std::mutex> l(*smm);
 
         // Write it out
@@ -620,6 +626,7 @@ std::vector<uint64_t> RunPhase1(
     std::vector<uint64_t> table_sizes = std::vector<uint64_t>(8, 0);
     std::mutex sort_manager_mutex;
 
+    // TODO 这里优化成 fork-join模型 或者 master/slave threadpool 是否会更好?
     {
         // Start of parallel execution
         std::vector<std::thread> threads;

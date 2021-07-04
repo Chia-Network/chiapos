@@ -90,7 +90,7 @@ class get_pybind_include(object):
 
 ext_modules = [
     Extension(
-        "chiapos",
+        "chiapos1",
         [
             "lib/FiniteStateEntropy/lib/entropy_common.c",
             "lib/FiniteStateEntropy/lib/fse_compress.c",
@@ -185,7 +185,7 @@ class BuildExt(build_ext):
 
 if platform.system() == "Windows":
     setup(
-        name="chiapos",
+        name="chiapos1",
         author="Mariano Sorgente",
         author_email="mariano@chia.net",
         description="Chia proof of space plotting, proving, and verifying (wraps C++)",
@@ -201,7 +201,7 @@ if platform.system() == "Windows":
     )
 else:
     setup(
-        name="chiapos",
+        name="chiapos1",
         author="Mariano Sorgente",
         author_email="mariano@chia.net",
         description="Chia proof of space plotting, proving, and verifying (wraps C++)",
@@ -210,7 +210,7 @@ else:
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
         url="https://github.com/Chia-Network/chiavdf",
-        ext_modules=[CMakeExtension("chiapos", ".")],
+        ext_modules=[CMakeExtension("chiapos1", ".")],
         cmdclass=dict(build_ext=CMakeBuild),
         zip_safe=False,
     )

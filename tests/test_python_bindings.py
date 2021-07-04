@@ -1,5 +1,5 @@
 import unittest
-from chiapos import DiskProver, DiskPlotter, Verifier
+from chiapos1 import DiskProver, DiskPlotter, Verifier
 from hashlib import sha256
 from pathlib import Path
 from secrets import token_bytes
