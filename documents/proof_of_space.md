@@ -818,7 +818,7 @@ The problem with the above construction is that the verifier can perform a Hellm
 
 The new idea in the paper is to construct a function $[N] \to [N]$ that can resist such attacks, by making the function hard to compute in the forward direction for a chosen input.
 
-The function that has to be inverted is $f(x_1) = f_2(x_1, x_2)$, where $f_2(x_1, x_2) = H(x_1 || x_2)$, but with the requirement that $f_1(x_1) = f_1(x_2) + 1$, where $f_1(x)$ can be another hash function.
+The function that has to be inverted is $f(x_1) = f_2(x_1, x_2)$, where $f_2(x_1, x_2) = H(x_1 || x_2)$, but with the requirement that $f_1(x_1) = f_1(x_2)$, where $f_1(x)$ can be another hash function.
 Given a challenge $Chall$, the prover must find $x_1$ and $x_2$.
 Since we cannot efficiently compute $f(x_1)$ for any $x_1$ (without storing the $f_1$ table), Hellman attacks can be mitigated.
 However, the entire $f$ function table can still be computed in quasilinear time.
