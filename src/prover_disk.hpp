@@ -206,6 +206,8 @@ public:
                     qualities.emplace_back(hash.data(), 32, 256);
                 }));
             }
+            // Waiting all read tasks finish
+            tasks[tasks.size() - 1].wait();
         }  // Scope for disk_file
         return qualities;
     }
