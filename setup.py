@@ -209,7 +209,7 @@ else:
         python_requires=">=3.7",
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
-        url="https://github.com/Chia-Network/chiavdf",
+        url="https://github.com/Chia-Network/chiapos",
         ext_modules=[CMakeExtension("chiapos", ".")],
         cmdclass=dict(build_ext=CMakeBuild),
         zip_safe=False,
