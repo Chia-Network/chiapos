@@ -292,13 +292,14 @@ struct BufferedDisk : Disk
         }
         else {
             // ideally this won't happen
-            std::cout << "Disk read position regressed. It's optimized for forward scans. Performance may suffer\n"
+            /* std::cout << "Disk read position regressed. It's optimized for forward scans. "
+                            "Performance may suffer\n"
                 << "   read-offset: " << begin
                 << " read-length: " << length
                 << " file-size: " << file_size_
                 << " read-buffer: [" << read_buffer_start_ << ", " << read_buffer_size_ << "]"
                 << " file: " << disk_->GetFileName()
-                << '\n';
+                << '\n';*/
             static uint8_t temp[128];
             // all allocations need 7 bytes head-room, since
             // SliceInt64FromBytes() may overrun by 7 bytes
