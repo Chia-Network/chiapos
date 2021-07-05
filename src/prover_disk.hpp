@@ -208,6 +208,7 @@ public:
             }
             // Waiting all read tasks finish
             tasks[p7_entries.size() - 1].wait();
+            delete [] tasks;
         }  // Scope for disk_file
         return qualities;
     }
