@@ -25,3 +25,4 @@ build
 .mypy_cache
 *.whl
 venv
+/.vs
