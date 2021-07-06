@@ -25,6 +25,14 @@ cmake ../
 cmake --build . -- -j 6
 ```
 
+## Static Compilation With glibc
+### Statically compile ProofOfSpace
+```bash
+mkdir -p build && cd build
+cmake -DBUILD_PROOF_OF_SPACE_STATICALLY=ON ../
+cmake --build . -- -j 6
+```
+
 ### Run tests
 
 ```bash
