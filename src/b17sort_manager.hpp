@@ -41,7 +41,8 @@ public:
         const std::string &tmp_dirname,
         const std::string &filename,
         uint32_t begin_bits,
-        uint64_t stripe_size)
+        uint64_t stripe_size,
+        bool verbose)
     {
         this->memory_start = memory;
         this->memory_size = memory_size;

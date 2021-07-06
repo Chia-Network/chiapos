@@ -22,6 +22,7 @@
 enum phase_flags : uint8_t {
     ENABLE_BITFIELD = 1 << 0,
     SHOW_PROGRESS = 1 << 1,
+    VERBOSE = 1 << 2,
 };
 
 #endif  // SRC_CPP_PHASES_HPP

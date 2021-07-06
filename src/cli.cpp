@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) try {
     string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
     bool nobitfield = false;
     bool show_progress = false;
+    bool verbose = false;
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
@@ -97,6 +98,7 @@ int main(int argc, char *argv[]) try {
         "m, memo", "Memo to insert into the plot", cxxopts::value<string>(memo))(
         "i, id", "Unique 32-byte seed for the plot", cxxopts::value<string>(id))(
         "e, nobitfield", "Disable bitfield", cxxopts::value<bool>(nobitfield))(
+        "v, verbose", "Verbose", cxxopts::value<bool>(verbose))(
         "b, buffer",
         "Megabytes to be used as buffer for sorting and plotting",
         cxxopts::value<uint32_t>(buffmegabytes))(
@@ -141,6 +143,9 @@ int main(int argc, char *argv[]) try {
         }
         if (show_progress) {
             phases_flags = phases_flags | SHOW_PROGRESS;
+        }
+        if (verbose) {
+            phases_flags = phases_flags | VERBOSE;
         }
         plotter.CreatePlotDisk(
                 tempdir,

@@ -53,6 +53,7 @@ public:
         const std::string &filename,
         uint32_t begin_bits,
         uint64_t const stripe_size,
+        bool verbose,
         strategy_t const sort_strategy = strategy_t::uniform)
         : memory_size_(memory_size)
         , entry_size_(entry_size)
@@ -80,6 +81,7 @@ public:
             buckets_.emplace_back(
                 FileDisk(bucket_filename));
         }
+        this->verbose = verbose;
     }
 
     void AddToCache(const Bits &entry)
@@ -260,6 +262,8 @@ private:
     std::unique_ptr<uint8_t[]> entry_buf_;
     strategy_t strategy_;
 
+    bool verbose = true;
+
     void SortBucket()
     {
         if (!memory_start_) {
@@ -298,9 +302,11 @@ private:
         // (number of entries required * entry_size_) <= total memory available
         if (!force_quicksort &&
             Util::RoundSize(bucket_entries) * entry_size_ <= memory_size_) {
-            std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed
-                      << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
-                      << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
+            if (this->verbose) {
+                std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed
+                          << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
+                          << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
+            }
             UniformSort::SortToMemory(
                 b.underlying_file,
                 0,
@@ -312,10 +318,12 @@ private:
             // Are we in Compress phrase 1 (quicksort=1) or is it the last bucket (quicksort=2)?
             // Perform quicksort if so (SortInMemory algorithm won't always perform well), or if we
             // don't have enough memory for uniform sort
-            std::cout << "\tBucket " << bucket_i << " QS. Ram: " << std::fixed
-                      << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
-                      << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
-                      << std::endl;
+            if (this->verbose) {
+                std::cout << "\tBucket " << bucket_i << " QS. Ram: " << std::fixed
+                          << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
+                          << "GiB, qs min: " << qs_ram << "GiB. force_qs: " << force_quicksort
+                          << std::endl;
+            }
             b.underlying_file.Read(0, memory_start_.get(), bucket_entries * entry_size_);
             QuickSort::Sort(memory_start_.get(), entry_size_, bucket_entries, begin_bits_ + log_num_buckets_);
         }

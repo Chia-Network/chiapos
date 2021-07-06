@@ -705,7 +705,7 @@ TEST_CASE("Sort on disk")
         uint32_t const size = 32;
         vector<Bits> input;
         const uint32_t memory_len = 1000000;
-        SortManager manager(memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        SortManager manager(memory_len, 16, 4, size, ".", "test-files", 0, 1, true);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);
@@ -733,7 +733,7 @@ TEST_CASE("Sort on disk")
         uint32_t const size = 32;
         vector<Bits> input;
         const uint32_t memory_len = 1000000;
-        SortManager manager(memory_len, 16, 4, size, ".", "test-files", 0, 1);
+        SortManager manager(memory_len, 16, 4, size, ".", "test-files", 0, 1, true);
         int total_written_1 = 0;
         for (uint32_t i = 0; i < iters; i++) {
             vector<unsigned char> hash_input = intToBytes(i, 4);

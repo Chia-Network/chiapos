@@ -163,6 +163,7 @@ Phase2Results RunPhase2(
             filename + ".p2.t" + std::to_string(table_index),
             uint32_t(k),
             0,
+            flags & VERBOSE,
             strategy_t::quicksort_last);
 
         // as we scan the table for the second time, we'll also need to remap
