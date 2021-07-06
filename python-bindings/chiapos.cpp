@@ -49,11 +49,20 @@ PYBIND11_MODULE(chiapos, m)
                uint32_t num_buckets,
                uint32_t stripe_size,
                uint8_t num_threads,
-               bool nobitfield) {
+               bool nobitfield,
+               bool verbose = true) {
                 std::string memo_str(memo);
                 const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
                 std::string id_str(id);
                 const uint8_t *id_ptr = reinterpret_cast<const uint8_t *>(id_str.data());
+                uint8_t flags = 0;
+                if (nobitfield) {
+                    flags |= ENABLE_BITFIELD;
+                }
+                if (verbose) {
+                    flags |= VERBOSE;
+                }
+
                 try {
                     dp.CreatePlotDisk(tmp_dir,
                                       tmp2_dir,
@@ -68,12 +77,25 @@ PYBIND11_MODULE(chiapos, m)
                                       num_buckets,
                                       stripe_size,
                                       num_threads,
-                                      nobitfield ? 0 : ENABLE_BITFIELD);
+                                      flags);
                 } catch (const std::exception &e) {
                     std::cout << "Caught plotting error: " << e.what() << std::endl;
                     throw e;
                 }
-            });
+            },
+            py::arg("tmp_dir"),
+            py::arg("tmp2_dir"),
+            py::arg("final_dir"),
+            py::arg("filename"),
+            py::arg("k"),
+            py::arg("memo"),
+            py::arg("id"),
+            py::arg("buffmegabytes"),
+            py::arg("num_buckets"),
+            py::arg("stripe_size"),
+            py::arg("num_threads"),
+            py::arg("nobitfield"),
+            py::arg("verbose") = true);
 
     py::class_<DiskProver>(m, "DiskProver")
         .def(py::init<const std::string &>())

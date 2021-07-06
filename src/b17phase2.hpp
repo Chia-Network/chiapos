@@ -98,7 +98,8 @@ std::vector<uint64_t> b17RunPhase2(
             tmp_dirname,
             filename + ".p2.t" + std::to_string(table_index - 1),
             0,
-            0);
+            0,
+            flags & VERBOSE);
 
         // We will divide by 2, so it must be even.
         assert(kCachedPositionsSize % 2 == 0);

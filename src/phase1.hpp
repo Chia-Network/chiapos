@@ -613,7 +613,8 @@ std::vector<uint64_t> RunPhase1(
         tmp_dirname,
         filename + ".p1.t1",
         0,
-        globals.stripe_size);
+        globals.stripe_size,
+        flags & VERBOSE);
 
     // These are used for sorting on disk. The sort on disk code needs to know how
     // many elements are in each bucket.
@@ -682,7 +683,8 @@ std::vector<uint64_t> RunPhase1(
             tmp_dirname,
             filename + ".p1.t" + std::to_string(table_index + 1),
             0,
-            globals.stripe_size);
+            globals.stripe_size,
+            flags & VERBOSE);
 
         globals.L_sort_manager->TriggerNewBucket(0);
 
