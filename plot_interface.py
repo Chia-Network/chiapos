@@ -23,6 +23,7 @@ class Options(Enum):
     MADMAX_POOLKEY = 16
     MADMAX_FARMERKEY = 17
     MADMAX_TMPTOGGLE = 18
+    MADMAX_POOLCONTRACT = 19
 
 chia_plotter = [
     Options.TMP_DIR,
@@ -50,6 +51,7 @@ madmax_plotter = [
     Options.MADMAX_WAITFORCOPY,
     Options.MADMAX_POOLKEY,
     Options.MADMAX_FARMERKEY,
+    Options.MADMAX_POOLCONTRACT,
     Options.MADMAX_TMPTOGGLE,
 ]
 
@@ -122,6 +124,10 @@ def build_parser(subparsers, option_list, name, plotter_desc):
         if option is Options.MADMAX_TMPTOGGLE:
             parser.add_argument(
                 '-G', '--tmptoggle', help='Alternate tmpdir/tmpdir2 (default = false)', default=False,
+            )
+        if option is Options.MADMAX_POOLCONTRACT:
+            parser.add_argument(
+                '-c', '--contract', type=str, help='Pool Contract Address (64 chars)', default='',
             )
         if option is Options.MADMAX_POOLKEY:
             parser.add_argument(
