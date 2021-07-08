@@ -1,0 +1,3 @@
+[submodule "madmax-plotter"]
+	path = madmax-plotter
+	url = https://github.com/madMAx43v3r/chia-plotter
