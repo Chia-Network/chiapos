@@ -1,6 +1,6 @@
 import argparse
 import binascii
-
+import subprocess
 from chiapos import DiskPlotter
 from enum import Enum
 
@@ -74,15 +74,15 @@ def build_parser(subparsers, option_list, name, plotter_desc):
             )
         if option is Options.TMP_DIR:
             parser.add_argument(
-                '-t', '--tempdir', type=str, help='Temporary directory 1.', default='.',
+                '-t', '--tempdir', type=str, help='Temporary directory 1.', default='./',
             )
         if option is Options.TMP_DIR2:
             parser.add_argument(
-                '-2', '--tempdir2', type=str, help='Temporary directory 2.', default='.',
+                '-2', '--tempdir2', type=str, help='Temporary directory 2.', default='./',
             )
         if option is Options.FINAL_DIR:
             parser.add_argument(
-                '-d', '--finaldir', type=str, help='Final directory.', default='.',
+                '-d', '--finaldir', type=str, help='Final directory.', default='./',
             )
         if option is Options.FILENAME:
             parser.add_argument(
@@ -159,7 +159,35 @@ def plot_chia(args):
         print(f"Exception while plotting: {e}")
 
 def plot_madmax(args):
-    print(args)
+    call_args = []
+    call_args.append('./madmax-plotter/build/chia_plot')
+    call_args.append('-f')
+    call_args.append(args.farmerkey.hex())
+    call_args.append('-p')
+    call_args.append(args.poolkey.hex())
+    call_args.append('-t')
+    call_args.append(args.tempdir)
+    call_args.append('-2')
+    call_args.append(args.tempdir2)
+    call_args.append('-d')
+    call_args.append(args.finaldir)
+    if args.contract != '':
+        call_args.append('-c')
+        call_args.append(args.contract.hex())
+    call_args.append('-n')
+    call_args.append(str(args.count))
+    call_args.append('-r')
+    call_args.append(str(args.threads))
+    call_args.append('-u')
+    call_args.append(str(args.buckets))
+    call_args.append('-v')
+    call_args.append(str(args.buckets3))
+    call_args.append('-w')
+    call_args.append(str(int(args.waitforcopy)))
+    try:
+        subprocess.run(call_args)
+    except Exception as e:
+        print(f"Exception while plotting: {e}")
 
 def main():
     plotters = argparse.ArgumentParser(description='Available plotters.')
