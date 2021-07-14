@@ -1,6 +1,8 @@
 import argparse
 import binascii
 import subprocess
+import os
+import sys
 from chiapos import DiskPlotter
 from enum import Enum
 
@@ -158,7 +160,48 @@ def plot_chia(args):
     except Exception as e:
         print(f"Exception while plotting: {e}")
 
+def install_madmax():
+    if sys.platform.startswith('linux') or sys.platform.startswith('darwin'):
+        print("Installing dependencies.")
+        if sys.platform.startswith('linux'):
+            try:
+                subprocess.run(["sudo", "apt", "install", "-y", "libsodium-dev", "cmake", "g++", "git", "build-essential"])
+            except Exception:
+                raise ValueError("Could not install dependencies.")
+        if sys.platform.startswith('darwin'):
+            try:
+                subprocess.run(["brew", "install", "libsodium", "cmake", "git", "autoconf", "automake", "libtool", "wget"])
+                subprocess.run(["brew", "link", "gmp"])
+            except Exception as e:
+                raise ValueError("Could not install dependencies. {e}")
+
+        try:
+            subprocess.run(["git", "--version"])
+        except Exception as e:
+            raise ValueError("Git not installed. Aborting madmax install. {e}")
+
+        print("Installing git submodules.")
+        try:
+            subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
+        except Exception as e:
+            raise ValueError(f"Could not install git submodules. {e}")
+        
+        print("Running install script.")
+        try:
+            subprocess.run(["./make_devel.sh"], cwd='./madmax-plotter')
+        except Exception as e:
+            raise ValueError(f"Install script failed. {e}")
+    else:
+        raise ValueError("Platform not supported yet for mad max plotter.")
+
 def plot_madmax(args):
+    if not os.path.exists('./madmax-plotter/build/chia_plot'):
+        print("Installing madmax plotter.")
+        try:
+            install_madmax()
+        except Exception as e:
+            print(f"Exception while installing madmax plotter: {e}")
+            return
     call_args = []
     call_args.append('./madmax-plotter/build/chia_plot')
     call_args.append('-f')
