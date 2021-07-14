@@ -26,6 +26,7 @@ class Options(Enum):
     MADMAX_FARMERKEY = 17
     MADMAX_TMPTOGGLE = 18
     MADMAX_POOLCONTRACT = 19
+    MADMAX_RMULTI2 = 20
 
 chia_plotter = [
     Options.TMP_DIR,
@@ -55,6 +56,7 @@ madmax_plotter = [
     Options.MADMAX_FARMERKEY,
     Options.MADMAX_POOLCONTRACT,
     Options.MADMAX_TMPTOGGLE,
+    Options.MADMAX_RMULTI2,
 ]
 
 
@@ -130,6 +132,10 @@ def build_parser(subparsers, option_list, name, plotter_desc):
         if option is Options.MADMAX_POOLCONTRACT:
             parser.add_argument(
                 '-c', '--contract', type=str, help='Pool Contract Address (64 chars)', default='',
+            )
+        if option is Options.MADMAX_RMULTI2:
+            parser.add_argument(
+                '-K', '--rmulti2',type=binascii.unhexlify, help='Thread multiplier for P2 (default = 1)', default=1,
             )
         if option is Options.MADMAX_POOLKEY:
             parser.add_argument(
@@ -227,6 +233,8 @@ def plot_madmax(args):
     call_args.append(str(args.buckets3))
     call_args.append('-w')
     call_args.append(str(int(args.waitforcopy)))
+    call_args.append('-K')
+    call_args.append(str(args.rmulti2))
     try:
         subprocess.run(call_args)
     except Exception as e:
