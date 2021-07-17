@@ -174,7 +174,9 @@ struct FileDisk {
             if (amtread != length) {
                 std::cout << "Only read " << amtread << " of " << length << " bytes at offset "
                           << begin << " from " << filename_ << " with length " << writeMax
-                          << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                          << ". Error " << ferror(f_)
+                          << ". At << " std::chrono::steady_clock::now()
+                          << ". Retrying in five minutes." << std::endl;
                 // Close, Reopen, and re-seek the file to recover in case the filesystem
                 // has been remounted.
                 Close();
@@ -222,7 +224,9 @@ struct FileDisk {
                 writePos = UINT64_MAX;
                 std::cout << "Only wrote " << amtwritten << " of " << length << " bytes at offset "
                           << begin << " to " << filename_ << " with length " << writeMax
-                          << ". Error " << ferror(f_) << ". Retrying in five minutes." << std::endl;
+                          << ". Error " << ferror(f_)
+                          << ". At << " std::chrono::steady_clock::now()
+                          << ". Retrying in five minutes." << std::endl;
                 // Close, Reopen, and re-seek the file to recover in case the filesystem
                 // has been remounted.
                 Close();
