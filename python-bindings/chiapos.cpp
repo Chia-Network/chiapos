@@ -19,6 +19,7 @@ using std::experimental::optional;
 #error "an implementation of optional is required!"
 #endif
 
+#include <pybind11/functional.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -49,7 +50,8 @@ PYBIND11_MODULE(chiapos, m)
                uint32_t num_buckets,
                uint32_t stripe_size,
                uint8_t num_threads,
-               bool nobitfield) {
+               bool nobitfield,
+               py::object phase_completion_callback) {
                 std::string memo_str(memo);
                 const uint8_t *memo_ptr = reinterpret_cast<const uint8_t *>(memo_str.data());
                 std::string id_str(id);
@@ -68,7 +70,8 @@ PYBIND11_MODULE(chiapos, m)
                                       num_buckets,
                                       stripe_size,
                                       num_threads,
-                                      nobitfield ? 0 : ENABLE_BITFIELD);
+                                      nobitfield ? 0 : ENABLE_BITFIELD,
+                                      [&phase_completion_callback](uint8_t phase) { phase_completion_callback(phase); });
                 } catch (const std::exception &e) {
                     std::cout << "Caught plotting error: " << e.what() << std::endl;
                     throw e;
