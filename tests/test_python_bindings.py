@@ -81,7 +81,7 @@ class TestPythonBindings(unittest.TestCase):
                 assert computed_quality == quality
                 total_proofs += 1
             for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
-                proof = pr.get_full_proof(challenge, index, disable_parallel=True)
+                proof = pr.get_full_proof(challenge, index, parallel_read=False)
                 assert len(proof) == 8 * pr.get_size()
                 computed_quality = v.validate_proof(
                     plot_seed, pr.get_size(), challenge, proof
