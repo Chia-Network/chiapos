@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) try {
     string id = "022fb42c08c12de3a6af053880199806532e79515f94e83461612101f9412f9e";
     bool nobitfield = false;
     bool show_progress = false;
+    bool disable_parallel_read = false;
     uint32_t buffmegabytes = 0;
 
     options.allow_unrecognised_options().add_options()(
@@ -102,6 +103,8 @@ int main(int argc, char *argv[]) try {
         cxxopts::value<uint32_t>(buffmegabytes))(
         "p, progress", "Display progress percentage during plotting",
         cxxopts::value<bool>(show_progress))(
+        "disable_parallel_read", "Do not use parallel reads - revert back to sequential",
+        cxxopts::value<bool>(disable_parallel_read)->default_value("false"))(
         "help", "Print help");
 
     auto result = options.parse(argc, argv);
@@ -177,7 +180,7 @@ int main(int argc, char *argv[]) try {
             for (uint32_t i = 0; i < qualities.size(); i++) {
                 k = prover.GetSize();
                 uint8_t *proof_data = new uint8_t[8 * k];
-                LargeBits proof = prover.GetFullProof(challenge_bytes, i);
+                LargeBits proof = prover.GetFullProof(challenge_bytes, i, disable_parallel_read);
                 proof.ToBytes(proof_data);
                 cout << "Proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                 delete[] proof_data;
@@ -259,7 +262,7 @@ int main(int argc, char *argv[]) try {
                 vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
 
                 for (uint32_t i = 0; i < qualities.size(); i++) {
-                    LargeBits proof = prover.GetFullProof(hash.data(), i);
+                    LargeBits proof = prover.GetFullProof(hash.data(), i, disable_parallel_read);
                     uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
                     cout << "i: " << num << std::endl;
