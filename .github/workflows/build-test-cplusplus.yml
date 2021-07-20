@@ -12,6 +12,10 @@ jobs:
         os: [ubuntu-20.04, windows-latest]
 
     steps:
+    - uses: actions/checkout@v2
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: Cancel previous runs on the same branch
       if: ${{ github.ref != 'refs/heads/main' }}
       uses: styfle/cancel-workflow-action@0.7.0
