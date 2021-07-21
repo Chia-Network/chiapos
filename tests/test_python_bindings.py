@@ -64,6 +64,7 @@ class TestPythonBindings(unittest.TestCase):
         pr = DiskProver(str(Path("myplot.dat")))
 
         total_proofs: int = 0
+        total_proofs2: int = 0
         iterations: int = 5000
 
         v = Verifier()
@@ -79,11 +80,25 @@ class TestPythonBindings(unittest.TestCase):
                 )
                 assert computed_quality == quality
                 total_proofs += 1
+            for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
+                proof = pr.get_full_proof(challenge, index, parallel_read=False)
+                assert len(proof) == 8 * pr.get_size()
+                computed_quality = v.validate_proof(
+                    plot_seed, pr.get_size(), challenge, proof
+                )
+                assert computed_quality == quality
+                total_proofs2 += 1
 
         print(
             f"total proofs {total_proofs} out of {iterations}\
             {total_proofs / iterations}"
         )
+        print(
+            f"total proofs (sequential reads) {total_proofs2} out of {iterations}\
+            {total_proofs2 / iterations}"
+        )
+
+        assert total_proofs2 == total_proofs
         assert total_proofs > 4000
         assert total_proofs < 6000
         pr = None
@@ -125,7 +140,9 @@ class TestPythonBindings(unittest.TestCase):
         all_data = bytearray(f.read())
         f.close()
         assert len(all_data) > 20000000
-        all_data_bad = all_data[:20000000] + bytearray(token_bytes(10000)) + all_data[20100000:]
+        all_data_bad = (
+            all_data[:20000000] + bytearray(token_bytes(10000)) + all_data[20100000:]
+        )
         f_bad = open("myplotbad.dat", "wb")
         f_bad.write(all_data_bad)
         f_bad.close()
@@ -141,7 +158,9 @@ class TestPythonBindings(unittest.TestCase):
                 print(i)
             challenge = sha256(i.to_bytes(4, "big")).digest()
             try:
-                for index, quality in enumerate(pr.get_qualities_for_challenge(challenge)):
+                for index, quality in enumerate(
+                    pr.get_qualities_for_challenge(challenge)
+                ):
                     proof = pr.get_full_proof(challenge, index)
                     computed_quality = v.validate_proof(
                         plot_id, pr.get_size(), challenge, proof

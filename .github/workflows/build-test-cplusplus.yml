@@ -12,6 +12,7 @@ jobs:
         os: [ubuntu-20.04, windows-latest]
 
     steps:
+
     - name: Cancel previous runs on the same branch
       if: ${{ github.ref != 'refs/heads/main' }}
       uses: styfle/cancel-workflow-action@0.7.0
@@ -35,11 +36,16 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get install valgrind -y
+        sudo fallocate -l 16G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
         mkdir build
         cd build
         cmake ../
         cmake --build . -- -j 6
         ctest -j 6 --output-on-failure
+        swapon -s
         valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
 
     - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
@@ -49,6 +55,7 @@ jobs:
         cd build-asan
         cmake -DCMAKE_BUILD_TYPE=ASAN ../
         cmake --build . -- -j 6
+        swapon -s
         ./RunTests
 
     - name: cmake, RunTests with thread sanitizer on Ubuntu
@@ -58,4 +65,5 @@ jobs:
         cd build-tsan
         cmake -DCMAKE_BUILD_TYPE=TSAN ../
         cmake --build . -- -j 6
+        swapon -s
         ./RunTests
