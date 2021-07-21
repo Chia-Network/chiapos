@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   valgrind:
+    name: valgrind ubuntu
     runs-on: ubuntu-20.04
     steps:
 
@@ -28,6 +29,7 @@ jobs:
           valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
 
   asan:
+    name: ASAN ubuntu
     runs-on: ubuntu-20.04
     steps:
       
@@ -55,6 +57,7 @@ jobs:
           ./RunTests
 
   tsan:
+    name: TSAN ubuntu
     runs-on: ubuntu-20.04
     steps:
       - name: Cancel previous runs on the same branch
@@ -79,7 +82,7 @@ jobs:
           ./RunTests
 
   windows:
-    name: Build and Test C++ on windows-latest
+    name: Windows Latest
     runs-on: windows-latest
     steps:
 
