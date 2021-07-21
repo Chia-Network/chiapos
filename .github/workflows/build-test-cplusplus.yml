@@ -69,9 +69,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
           mkdir build-tsan
