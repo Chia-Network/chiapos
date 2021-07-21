@@ -65,8 +65,13 @@ jobs:
         uses: styfle/cancel-workflow-action@0.7.0
         with:
           access_token: ${{ github.token }}
+      
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
           sudo fallocate -l 16G /swapfile
