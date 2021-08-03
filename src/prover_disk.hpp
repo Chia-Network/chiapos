@@ -216,7 +216,7 @@ public:
     // Given a challenge, and an index, returns a proof of space. This assumes GetQualities was
     // called, and there are actually proofs present. The index represents which proof to fetch,
     // if there are multiple.
-    LargeBits GetFullProof(const uint8_t* challenge, uint32_t index)
+    LargeBits GetFullProof(const uint8_t* challenge, uint32_t index, bool parallel_read = true)
     {
         LargeBits full_proof;
 
@@ -234,7 +234,12 @@ public:
             }
 
             // Gets the 64 leaf x values, concatenated together into a k*64 bit string.
-            std::vector<Bits> xs = GetInputs(p7_entries[index], 6);
+            std::vector<Bits> xs;
+            if (parallel_read) {
+                xs = GetInputs(p7_entries[index], 6);
+            } else {
+                xs = GetInputs(p7_entries[index], 6, &disk_file); // Passing in a disk_file disabled the parallel reads
+            }
 
             // Sorts them according to proof ordering, where
             // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not stored in
@@ -650,11 +655,18 @@ private:
     // all of the leaves (x values). For example, for depth=5, it fetches the position-th
     // entry in table 5, reading the two back pointers from the line point, and then
     // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(uint64_t position, uint8_t depth)
+    std::vector<Bits> GetInputs(uint64_t position, uint8_t depth, std::ifstream* disk_file = nullptr)
     {
-        // Create individual file handles to allow parallel processing
-        std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
-        uint128_t line_point = ReadLinePoint(disk_file, depth, position);
+        uint128_t line_point;
+
+        if (!disk_file) {
+            // No disk file passed in, so we assume here we are doing parallel reads
+            // Create individual file handles to allow parallel processing
+            std::ifstream disk_file_parallel(filename, std::ios::in | std::ios::binary);
+            line_point = ReadLinePoint(disk_file_parallel, depth, position);
+        } else {
+            line_point = ReadLinePoint(*disk_file, depth, position);
+        }
         std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
 
         if (depth == 1) {
@@ -664,14 +676,22 @@ private:
             ret.emplace_back(xy.first, k);   // x
             return ret;
         } else {
-            auto left_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.second, (uint8_t)(depth - 1));
-            auto right_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.first, (uint8_t)(depth - 1));
-            std::vector<Bits> left = left_fut.get();  // y
-            std::vector<Bits> right = right_fut.get();  // x
+            std::vector<Bits> left, right;
+            if (!disk_file) {
+                // no disk_file, so we do parallel reads here
+                auto left_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.second, (uint8_t)(depth - 1), nullptr);
+                auto right_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.first, (uint8_t)(depth - 1), nullptr);
+                left = left_fut.get();  // y
+                right = right_fut.get();  // x
+            } else {
+                left = GetInputs(xy.second, depth - 1, disk_file);  // y
+                right = GetInputs(xy.first, depth - 1, disk_file);  // x  
+            }
             left.insert(left.end(), right.begin(), right.end());
             return left;
         }
     }
+
 };
 
 #endif  // SRC_CPP_PROVER_DISK_HPP_

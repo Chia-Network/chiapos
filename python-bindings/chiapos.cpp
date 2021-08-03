@@ -119,11 +119,11 @@ PYBIND11_MODULE(chiapos, m)
                 delete[] quality_buf;
                 return ret;
             })
-        .def("get_full_proof", [](DiskProver &dp, const py::bytes &challenge, uint32_t index) {
+        .def("get_full_proof", [](DiskProver &dp, const py::bytes &challenge, uint32_t index, bool parallel_read) {
             std::string challenge_str(challenge);
             const uint8_t *challenge_ptr = reinterpret_cast<const uint8_t *>(challenge_str.data());
             py::gil_scoped_release release;
-            LargeBits proof = dp.GetFullProof(challenge_ptr, index);
+            LargeBits proof = dp.GetFullProof(challenge_ptr, index, parallel_read);
             py::gil_scoped_acquire acquire;
             uint8_t *proof_buf = new uint8_t[Util::ByteAlign(64 * dp.GetSize()) / 8];
             proof.ToBytes(proof_buf);
@@ -131,7 +131,7 @@ PYBIND11_MODULE(chiapos, m)
                 reinterpret_cast<char *>(proof_buf), Util::ByteAlign(64 * dp.GetSize()) / 8);
             delete[] proof_buf;
             return ret;
-        });
+        },py::arg("challenge"), py::arg("index"), py::arg("parallel_read") = true);
 
     py::class_<Verifier>(m, "Verifier")
         .def(py::init<>())
