@@ -247,13 +247,12 @@ int main(int argc, char *argv[]) try {
         Verifier verifier = Verifier();
 
         uint32_t success = 0;
-        uint8_t id_bytes[32];
-        prover.GetId(id_bytes);
+        std::vector<uint8_t> id_bytes = prover.GetId();
         k = prover.GetSize();
 
         for (uint32_t num = 0; num < iterations; num++) {
             vector<unsigned char> hash_input = intToBytes(num, 4);
-            hash_input.insert(hash_input.end(), &id_bytes[0], &id_bytes[32]);
+            hash_input.insert(hash_input.end(), id_bytes.begin(), id_bytes.end());
 
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
@@ -269,7 +268,7 @@ int main(int argc, char *argv[]) try {
                     cout << "challenge: 0x" << Util::HexStr(hash.data(), 256 / 8) << endl;
                     cout << "proof: 0x" << Util::HexStr(proof_data, k * 8) << endl;
                     LargeBits quality =
-                        verifier.ValidateProof(id_bytes, k, hash.data(), proof_data, k * 8);
+                        verifier.ValidateProof(id_bytes.data(), k, hash.data(), proof_data, k * 8);
                     if (quality.GetSize() == 256 && quality == qualities[i]) {
                         cout << "quality: " << quality << endl;
                         cout << "Proof verification succeeded. k = " << static_cast<int>(k) << endl;
