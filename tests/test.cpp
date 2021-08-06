@@ -1026,3 +1026,66 @@ TEST_CASE("FilteredDisk")
 */
     remove("test_file.bin");
 }
+
+TEST_CASE("DiskProver")
+{
+    SECTION("Construction")
+    {
+        std::string filename = "prover_test.plot";
+        DiskPlotter plotter = DiskPlotter();
+        std::vector<uint8_t> memo{1, 2, 3};
+        plotter.CreatePlotDisk(
+            ".", ".", ".", filename, 18, memo.data(),
+            memo.size(), plot_id_1, 32, 11, 0,
+            4000, 2);
+        DiskProver prover1(filename);
+        std::string p1_filename = prover1.GetFilename();
+        std::vector<uint8_t> p1_id = prover1.GetId();
+        std::vector<uint8_t> p1_memo = prover1.GetMemo();
+        uint8_t p1_k = prover1.GetSize();
+        std::vector<uint64_t> p1_pointers = prover1.GetTableBeginPointers();
+        std::vector<uint64_t> p1_C2 = prover1.GetC2();
+        DiskProver prover2(p1_filename,
+                           p1_memo,
+                           p1_id,
+                           p1_k,
+                           p1_pointers,
+                           p1_C2);
+        REQUIRE(prover1.GetFilename() == prover2.GetFilename());
+        REQUIRE(prover1.GetSize() == prover2.GetSize());
+        REQUIRE(prover1.GetId() == prover2.GetId());
+        REQUIRE(prover1.GetMemo() == prover2.GetMemo());
+        vector<unsigned char> hash_input = intToBytes(0, 4);
+        vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+        vector<LargeBits> qualities1 = prover1.GetQualitiesForChallenge(hash.data());
+        LargeBits proof1 = prover1.GetFullProof(hash.data(), 0);
+        vector<LargeBits> qualities2 = prover2.GetQualitiesForChallenge(hash.data());
+        LargeBits proof2 = prover2.GetFullProof(hash.data(), 0);
+        REQUIRE(qualities1 == qualities2);
+        REQUIRE(proof1 == proof2);
+        // Test "Invalid id"
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, {}, p1_k, p1_pointers, p1_C2));
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, std::vector<uint8_t>(kIdLen - 1, 0), p1_k, p1_pointers, p1_C2));
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, std::vector<uint8_t>(kIdLen + 1, 0), p1_k, p1_pointers, p1_C2));
+        // Test "Invalid k"
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, 0, p1_pointers, p1_C2));
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, kMinPlotSize - 1, p1_pointers, p1_C2));
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, kMaxPlotSize + 1, p1_pointers, p1_C2));
+        // Test "Invalid table_begin_pointers size"
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, {}, p1_C2));
+        auto invalid_pointers = std::vector<uint64_t>(p1_pointers.begin(), p1_pointers.end() - 1);
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, invalid_pointers, p1_C2));
+        invalid_pointers.push_back(p1_pointers.back());
+        invalid_pointers.push_back(p1_pointers.back());
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, invalid_pointers, p1_C2));
+        // Test "Invalid C2 size"
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, {}, p1_C2));
+        auto invalid_c2 = std::vector<uint64_t>(p1_C2.begin(), p1_C2.end() - 1);
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, p1_pointers, invalid_c2));
+        invalid_c2.push_back(p1_C2.back());
+        invalid_c2.push_back(p1_C2.back());
+        REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, p1_pointers, invalid_c2));
+        REQUIRE(remove(filename.c_str()) == 0);
+    }
+}
