@@ -225,6 +225,33 @@ TEST_CASE("(De)Serialization")
         REQUIRE(str2_deserialized == str2);
         REQUIRE(deserializer.End());
     }
+    SECTION("DiskProver")
+    {
+        std::string filename = "prover_test.plot";
+        DiskPlotter plotter = DiskPlotter();
+        uint8_t memo[5] = {1, 2, 3, 4, 5};
+        plotter.CreatePlotDisk(
+            ".", ".", ".", filename, 18, memo, 5, plot_id_1, 32, 11, 0, 4000, 2);
+        DiskProver prover1(filename);
+        std::vector<uint8_t> vecBytes = prover1.ToBytes();
+        DiskProver prover2(vecBytes);
+        REQUIRE(prover1.GetFilename() == prover2.GetFilename());
+        REQUIRE(prover1.GetSize() == prover2.GetSize());
+        REQUIRE(prover1.GetId() == prover2.GetId());
+        REQUIRE(prover1.GetMemo() == prover2.GetMemo());
+        vector<unsigned char> hash_input = intToBytes(0, 4);
+        vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+        vector<LargeBits> qualities1 = prover1.GetQualitiesForChallenge(hash.data());
+        LargeBits proof1 = prover1.GetFullProof(hash.data(), 0);
+        vector<LargeBits> qualities2 = prover2.GetQualitiesForChallenge(hash.data());
+        LargeBits proof2 = prover2.GetFullProof(hash.data(), 0);
+        REQUIRE(qualities1 == qualities2);
+        REQUIRE(proof1 == proof2);
+        vecBytes[0] = 0x02; // Change version
+        REQUIRE_THROWS(DiskProver(vecBytes)); // Invalid version
+        REQUIRE(remove(filename.c_str()) == 0);
+    }
 }
 TEST_CASE("Util")
 {

@@ -33,6 +33,7 @@
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "entry_sizes.hpp"
+#include "serialize.hpp"
 #include "util.hpp"
 
 struct plot_header {
@@ -48,6 +49,7 @@ struct plot_header {
 // of space, for a given challenge.
 class DiskProver {
 public:
+    static const uint16_t VERSION{1};
     // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
     explicit DiskProver(const std::string& filename) : id(kIdLen)
@@ -115,6 +117,22 @@ public:
         }
 
         delete[] c2_buf;
+    }
+
+    explicit DiskProver(const std::vector<uint8_t>& vecBytes)
+    {
+        Deserializer deserializer(vecBytes);
+        deserializer >> version;
+        if (version != VERSION) {
+            // TODO: Migrate to new version if we change something related to the data structure
+            throw std::invalid_argument("DiskProver: Invalid version.");
+        }
+        deserializer >> filename;
+        deserializer >> memo;
+        deserializer >> id;
+        deserializer >> k;
+        deserializer >> table_begin_pointers;
+        deserializer >> C2;
     }
 
     ~DiskProver()
@@ -233,7 +251,15 @@ public:
         return full_proof;
     }
 
+    std::vector<uint8_t> ToBytes() const
+    {
+        Serializer serializer;
+        serializer << version << filename << memo << id << k << table_begin_pointers << C2;
+        return serializer.Data();
+    }
+
 private:
+    uint16_t version{VERSION};
     mutable std::mutex _mtx;
     std::string filename;
     std::vector<uint8_t> memo;
