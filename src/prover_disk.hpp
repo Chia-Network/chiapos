@@ -47,6 +47,7 @@ struct plot_header {
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
 class DiskProver {
+    const size_t nTableBeginPointerCount{11};
 public:
     // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
@@ -89,11 +90,11 @@ public:
         memo.resize(Util::TwoBytesToInt(size_buf));
         SafeRead(disk_file, memo.data(), memo.size());
 
-        this->table_begin_pointers = std::vector<uint64_t>(11, 0);
+        this->table_begin_pointers = std::vector<uint64_t>(nTableBeginPointerCount, 0);
         this->C2 = std::vector<uint64_t>();
 
         uint8_t pointer_buf[8];
-        for (uint8_t i = 1; i < 11; i++) {
+        for (size_t i = 1; i < nTableBeginPointerCount; i++) {
             SafeRead(disk_file, pointer_buf, 8);
             this->table_begin_pointers[i] = Util::EightBytesToInt(pointer_buf);
         }
