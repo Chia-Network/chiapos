@@ -62,6 +62,7 @@ class TestPythonBindings(unittest.TestCase):
         pl = None
 
         pr = DiskProver(str(Path("myplot.dat")))
+        assert pr.is_valid()
 
         total_proofs: int = 0
         total_proofs2: int = 0

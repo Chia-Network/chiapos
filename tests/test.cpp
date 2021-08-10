@@ -1064,14 +1064,28 @@ TEST_CASE("DiskProver")
         LargeBits proof2 = prover2.GetFullProof(hash.data(), 0);
         REQUIRE(qualities1 == qualities2);
         REQUIRE(proof1 == proof2);
+
+        auto test_invalidity = [](std::string filename, std::vector<uint8_t> memo, std::vector<uint8_t> id, uint8_t k,
+                                  std::vector<uint64_t> table_begin_pointers, std::vector<uint64_t> C2) {
+            DiskProver prover(filename, memo, id, k, table_begin_pointers, C2);
+            REQUIRE_THROWS(prover.Validate());
+            REQUIRE(!prover.IsValid());
+        };
+
+        // Test "Invalid file"
+        test_invalidity("invalid", p1_memo, p1_id, p1_k, p1_pointers, p1_C2);
         // Test "Invalid id"
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, {}, p1_k, p1_pointers, p1_C2));
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, std::vector<uint8_t>(kIdLen - 1, 0), p1_k, p1_pointers, p1_C2));
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, std::vector<uint8_t>(kIdLen + 1, 0), p1_k, p1_pointers, p1_C2));
+        auto invalid_id = p1_id;
+        invalid_id.back()++;
+        test_invalidity(p1_filename, p1_memo, invalid_id, p1_k, p1_pointers, p1_C2);
         // Test "Invalid k"
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, 0, p1_pointers, p1_C2));
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, kMinPlotSize - 1, p1_pointers, p1_C2));
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, kMaxPlotSize + 1, p1_pointers, p1_C2));
+        test_invalidity(p1_filename, p1_memo, p1_id, p1_k + 1, p1_pointers, p1_C2);
         // Test "Invalid table_begin_pointers size"
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, {}, p1_C2));
         auto invalid_pointers = std::vector<uint64_t>(p1_pointers.begin(), p1_pointers.end() - 1);
@@ -1079,6 +1093,9 @@ TEST_CASE("DiskProver")
         invalid_pointers.push_back(p1_pointers.back());
         invalid_pointers.push_back(p1_pointers.back());
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, invalid_pointers, p1_C2));
+        invalid_pointers.pop_back();
+        invalid_pointers.back()++;
+        test_invalidity(p1_filename, p1_memo, p1_id, p1_k, invalid_pointers, p1_C2);
         // Test "Invalid C2 size"
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, {}, p1_C2));
         auto invalid_c2 = std::vector<uint64_t>(p1_C2.begin(), p1_C2.end() - 1);
@@ -1086,6 +1103,9 @@ TEST_CASE("DiskProver")
         invalid_c2.push_back(p1_C2.back());
         invalid_c2.push_back(p1_C2.back());
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, p1_pointers, invalid_c2));
+        invalid_c2.pop_back();
+        invalid_c2.back()++;
+        test_invalidity(p1_filename, p1_memo, p1_id, p1_k, p1_pointers, invalid_c2);
         REQUIRE(remove(filename.c_str()) == 0);
         // Test move constructor
         auto* p1_filename_ptr = prover1.GetFilename().data();

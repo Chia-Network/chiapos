@@ -77,6 +77,7 @@ PYBIND11_MODULE(chiapos, m)
 
     py::class_<DiskProver>(m, "DiskProver")
         .def(py::init<const std::string &>())
+        .def("is_valid", [](const DiskProver &dp) { return dp.IsValid(); })
         .def(
             "get_memo",
             [](DiskProver &dp) {
