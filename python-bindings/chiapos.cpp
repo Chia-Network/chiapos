@@ -80,20 +80,14 @@ PYBIND11_MODULE(chiapos, m)
         .def(
             "get_memo",
             [](DiskProver &dp) {
-                uint8_t *memo = new uint8_t[dp.GetMemoSize()];
-                dp.GetMemo(memo);
-                py::bytes ret = py::bytes(reinterpret_cast<char *>(memo), dp.GetMemoSize());
-                delete[] memo;
-                return ret;
+                const std::vector<uint8_t>& memo = dp.GetMemo();
+                return py::bytes(reinterpret_cast<const char*>(memo.data()), memo.size());
             })
         .def(
             "get_id",
             [](DiskProver &dp) {
-                uint8_t *id = new uint8_t[kIdLen];
-                dp.GetId(id);
-                py::bytes ret = py::bytes(reinterpret_cast<char *>(id), kIdLen);
-                delete[] id;
-                return ret;
+                const std::vector<uint8_t>& id = dp.GetId();
+                return py::bytes(reinterpret_cast<const char*>(id.data()), id.size());
             })
         .def("get_size", [](DiskProver &dp) { return dp.GetSize(); })
         .def("get_filename", [](DiskProver &dp) { return dp.GetFilename(); })

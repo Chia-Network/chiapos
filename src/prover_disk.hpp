@@ -50,7 +50,7 @@ class DiskProver {
 public:
     // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
-    explicit DiskProver(const std::string& filename)
+    explicit DiskProver(const std::string& filename) : id(kIdLen)
     {
         struct plot_header header{};
         this->filename = filename;
@@ -80,16 +80,14 @@ public:
         } else {
             throw std::invalid_argument("Invalid plot file format");
         }
-
-        memcpy(this->id, header.id, sizeof(header.id));
+        memcpy(id.data(), header.id, sizeof(header.id));
         this->k = header.k;
         SafeSeek(disk_file, offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
 
         uint8_t size_buf[2];
         SafeRead(disk_file, size_buf, 2);
-        this->memo_size = Util::TwoBytesToInt(size_buf);
-        this->memo = new uint8_t[this->memo_size];
-        SafeRead(disk_file, this->memo, this->memo_size);
+        memo.resize(Util::TwoBytesToInt(size_buf));
+        SafeRead(disk_file, memo.data(), memo.size());
 
         this->table_begin_pointers = std::vector<uint64_t>(11, 0);
         this->C2 = std::vector<uint64_t>();
@@ -122,18 +120,15 @@ public:
     ~DiskProver()
     {
         std::lock_guard<std::mutex> l(_mtx);
-        delete[] this->memo;
         for (int i = 0; i < 6; i++) {
             Encoding::ANSFree(kRValues[i]);
         }
         Encoding::ANSFree(kC3R);
     }
 
-    void GetMemo(uint8_t* buffer) { memcpy(buffer, memo, this->memo_size); }
+    const std::vector<uint8_t>& GetMemo() { return memo; }
 
-    uint32_t GetMemoSize() const noexcept { return this->memo_size; }
-
-    void GetId(uint8_t* buffer) { memcpy(buffer, id, kIdLen); }
+    const std::vector<uint8_t>& GetId() { return id; }
 
     std::string GetFilename() const noexcept { return filename; }
 
@@ -241,9 +236,8 @@ public:
 private:
     mutable std::mutex _mtx;
     std::string filename;
-    uint32_t memo_size;
-    uint8_t* memo;
-    uint8_t id[kIdLen]{};  // Unique plot id
+    std::vector<uint8_t> memo;
+    std::vector<uint8_t> id;  // Unique plot id
     uint8_t k;
     std::vector<uint64_t> table_begin_pointers;
     std::vector<uint64_t> C2;
@@ -577,7 +571,7 @@ private:
     //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of k bit elements
     std::vector<LargeBits> ReorderProof(const std::vector<Bits>& xs_input) const
     {
-        F1Calculator f1(k, id);
+        F1Calculator f1(k, id.data());
         std::vector<std::pair<Bits, Bits> > results;
         LargeBits xs;
 
