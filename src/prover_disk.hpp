@@ -47,7 +47,7 @@ struct plot_header {
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
 class DiskProver {
-    const size_t nTableBeginPointerCount{11};
+    const size_t table_begin_pointers_size{11};
 public:
     // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
@@ -75,11 +75,11 @@ public:
         if (k < kMinPlotSize || k > kMaxPlotSize) {
             throw std::invalid_argument("Invalid k: " + std::to_string(k));
         }
-        if (this->table_begin_pointers.size() != nTableBeginPointerCount) {
+        if (this->table_begin_pointers.size() != table_begin_pointers_size) {
             throw std::invalid_argument("Invalid table_begin_pointers size: " + std::to_string(this->table_begin_pointers.size()));
         }
-        uint32_t nExpectedSize = ((this->table_begin_pointers[10] - this->table_begin_pointers[9]) / (Util::ByteAlign(k) / 8)) - 1;
-        if (this->C2.size() != nExpectedSize) {
+        uint32_t expected_size = ((this->table_begin_pointers[10] - this->table_begin_pointers[9]) / (Util::ByteAlign(k) / 8)) - 1;
+        if (this->C2.size() != expected_size) {
             throw std::invalid_argument("Invalid C2 size: " + std::to_string(this->C2.size()));
         }
     }
@@ -297,11 +297,11 @@ private:
         memo_in.resize(Util::TwoBytesToInt(size_buf));
         SafeRead(disk_file, memo_in.data(), memo_in.size());
 
-        table_begin_pointers_in = std::vector<uint64_t>(nTableBeginPointerCount, 0);
+        table_begin_pointers_in = std::vector<uint64_t>(table_begin_pointers_size, 0);
         C2_in = std::vector<uint64_t>();
 
         uint8_t pointer_buf[8];
-        for (size_t i = 1; i < nTableBeginPointerCount; i++) {
+        for (size_t i = 1; i < table_begin_pointers_size; i++) {
             SafeRead(disk_file, pointer_buf, 8);
             table_begin_pointers_in[i] = Util::EightBytesToInt(pointer_buf);
         }
