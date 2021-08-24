@@ -104,9 +104,9 @@ public:
         Encoding::ANSFree(kC3R);
     }
 
-    const std::vector<uint8_t>& GetMemo() { return memo; }
+    const std::vector<uint8_t>& GetMemo() const { return memo; }
 
-    const std::vector<uint8_t>& GetId() { return id; }
+    const std::vector<uint8_t>& GetId() const { return id; }
     
     const std::vector<uint64_t>& GetTableBeginPointers() const noexcept { return table_begin_pointers; }
 

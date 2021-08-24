@@ -1,4 +1,6 @@
 import unittest
+import pickle
+
 from chiapos import DiskProver, DiskPlotter, Verifier
 from hashlib import sha256
 from pathlib import Path
@@ -176,6 +178,36 @@ class TestPythonBindings(unittest.TestCase):
                 failures += 1
         print(f"Successes: {successes}")
         print(f"Failures: {failures}")
+
+    def test_pickle_support(self):
+        if not Path("test_plot.dat").exists():
+            plot_id: bytes = bytes([i for i in range(0, 32)])
+            pl = DiskPlotter()
+            pl.create_plot_disk(
+                ".",
+                ".",
+                ".",
+                "test_plot.dat",
+                21,
+                bytes([1, 2, 3, 4, 5]),
+                plot_id,
+                300,
+                32,
+                8192,
+                8,
+                False,
+            )
+
+        prover1: DiskProver = DiskProver(str(Path("test_plot.dat")))
+        data = pickle.dumps(prover1)
+        prover_recovered: DiskProver = pickle.loads(data)
+        assert prover1.get_size() == prover_recovered.get_size()
+        assert prover1.get_filename() == prover_recovered.get_filename()
+        assert prover1.get_id() == prover_recovered.get_id()
+        assert prover1.get_memo() == prover_recovered.get_memo()
+        Path("test_plot.dat").unlink()
+        prover_recovered_invalid: DiskProver = pickle.loads(data)
+        assert not prover_recovered_invalid.is_valid()
 
 
 if __name__ == "__main__":
