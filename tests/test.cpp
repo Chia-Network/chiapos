@@ -1087,5 +1087,24 @@ TEST_CASE("DiskProver")
         invalid_c2.push_back(p1_C2.back());
         REQUIRE_THROWS(DiskProver(p1_filename, p1_memo, p1_id, p1_k, p1_pointers, invalid_c2));
         REQUIRE(remove(filename.c_str()) == 0);
+        // Test move constructor
+        auto* p1_filename_ptr = prover1.GetFilename().data();
+        auto* p1_memo_ptr = prover1.GetMemo().data();
+        auto* p1_id_ptr = prover1.GetId().data();
+        auto* p1_table_begin_pointers_ptr = prover1.GetTableBeginPointers().data();
+        auto* p1_C2_ptr = prover1.GetC2().data();
+        DiskProver prover3(std::move(prover1));
+        REQUIRE(prover3.GetFilename().data() == p1_filename_ptr);
+        REQUIRE(prover3.GetMemo().data() == p1_memo_ptr);
+        REQUIRE(prover3.GetId().data() == p1_id_ptr);
+        REQUIRE(prover3.GetTableBeginPointers().data() == p1_table_begin_pointers_ptr);
+        REQUIRE(prover3.GetC2().data() == p1_C2_ptr);
+        REQUIRE(prover1.GetFilename().empty());
+        REQUIRE(prover1.GetMemo().empty());
+        REQUIRE(prover1.GetId().empty());
+        REQUIRE(prover1.GetSize() == prover1.GetSize());
+        REQUIRE(prover1.GetTableBeginPointers().empty());
+        REQUIRE(prover1.GetC2().empty());
+        REQUIRE(!prover1.IsValid());
     }
 }
