@@ -257,7 +257,11 @@ private:
     std::vector<uint64_t> table_begin_pointers;
     std::vector<uint64_t> C2;
 
-    void Read(std::vector<uint8_t>& id_in, std::vector<uint8_t>& memo_in, uint8_t& k_in, std::vector<uint64_t>& table_begin_pointers_in, std::vector<uint64_t>& C2_in) const
+    void Read(std::vector<uint8_t>& id_out,
+              std::vector<uint8_t>& memo_out,
+              uint8_t& k_out,
+              std::vector<uint64_t>& table_begin_pointers_out,
+              std::vector<uint64_t>& C2_out) const
     {
         std::lock_guard<std::mutex> lock(_mtx);
 
@@ -287,29 +291,29 @@ private:
         } else {
             throw std::invalid_argument("Invalid plot file format");
         }
-        id_in = std::vector<uint8_t>(kIdLen);
-        memcpy(id_in.data(), header.id, sizeof(header.id));
-        k_in = header.k;
+        id_out = std::vector<uint8_t>(kIdLen);
+        memcpy(id_out.data(), header.id, sizeof(header.id));
+        k_out = header.k;
         SafeSeek(disk_file, offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
 
         uint8_t size_buf[2];
         SafeRead(disk_file, size_buf, 2);
-        memo_in.resize(Util::TwoBytesToInt(size_buf));
-        SafeRead(disk_file, memo_in.data(), memo_in.size());
+        memo_out.resize(Util::TwoBytesToInt(size_buf));
+        SafeRead(disk_file, memo_out.data(), memo_out.size());
 
-        table_begin_pointers_in = std::vector<uint64_t>(table_begin_pointers_size, 0);
-        C2_in = std::vector<uint64_t>();
+        table_begin_pointers_out = std::vector<uint64_t>(table_begin_pointers_size, 0);
+        C2_out = std::vector<uint64_t>();
 
         uint8_t pointer_buf[8];
         for (size_t i = 1; i < table_begin_pointers_size; i++) {
             SafeRead(disk_file, pointer_buf, 8);
-            table_begin_pointers_in[i] = Util::EightBytesToInt(pointer_buf);
+            table_begin_pointers_out[i] = Util::EightBytesToInt(pointer_buf);
         }
 
-        SafeSeek(disk_file, table_begin_pointers_in[9]);
+        SafeSeek(disk_file, table_begin_pointers_out[9]);
 
-        uint8_t c2_size = (Util::ByteAlign(k_in) / 8);
-        uint32_t c2_entries = (table_begin_pointers_in[10] - table_begin_pointers_in[9]) / c2_size;
+        uint8_t c2_size = (Util::ByteAlign(k_out) / 8);
+        uint32_t c2_entries = (table_begin_pointers_out[10] - table_begin_pointers_out[9]) / c2_size;
         if (c2_entries == 0 || c2_entries == 1) {
             throw std::invalid_argument("Invalid C2 table size");
         }
@@ -319,7 +323,7 @@ private:
         auto* c2_buf = new uint8_t[c2_size];
         for (uint32_t i = 0; i < c2_entries - 1; i++) {
             SafeRead(disk_file, c2_buf, c2_size);
-            C2_in.push_back(Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue());
+            C2_out.push_back(Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue());
         }
 
         delete[] c2_buf;
