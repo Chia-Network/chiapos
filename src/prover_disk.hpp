@@ -78,7 +78,7 @@ public:
         if (this->table_begin_pointers.size() != table_begin_pointers_size) {
             throw std::invalid_argument("Invalid table_begin_pointers size: " + std::to_string(this->table_begin_pointers.size()));
         }
-        uint32_t expected_size = ((this->table_begin_pointers[10] - this->table_begin_pointers[9]) / (Util::ByteAlign(k) / 8)) - 1;
+        const uint32_t expected_size = ((this->table_begin_pointers[10] - this->table_begin_pointers[9]) / (Util::ByteAlign(k) / 8)) - 1;
         if (this->C2.size() != expected_size) {
             throw std::invalid_argument("Invalid C2 size: " + std::to_string(this->C2.size()));
         }
