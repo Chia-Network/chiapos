@@ -47,7 +47,7 @@ struct plot_header {
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
 class DiskProver {
-    const size_t table_begin_pointers_size{11};
+    static const size_t table_begin_pointers_size{11};
 public:
     // The constructor opens the file, and reads the contents of the file header. The table pointers
     // will be used to find and seek to all seven tables, at the time of proving.
