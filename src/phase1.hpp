@@ -598,6 +598,7 @@ std::vector<uint64_t> RunPhase1(
     uint8_t const flags)
 {
     std::cout << "Computing table 1" << std::endl;
+    std::cout << "Progress update: 0.01" << std::endl;
     globals.stripe_size = stripe_size;
     globals.num_threads = num_threads;
     Timer f1_start_time;
@@ -644,6 +645,7 @@ std::vector<uint64_t> RunPhase1(
 
     // For tables 1 through 6, sort the table, calculate matches, and write
     // the next table. This is the left table index.
+    double progress_percent[] = {0.06, 0.12, 0.2, 0.28, 0.36, 0.42};
     for (uint8_t table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         uint8_t const metadata_size = kVectorLens[table_index + 1] * k;
@@ -664,6 +666,7 @@ std::vector<uint64_t> RunPhase1(
         }
 
         std::cout << "Computing table " << int{table_index + 1} << std::endl;
+        std::cout << "Progress update: " << progress_percent[table_index - 1] << std::endl;
         // Start of parallel execution
 
         FxCalculator f(k, table_index + 1);  // dummy to load static table

@@ -160,11 +160,13 @@ Phase3Results RunPhase3(
     // new_pos), where new_pos is the position in the table, where it's sorted by line_point,
     // and the line_points are written to disk to a final table. Finally, table_i is sorted by
     // sort_key. This allows us to compare to the next table.
+    double progress_percent[] = {0.66, 0.73, 0.79, 0.85, 0.92, 0.98};
     for (int table_index = 1; table_index < 7; table_index++) {
         Timer table_timer;
         Timer computation_pass_1_timer;
         std::cout << "Compressing tables " << table_index << " and " << (table_index + 1)
                   << std::endl;
+        std::cout << "Progress update: " << progress_percent[table_index - 1] << std::endl;
 
         // The park size must be constant, for simplicity, but must be big enough to store EPP
         // entries. entry deltas are encoded with variable length, and thus there is no
