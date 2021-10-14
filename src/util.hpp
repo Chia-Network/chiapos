@@ -31,8 +31,8 @@
 #include <utility>
 #include <vector>
 
-template <typename Int>
-constexpr inline Int cdiv(Int a, Int b) { return (a + b - 1) / b; }
+template <typename Int, typename Int2>
+constexpr inline Int cdiv(Int a, Int2 b) { return (a + b - 1) / b; }
 
 #ifdef _WIN32
 #define NOMINMAX
