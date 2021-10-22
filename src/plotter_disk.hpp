@@ -373,9 +373,9 @@ public:
             std::error_code ec;
             struct stat tmp2_stat, final_stat;
             int rc;
-            rc = ::stat(tmp_2_filename.c_str(), &tmp2_stat);
+            rc = ::stat(reinterpret_cast<const char *>(tmp_2_filename.c_str()), &tmp2_stat);
             if (rc == 0)
-                rc = ::stat(final_filename.parent_path().c_str(), &final_stat);
+                rc = ::stat(reinterpret_cast<const char *>(final_filename.parent_path().c_str()), &final_stat);
             if ((rc == 0 && tmp2_stat.st_dev == final_stat.st_dev) ||
                 tmp_2_filename.parent_path() == final_filename.parent_path()) {
                 fs::rename(tmp_2_filename, final_filename, ec);
