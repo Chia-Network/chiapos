@@ -490,6 +490,13 @@ private:
 
             SafeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+            // Avoid telling GetP7Positions and functions it uses that we have more
+            // bytes than we allocated for bit_mask above.
+            if (encoded_size > c3_entry_size - 2) {
+                return std::vector<uint64_t>();
+            }
+
             SafeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             p7_positions =
@@ -497,12 +504,20 @@ private:
 
             SafeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+            // Avoid telling GetP7Positions and functions it uses that we have more
+            // bytes than we allocated for bit_mask above.
+            if (encoded_size > c3_entry_size - 2) {
+                return std::vector<uint64_t>();
+            }
+
             SafeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             c1_index++;
             curr_p7_pos = c1_index * kCheckpoint1Interval;
             auto second_positions =
                 GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
+
             p7_positions.insert(
                 p7_positions.end(), second_positions.begin(), second_positions.end());
 
@@ -510,6 +525,13 @@ private:
             SafeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
             SafeRead(disk_file, encoded_size_buf, 2);
             encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+            // Avoid telling GetP7Positions and functions it uses that we have more
+            // bytes than we allocated for bit_mask above.
+            if (encoded_size > c3_entry_size - 2) {
+                return std::vector<uint64_t>();
+            }
+
             SafeRead(disk_file, bit_mask, c3_entry_size - 2);
 
             p7_positions =

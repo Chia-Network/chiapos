@@ -22,7 +22,7 @@ else()
 FetchContent_Declare(
   pybind11-src
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.6.2
+  GIT_TAG        v2.7.1
 )
 FetchContent_MakeAvailable(pybind11-src)
 endif()
@@ -141,6 +141,12 @@ add_executable(ProofOfSpace
     src/chacha8.c
     ${BLAKE3_SRC}
 )
+
+option(BUILD_PROOF_OF_SPACE_STATICALLY "Build ProofOfSpace target statically" OFF)
+IF (BUILD_PROOF_OF_SPACE_STATICALLY)
+  message("Statically build ProofOfSpace")
+  target_link_libraries(ProofOfSpace -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
+ENDIF()
 
 add_executable(RunTests
     tests/test-main.cpp
