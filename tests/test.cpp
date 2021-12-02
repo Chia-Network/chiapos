@@ -16,7 +16,8 @@
 
 #include <set>
 
-#include "../lib/include/catch.hpp"
+#include <catch2/catch.hpp>
+
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
 #include "disk.hpp"
