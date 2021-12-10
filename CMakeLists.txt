@@ -148,11 +148,25 @@ IF (BUILD_PROOF_OF_SPACE_STATICALLY)
   target_link_libraries(ProofOfSpace -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
 ENDIF()
 
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v2.13.7
+)
+FetchContent_MakeAvailable(Catch2)
+
 add_executable(RunTests
     tests/test-main.cpp
     tests/test.cpp
     src/chacha8.c
     ${BLAKE3_SRC}
+)
+
+target_link_libraries(RunTests
+  PRIVATE
+    fse
+    Threads::Threads
+    Catch2::Catch2
 )
 
 find_package(Threads REQUIRED)
@@ -167,23 +181,20 @@ target_compile_features(RunTests PUBLIC cxx_std_17)
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries(chiapos PRIVATE fse Threads::Threads)
   target_link_libraries(ProofOfSpace fse Threads::Threads)
-  target_link_libraries(RunTests fse Threads::Threads)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
   target_link_libraries(chiapos PRIVATE fse Threads::Threads)
   target_link_libraries(ProofOfSpace fse Threads::Threads)
-  target_link_libraries(RunTests fse Threads::Threads)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   target_link_libraries(chiapos PRIVATE fse Threads::Threads)
   target_link_libraries(ProofOfSpace fse Threads::Threads)
-  target_link_libraries(RunTests fse Threads::Threads)
 elseif (MSVC)
   target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128)
   target_link_libraries(ProofOfSpace fse Threads::Threads uint128)
-  target_link_libraries(RunTests fse Threads::Threads uint128)
+  target_link_libraries(RunTests PRIVATE uint128)
 else()
   target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads)
   target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads)
-  target_link_libraries(RunTests fse stdc++fs Threads::Threads)
+  target_link_libraries(RunTests PRIVATE stdc++fs)
 endif()
 
 enable_testing()
