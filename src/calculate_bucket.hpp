@@ -209,8 +209,8 @@ public:
 
         this->rmap.resize(kBC);
         if (!initialized) {
-            initialized = true;
             load_tables();
+            initialized = true;
         }
     }
 
