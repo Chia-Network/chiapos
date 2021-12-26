@@ -112,6 +112,9 @@ public:
         for (uint32_t i = 0; i < c2_entries - 1; i++) {
             SafeRead(disk_file, c2_buf, c2_size);
             this->C2.push_back(Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue());
+            if (i > 0 && this->C2.back() == 0) {
+                break;
+            }
         }
 
         delete[] c2_buf;
