@@ -10,10 +10,10 @@ jobs:
 
       - name: Cancel previous runs on the same branch
         if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.7.0
+        uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
-      
+
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -32,16 +32,16 @@ jobs:
     name: ASAN ubuntu
     runs-on: ubuntu-20.04
     steps:
-      
+
       - name: Cancel previous runs on the same branch
         if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.7.0
+        uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
-      
+
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
           sudo fallocate -l 16G /swapfile
@@ -62,13 +62,13 @@ jobs:
     steps:
       - name: Cancel previous runs on the same branch
         if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.7.0
+        uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
-      
+
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
           mkdir build-tsan
@@ -84,7 +84,7 @@ jobs:
 
     - name: Cancel previous runs on the same branch
       if: ${{ github.ref != 'refs/heads/main' }}
-      uses: styfle/cancel-workflow-action@0.7.0
+      uses: styfle/cancel-workflow-action@0.9.1
       with:
         access_token: ${{ github.token }}
 
