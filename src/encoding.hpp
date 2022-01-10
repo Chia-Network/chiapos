@@ -60,13 +60,21 @@ public:
     void CTAssign(double R, FSE_CTable *ct)
     {
         std::lock_guard<std::mutex> l(memoMutex);
-        CT_MEMO[R] = ct;
+        auto& table = CT_MEMO[R];
+        if(table) {
+            FSE_freeCTable(table);
+        }
+        table = ct;
     }
 
     void DTAssign(double R, FSE_DTable *dt)
     {
         std::lock_guard<std::mutex> l(memoMutex);
-        DT_MEMO[R] = dt;
+        auto& table = DT_MEMO[R];
+        if(table) {
+            FSE_freeDTable(table);
+        }
+        table = dt;
     }
 
     FSE_CTable *CTGet(double R)
