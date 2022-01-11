@@ -135,6 +135,17 @@ public:
         deserializer >> C2;
     }
 
+    DiskProver(DiskProver&& other) noexcept
+    {
+        std::lock_guard<std::mutex> lock(other._mtx);
+        filename = std::move(other.filename);
+        memo = std::move(other.memo);
+        id = std::move(other.id);
+        k = other.k;
+        table_begin_pointers = std::move(other.table_begin_pointers);
+        C2 = std::move(other.C2);
+    }
+
     ~DiskProver()
     {
         std::lock_guard<std::mutex> l(_mtx);
@@ -148,7 +159,11 @@ public:
 
     const std::vector<uint8_t>& GetId() { return id; }
 
-    std::string GetFilename() const noexcept { return filename; }
+    const std::vector<uint64_t>& GetTableBeginPointers() const noexcept { return table_begin_pointers; }
+
+    const std::vector<uint64_t>& GetC2() const noexcept { return C2; }
+
+    const std::string& GetFilename() const noexcept { return filename; }
 
     uint8_t GetSize() const noexcept { return k; }
 

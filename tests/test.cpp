@@ -1075,6 +1075,38 @@ TEST_CASE("BufferedDisk")
     remove("test_file.bin");
 }
 
+TEST_CASE("DiskProver")
+{
+    SECTION("Move constructor")
+    {
+        std::string filename = "prover_test.plot";
+        DiskPlotter plotter = DiskPlotter();
+        std::vector<uint8_t> memo{1, 2, 3};
+        plotter.CreatePlotDisk(
+            ".", ".", ".", filename, 18, memo.data(),
+            memo.size(), plot_id_1, 32, 11, 0,
+            4000, 2);
+        DiskProver prover1(filename);
+        auto* p1_filename_ptr = prover1.GetFilename().data();
+        auto* p1_memo_ptr = prover1.GetMemo().data();
+        auto* p1_id_ptr = prover1.GetId().data();
+        auto* p1_table_begin_pointers_ptr = prover1.GetTableBeginPointers().data();
+        auto* p1_C2_ptr = prover1.GetC2().data();
+        DiskProver prover2(std::move(prover1));
+        REQUIRE(prover2.GetFilename().data() == p1_filename_ptr);
+        REQUIRE(prover2.GetMemo().data() == p1_memo_ptr);
+        REQUIRE(prover2.GetId().data() == p1_id_ptr);
+        REQUIRE(prover2.GetTableBeginPointers().data() == p1_table_begin_pointers_ptr);
+        REQUIRE(prover2.GetC2().data() == p1_C2_ptr);
+        REQUIRE(prover1.GetFilename().empty());
+        REQUIRE(prover1.GetMemo().empty());
+        REQUIRE(prover1.GetId().empty());
+        REQUIRE(prover1.GetSize() == prover1.GetSize());
+        REQUIRE(prover1.GetTableBeginPointers().empty());
+        REQUIRE(prover1.GetC2().empty());
+    }
+}
+
 TEST_CASE("FilteredDisk")
 {
     FileDisk d = FileDisk("test_file.bin");
