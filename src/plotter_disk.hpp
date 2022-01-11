@@ -199,9 +199,6 @@ public:
         fs::remove(tmp_2_filename);
         fs::remove(final_filename);
 
-        std::ios_base::sync_with_stdio(false);
-        std::ostream* prevstr = std::cin.tie(NULL);
-
         {
             // Scope for FileDisk
             std::vector<FileDisk> tmp_1_disks;
@@ -357,9 +354,6 @@ public:
                       << " GiB" << std::endl;
             all_phases.PrintElapsed("Total time =");
         }
-
-        std::cin.tie(prevstr);
-        std::ios_base::sync_with_stdio(true);
 
         for (fs::path p : tmp_1_filenames) {
             fs::remove(p);
