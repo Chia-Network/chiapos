@@ -145,114 +145,6 @@ TEST_CASE("SliceInt64FromBytesFull")
     CHECK(Util::SliceInt64FromBytesFull(bytes, 7, 64) == ((0x1020304050607080ull << 3) | 0b100));
     CHECK(Util::SliceInt64FromBytesFull(bytes, 8, 64) == 0x0203040506070809ull);
 }
-TEST_CASE("(De)Serialization")
-{
-    Serializer serializer;
-    Deserializer deserializer(serializer.Data());
-    SECTION("Basics")
-    {
-        serializer.Reset();
-        for (uint8_t i = 0; i < 0xFF; ++i) {
-            serializer << i;
-        }
-        uint8_t n{0}, n_deserialized;
-        do{
-            deserializer >> n_deserialized;
-            REQUIRE(n_deserialized == n++);
-        } while (!deserializer.End());
-        serializer.Reset();
-        deserializer.Reset();
-        std::vector<float> vecFloat;
-        REQUIRE_THROWS(deserializer >> vecFloat); // Unexpected vector, leads to read out of bounds
-        float f = 0.123, f_deserialized = 0;
-        double d = 1.23, d_deserialized = 0;
-        int64_t i = -123, i_deserialized = 0;
-        uint64_t u = 123, u_deserialized = 0;
-        serializer << f;
-        deserializer >> f_deserialized;
-        REQUIRE(f_deserialized == f);
-        serializer << d;
-        deserializer >> d_deserialized;
-        REQUIRE(d_deserialized == d);
-        serializer << i;
-        deserializer >> i_deserialized;
-        REQUIRE(i_deserialized == i);
-        serializer << u;
-        deserializer >> u_deserialized;
-        REQUIRE(u_deserialized == u);
-        REQUIRE(deserializer.End());
-        deserializer.Reset();
-        deserializer >> f_deserialized;
-        deserializer >> d_deserialized;
-        deserializer >> i_deserialized;
-        deserializer >> u_deserialized;
-        REQUIRE(f_deserialized == f);
-        REQUIRE(d_deserialized == d);
-        REQUIRE(i_deserialized == i);
-        REQUIRE(u_deserialized == u);
-        REQUIRE(deserializer.End());
-        REQUIRE_THROWS(deserializer >> f_deserialized); // Read out of bounds
-    }
-    SECTION("vector")
-    {
-        std::vector<uint64_t> vec1{1,2,3}, vec2;
-        std::vector<std::vector<uint64_t>> vec3{{1}, {2,3}, {4,5,6}}, vec4;
-        serializer << vec1;
-        serializer << vec2;
-        serializer << vec3;
-        serializer << vec4;
-        std::vector<uint64_t> vec1_deserialized, vec2_deserialized;
-        std::vector<std::vector<uint64_t>> vec3_deserialized, vec4_deserialized;
-        deserializer >> vec1_deserialized;
-        deserializer >> vec2_deserialized;
-        deserializer >> vec3_deserialized;
-        deserializer >> vec4_deserialized;
-        REQUIRE(vec1_deserialized == vec1);
-        REQUIRE(vec2_deserialized == vec2);
-        REQUIRE(vec3_deserialized == vec3);
-        REQUIRE(vec4_deserialized == vec4);
-        REQUIRE(deserializer.End());
-    }
-    SECTION("string")
-    {
-        std::string str1 = "123", str2;
-        serializer << str1;
-        serializer << str2;
-        std::string str1_deserialized, str2_deserialized;
-        deserializer >> str1_deserialized;
-        deserializer >> str2_deserialized;
-        REQUIRE(str1_deserialized == str1);
-        REQUIRE(str2_deserialized == str2);
-        REQUIRE(deserializer.End());
-    }
-    SECTION("DiskProver")
-    {
-        std::string filename = "prover_test.plot";
-        DiskPlotter plotter = DiskPlotter();
-        uint8_t memo[5] = {1, 2, 3, 4, 5};
-        plotter.CreatePlotDisk(
-            ".", ".", ".", filename, 18, memo, 5, plot_id_1, 32, 11, 0, 4000, 2);
-        DiskProver prover1(filename);
-        std::vector<uint8_t> vecBytes = prover1.ToBytes();
-        DiskProver prover2(vecBytes);
-        REQUIRE(prover1.GetFilename() == prover2.GetFilename());
-        REQUIRE(prover1.GetSize() == prover2.GetSize());
-        REQUIRE(prover1.GetId() == prover2.GetId());
-        REQUIRE(prover1.GetMemo() == prover2.GetMemo());
-        vector<unsigned char> hash_input = intToBytes(0, 4);
-        vector<unsigned char> hash(picosha2::k_digest_size);
-        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-        vector<LargeBits> qualities1 = prover1.GetQualitiesForChallenge(hash.data());
-        LargeBits proof1 = prover1.GetFullProof(hash.data(), 0);
-        vector<LargeBits> qualities2 = prover2.GetQualitiesForChallenge(hash.data());
-        LargeBits proof2 = prover2.GetFullProof(hash.data(), 0);
-        REQUIRE(qualities1 == qualities2);
-        REQUIRE(proof1 == proof2);
-        vecBytes[0] = 0x02; // Change version
-        REQUIRE_THROWS(DiskProver(vecBytes)); // Invalid version
-        REQUIRE(remove(filename.c_str()) == 0);
-    }
-}
 TEST_CASE("Util")
 {
     SECTION("Increment and decrement")
@@ -585,6 +477,115 @@ TEST_CASE("F functions")
         VerifyFC(6, 16, 0xd420677f6cbd, 0x5894aa2ca1af, 0x2efde9, 0xc2121, 0x421bb8ec);
         VerifyFC(7, 16, 0x5fec898f, 0x82283d15, 0x14f410, 0x24c3c2, 0x0);
         VerifyFC(7, 16, 0x64ac5db9, 0x7923986, 0x590fd, 0x1c74a2, 0x0);
+    }
+}
+
+TEST_CASE("(De)Serialization")
+{
+    Serializer serializer;
+    Deserializer deserializer(serializer.Data());
+    SECTION("Basics")
+    {
+        serializer.Reset();
+        for (uint8_t i = 0; i < 0xFF; ++i) {
+            serializer << i;
+        }
+        uint8_t n{0}, n_deserialized;
+        do{
+            deserializer >> n_deserialized;
+            REQUIRE(n_deserialized == n++);
+        } while (!deserializer.End());
+        serializer.Reset();
+        deserializer.Reset();
+        std::vector<float> vecFloat;
+        REQUIRE_THROWS(deserializer >> vecFloat); // Unexpected vector, leads to read out of bounds
+        float f = 0.123, f_deserialized = 0;
+        double d = 1.23, d_deserialized = 0;
+        int64_t i = -123, i_deserialized = 0;
+        uint64_t u = 123, u_deserialized = 0;
+        serializer << f;
+        deserializer >> f_deserialized;
+        REQUIRE(f_deserialized == f);
+        serializer << d;
+        deserializer >> d_deserialized;
+        REQUIRE(d_deserialized == d);
+        serializer << i;
+        deserializer >> i_deserialized;
+        REQUIRE(i_deserialized == i);
+        serializer << u;
+        deserializer >> u_deserialized;
+        REQUIRE(u_deserialized == u);
+        REQUIRE(deserializer.End());
+        deserializer.Reset();
+        deserializer >> f_deserialized;
+        deserializer >> d_deserialized;
+        deserializer >> i_deserialized;
+        deserializer >> u_deserialized;
+        REQUIRE(f_deserialized == f);
+        REQUIRE(d_deserialized == d);
+        REQUIRE(i_deserialized == i);
+        REQUIRE(u_deserialized == u);
+        REQUIRE(deserializer.End());
+        REQUIRE_THROWS(deserializer >> f_deserialized); // Read out of bounds
+    }
+    SECTION("vector")
+    {
+        std::vector<uint64_t> vec1{1,2,3}, vec2;
+        std::vector<std::vector<uint64_t>> vec3{{1}, {2,3}, {4,5,6}}, vec4;
+        serializer << vec1;
+        serializer << vec2;
+        serializer << vec3;
+        serializer << vec4;
+        std::vector<uint64_t> vec1_deserialized, vec2_deserialized;
+        std::vector<std::vector<uint64_t>> vec3_deserialized, vec4_deserialized;
+        deserializer >> vec1_deserialized;
+        deserializer >> vec2_deserialized;
+        deserializer >> vec3_deserialized;
+        deserializer >> vec4_deserialized;
+        REQUIRE(vec1_deserialized == vec1);
+        REQUIRE(vec2_deserialized == vec2);
+        REQUIRE(vec3_deserialized == vec3);
+        REQUIRE(vec4_deserialized == vec4);
+        REQUIRE(deserializer.End());
+    }
+    SECTION("string")
+    {
+        std::string str1 = "123", str2;
+        serializer << str1;
+        serializer << str2;
+        std::string str1_deserialized, str2_deserialized;
+        deserializer >> str1_deserialized;
+        deserializer >> str2_deserialized;
+        REQUIRE(str1_deserialized == str1);
+        REQUIRE(str2_deserialized == str2);
+        REQUIRE(deserializer.End());
+    }
+    SECTION("DiskProver")
+    {
+        std::string filename = "prover_test.plot";
+        DiskPlotter plotter = DiskPlotter();
+        uint8_t memo[5] = {1, 2, 3, 4, 5};
+        plotter.CreatePlotDisk(
+            ".", ".", ".", filename, 18, memo, 5, plot_id_1, 32, 11, 0, 4000, 2);
+        DiskProver prover1(filename);
+        std::vector<uint8_t> vecBytes = prover1.ToBytes();
+        DiskProver prover2(vecBytes);
+        REQUIRE(prover1.GetFilename() == prover2.GetFilename());
+        REQUIRE(prover1.GetSize() == prover2.GetSize());
+        REQUIRE(prover1.GetId() == prover2.GetId());
+        REQUIRE(prover1.GetMemo() == prover2.GetMemo());
+        vector<unsigned char> hash_input = intToBytes(0, 4);
+        vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+        vector<LargeBits> qualities1 = prover1.GetQualitiesForChallenge(hash.data());
+        LargeBits proof1 = prover1.GetFullProof(hash.data(), 0);
+        vector<LargeBits> qualities2 = prover2.GetQualitiesForChallenge(hash.data());
+        LargeBits proof2 = prover2.GetFullProof(hash.data(), 0);
+        REQUIRE(qualities1 == qualities2);
+        REQUIRE(proof1 == proof2);
+        vecBytes[0] = 0x02; // Change version
+        REQUIRE_THROWS(DiskProver(vecBytes)); // Invalid version
+        REQUIRE(remove(filename.c_str()) == 0);
     }
 }
 
