@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <threads.h>
 
 #include "blake3_impl.h"
 
@@ -71,20 +72,25 @@ enum cpu_feature {
   UNDEFINED = 1 << 30
 };
 
+static once_flag g_cpu_features_initialized = ONCE_FLAG_INIT;
+
 #if !defined(BLAKE3_TESTING)
 static /* Allow the variable to be controlled manually for testing */
 #endif
-    enum cpu_feature g_cpu_features = UNDEFINED;
+    _Atomic enum cpu_feature g_cpu_features = UNDEFINED;
+
+static void set_cpu_features_impl();
 
 #if !defined(BLAKE3_TESTING)
 static
 #endif
     enum cpu_feature
     get_cpu_features() {
+  call_once(&g_cpu_features_initialized, set_cpu_features_impl);
+  return g_cpu_features;
+}
 
-  if (g_cpu_features != UNDEFINED) {
-    return g_cpu_features;
-  } else {
+static void set_cpu_features_impl() {
 #if defined(IS_X86)
     uint32_t regs[4] = {0};
     uint32_t *eax = &regs[0], *ebx = &regs[1], *ecx = &regs[2], *edx = &regs[3];
@@ -123,13 +129,11 @@ static
       }
     }
     g_cpu_features = features;
-    return features;
 #else
     /* How to detect NEON? */
-    return 0;
+    g_cpu_features = 0;
 #endif
   }
-}
 
 void blake3_compress_in_place(uint32_t cv[8],
                               const uint8_t block[BLAKE3_BLOCK_LEN],
