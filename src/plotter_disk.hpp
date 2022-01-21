@@ -170,17 +170,6 @@ public:
         // Cross platform way to concatenate paths, gulrak library.
         std::vector<fs::path> tmp_1_filenames = std::vector<fs::path>();
 
-        // The table0 file will be used for sort on disk spare. tables 1-7 are stored in their own
-        // file.
-        tmp_1_filenames.push_back(fs::path(tmp_dirname) / fs::path(filename + ".sort.tmp"));
-        for (size_t i = 1; i <= 7; i++) {
-            tmp_1_filenames.push_back(
-                fs::path(tmp_dirname) / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
-        }
-        fs::path tmp_2_filename = fs::path(tmp2_dirname) / fs::path(filename + ".2.tmp");
-        fs::path final_2_filename = fs::path(final_dirname) / fs::path(filename + ".2.tmp");
-        fs::path final_filename = fs::path(final_dirname) / fs::path(filename);
-
         // Check if the paths exist
         if (!fs::exists(tmp_dirname)) {
             throw InvalidValueException("Temp directory " + tmp_dirname + " does not exist");
@@ -193,6 +182,22 @@ public:
         if (!fs::exists(final_dirname)) {
             throw InvalidValueException("Final directory " + final_dirname + " does not exist");
         }
+        
+        // Ensure all paths are canonical.
+        fs::path tmp_dirname_canonical = fs::canonical(fs::path(tmp_dirname));
+        fs::path tmp2_dirname_canonical = fs::canonical(fs::path(tmp2_dirname));
+        fs::path final_dirname_canonical = fs::canonical(fs::path(final_dirname));
+
+        // The table0 file will be used for sort on disk spare. tables 1-7 are stored in their own
+        // file.
+        tmp_1_filenames.push_back(tmp_dirname_canonical / fs::path(filename + ".sort.tmp"));
+        for (size_t i = 1; i <= 7; i++) {
+            tmp_1_filenames.push_back(
+                tmp_dirname_canonical / fs::path(filename + ".table" + std::to_string(i) + ".tmp"));
+        }
+        fs::path tmp_2_filename = tmp2_dirname_canonical / fs::path(filename + ".2.tmp");
+        fs::path final_filename = final_dirname_canonical / fs::path(filename);
+
         for (fs::path& p : tmp_1_filenames) {
             fs::remove(p);
         }
@@ -365,63 +370,49 @@ public:
             fs::remove(p);
         }
 
-        bool bCopied = false;
-        bool bRenamed = false;
+        bool bMoved = false;
         Timer copy;
         do {
             std::error_code ec;
-            if (tmp_2_filename.parent_path() == final_filename.parent_path()) {
+            if (!bMoved) {
                 fs::rename(tmp_2_filename, final_filename, ec);
                 if (ec.value() != 0) {
                     std::cout << "Could not rename " << tmp_2_filename << " to " << final_filename
-                              << ". Error " << ec.message() << ". Retrying in five minutes."
+                              << ". Error " << ec.message() << ". Trying to copy instead."
                               << std::endl;
                 } else {
-                    bRenamed = true;
+                    bMoved = true;
                     std::cout << "Renamed final file from " << tmp_2_filename << " to "
                               << final_filename << std::endl;
                 }
-            } else {
-                if (!bCopied) {
-                    fs::copy(
-                        tmp_2_filename, final_2_filename, fs::copy_options::overwrite_existing, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not copy " << tmp_2_filename << " to "
-                                  << final_2_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Copied final file from " << tmp_2_filename << " to "
-                                  << final_2_filename << std::endl;
-                        copy.PrintElapsed("Copy time =");
-                        bCopied = true;
+            } 
+            if (!bMoved) {
+                fs::copy(
+                    tmp_2_filename, final_filename, fs::copy_options::overwrite_existing, ec);
+                if (ec.value() != 0) {
+                    std::cout << "Could not copy " << tmp_2_filename << " to "
+                                << final_filename << ". Error " << ec.message()
+                                << ". Retrying in five minutes." << std::endl;
+                } else {
+                    std::cout << "Copied final file from " << tmp_2_filename << " to "
+                                << final_filename << std::endl;
+                    copy.PrintElapsed("Copy time =");
+                    bMoved = true;
 
-                        bool removed_2 = fs::remove(tmp_2_filename);
-                        std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
-                                  << std::endl;
-                    }
-                }
-                if (bCopied && (!bRenamed)) {
-                    fs::rename(final_2_filename, final_filename, ec);
-                    if (ec.value() != 0) {
-                        std::cout << "Could not rename " << tmp_2_filename << " to "
-                                  << final_filename << ". Error " << ec.message()
-                                  << ". Retrying in five minutes." << std::endl;
-                    } else {
-                        std::cout << "Renamed final file from " << final_2_filename << " to "
-                                  << final_filename << std::endl;
-                        bRenamed = true;
-                    }
+                    bool removed_2 = fs::remove(tmp_2_filename);
+                    std::cout << "Removed temp2 file " << tmp_2_filename << "? " << removed_2
+                                << std::endl;
                 }
             }
 
-            if (!bRenamed) {
+            if (!bMoved) {
 #ifdef _WIN32
                 Sleep(5 * 60000);
 #else
                 sleep(5 * 60);
 #endif
             }
-        } while (!bRenamed);
+        } while (!bMoved);
     }
 
 private:
