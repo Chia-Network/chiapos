@@ -76,7 +76,7 @@ PYBIND11_MODULE(chiapos, m)
             });
 
     py::class_<DiskProver>(m, "DiskProver")
-        .def(py::init<const std::string &>())
+        .def(py::init<const std::string &>(), py::call_guard<py::gil_scoped_release>())
         .def(
             "get_memo",
             [](DiskProver &dp) {
@@ -150,8 +150,11 @@ PYBIND11_MODULE(chiapos, m)
                 std::string proof_str(proof);
                 const uint8_t *proof_ptr = reinterpret_cast<const uint8_t *>(proof_str.data());
 
-                LargeBits quality =
-                    v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, len(proof));
+                LargeBits quality;
+                {
+                    py::gil_scoped_release release;
+                    quality = v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, len(proof));
+                }
                 if (quality.GetSize() == 0) {
                     return stdx::optional<py::bytes>();
                 }
