@@ -139,7 +139,6 @@ public:
 
     DiskProver(DiskProver&& other) noexcept
     {
-        std::lock_guard<std::mutex> lock(other._mtx);
         filename = std::move(other.filename);
         memo = std::move(other.memo);
         id = std::move(other.id);
