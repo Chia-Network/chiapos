@@ -135,6 +135,8 @@ public:
         deserializer >> C2;
     }
 
+    DiskProver(DiskProver const&) = delete;
+
     DiskProver(DiskProver&& other) noexcept
     {
         std::lock_guard<std::mutex> lock(other._mtx);
