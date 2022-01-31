@@ -42,20 +42,20 @@ public:
     }
 };
 
-template<typename TypeIn, typename TypeOut>
-void Serialize(const TypeIn& in, TypeOut& out)
+template<typename TypeIn>
+void Serialize(const TypeIn& in, std::vector<uint8_t>& out)
 {
     Serializable<TypeIn>::SerializeImpl(in, out);
 }
 
-template<typename TypeIn, typename TypeOut>
-size_t Deserialize(const TypeIn& in, TypeOut& out, const size_t position)
+template<typename TypeOut>
+size_t Deserialize(const std::vector<uint8_t>& in, TypeOut& out, const size_t position)
 {
     return Serializable<TypeOut>::DeserializeImpl(in, out, position);
 }
 
-template<typename TypeIn, typename TypeOut>
-void SerializeContainer(const TypeIn& in, TypeOut& out)
+template<typename TypeIn>
+void SerializeContainer(const TypeIn& in, std::vector<uint8_t>& out)
 {
     Serialize(in.size(), out);
     for (auto& entry : in) {
@@ -63,8 +63,8 @@ void SerializeContainer(const TypeIn& in, TypeOut& out)
     }
 }
 
-template<typename TypeIn, typename TypeOut>
-size_t DeserializeContainer(const TypeIn& in, TypeOut& out, const size_t position)
+template<typename TypeOut>
+size_t DeserializeContainer(const std::vector<uint8_t>& in, TypeOut& out, const size_t position)
 {
     size_t elements;
     size_t size = Deserialize(in, elements, position);
