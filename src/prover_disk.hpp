@@ -145,6 +145,7 @@ public:
         k = other.k;
         table_begin_pointers = std::move(other.table_begin_pointers);
         C2 = std::move(other.C2);
+        version = std::move(other.version);
     }
 
     ~DiskProver()
