@@ -23,6 +23,7 @@ template<typename Type> class Serializable{
 public:
     static void SerializeImpl(const Type& in, std::vector<uint8_t>& out)
     {
+        static_assert(std::is_trivial_v<Type>);
         size_t nSize = sizeof(in);
         out.reserve(out.size() + nSize);
         for (size_t i = 0; i < nSize; ++i) {
@@ -31,6 +32,7 @@ public:
     }
     static size_t DeserializeImpl(const std::vector<uint8_t>& in, Type& out, size_t position)
     {
+        static_assert(std::is_trivial_v<Type>);
         size_t size = sizeof(out);
         if (position + size > in.size()) {
             throw std::invalid_argument("DeserializeImpl: Trying to read out of bounds.");
