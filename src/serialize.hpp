@@ -68,17 +68,17 @@ void SerializeContainer(const TypeIn& in, std::vector<uint8_t>& out)
 template<typename TypeOut>
 size_t DeserializeContainer(const std::vector<uint8_t>& in, TypeOut& out, const size_t position)
 {
-    size_t elements;
-    size_t size = Deserialize(in, elements, position);
-    if (elements == 0) {
-        return size;
+    size_t size;
+    size_t offset = Deserialize(in, size, position);
+    if (size == 0) {
+        return offset;
     }
     out.clear();
-    out.resize(elements);
-    for (size_t i = 0; i < elements; ++i) {
-        size += Deserialize(in, out[i], position + size);
+    out.resize(size);
+    for (size_t i = 0; i < size; ++i) {
+        offset += Deserialize(in, out[i], position + offset);
     }
-    return size;
+    return offset;
 }
 
 template<typename Type>
