@@ -44,7 +44,6 @@ jobs:
           mkdir -p build && cd build
           cmake ../
           cmake --build . -- -j 6
-          ls -la
       - uses: actions/upload-artifact@v2
         with:
           name: posp-${{ matrix.os }}
