@@ -3,7 +3,7 @@ name: Build Wheels
 on: [push, pull_request]
 
 jobs:
-  build_wheels:
+  build_binaries:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -20,3 +20,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - name: Get latest CMake and ninja
+        uses: lukka/get-cmake@latest
+      - name: Check cmake
+        run: |
+          cmake --version
