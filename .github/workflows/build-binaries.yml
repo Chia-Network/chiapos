@@ -31,6 +31,6 @@ jobs:
           ls -la
       - uses: actions/upload-artifact@v2
         with:
-          name: posp-test
+          name: posp-${{ matrix.os }}
           path: build/ProofOfSpace
           if-no-files-found: error
