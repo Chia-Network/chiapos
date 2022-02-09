@@ -25,7 +25,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             posp_bin_linux-amd64
-            posp-macos-latest
+            posp_bin_darwin-amd64
   build_binaries:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
