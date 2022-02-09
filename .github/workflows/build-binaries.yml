@@ -16,6 +16,8 @@ jobs:
         run: |
           mv artifacts/posp-ubuntu-20.04/ProofOfSpace ./posp_bin_linux-amd64
           rm -fr artifacts/posp-ubuntu-20.04
+          mv artifacts/posp-macos-latest/ProofOfSpace ./posp_bin_darwin-amd64
+          rm -fr artifacts/posp-macos-latest
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -23,13 +25,14 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             posp_bin_linux-amd64
+            posp-macos-latest
   build_binaries:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-20.04, macos-latest]
     steps:
       - name: Cancel previous runs on the same branch
         if: ${{ github.ref != 'refs/heads/main' }}
