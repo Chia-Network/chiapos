@@ -25,3 +25,7 @@ jobs:
       - name: Check cmake
         run: |
           cmake --version
+          mkdir -p build && cd build
+          cmake ../
+          cmake --build . -- -j 6
+          ls -la
