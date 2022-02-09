@@ -3,6 +3,15 @@ name: Build Binaries
 on: [push, pull_request]
 
 jobs:
+  deploy:
+    name: Deploy
+    needs: build_binaries
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+      - name: Display structure of downloaded files
+        run: ls -R
   build_binaries:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
