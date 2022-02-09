@@ -1,4 +1,4 @@
-name: Build Wheels
+name: Build Binaries
 
 on: [push, pull_request]
 
@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [macos-latest, ubuntu-20.04]
     steps:
       - name: Cancel previous runs on the same branch
         if: ${{ github.ref != 'refs/heads/main' }}
