@@ -18,9 +18,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            artifacts/posp-macos-latest
-            artifacts/posp-ubuntu-20.04
+          files: artifacts/*/*
   build_binaries:
     name: Build wheel on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
