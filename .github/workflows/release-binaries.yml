@@ -1,3 +1,5 @@
+name: Release Binaries
+on: [push, pull_request]
 deploy:
   name: Deploy
   needs: build_binaries
