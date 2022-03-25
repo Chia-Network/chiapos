@@ -449,7 +449,7 @@ The final disk format is the following:
 | $Table_{7}$ | $E_{\{7, i\}}=pos_{6;L}$            | Parked                                               | $2^k$                               |
 | $C_{1}$     | $f_7$                               | Byte aligned storage                                 | $\frac{2^k}{param\_c_1}$            |
 | $C_{2}$     | $f_7$                               | Byte aligned storage                                 | $\frac{2^k}{param\_c_1*param\_c_2}$ |
-| $C_{3}$     | $f_7$                               | Deltafied, encoded, and parked                       | $\frac{2^k}{param\_c_1}$            |
+| $C_{3}$     | $f_7$                               | Deltafied, encoded, and parked                       | $2^k-\frac{2^k}{param\_c_1}$            |
 
 ##### Full algorithm
 
