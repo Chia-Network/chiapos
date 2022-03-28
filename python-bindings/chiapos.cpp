@@ -76,7 +76,7 @@ PYBIND11_MODULE(chiapos, m)
             });
 
     py::class_<DiskProver>(m, "DiskProver")
-        .def(py::init<const std::string &>())
+        .def(py::init<const std::string &>(), py::call_guard<py::gil_scoped_release>())
         .def(
             "get_memo",
             [](DiskProver &dp) {
@@ -100,9 +100,11 @@ PYBIND11_MODULE(chiapos, m)
                 std::string challenge_str(challenge);
                 const uint8_t *challenge_ptr =
                     reinterpret_cast<const uint8_t *>(challenge_str.data());
-                py::gil_scoped_release release;
-                std::vector<LargeBits> qualities = dp.GetQualitiesForChallenge(challenge_ptr);
-                py::gil_scoped_acquire acquire;
+                std::vector<LargeBits> qualities;
+                {
+                    py::gil_scoped_release release;
+                    qualities = dp.GetQualitiesForChallenge(challenge_ptr);
+                }
                 std::vector<py::bytes> ret;
                 uint8_t *quality_buf = new uint8_t[32];
                 for (LargeBits quality : qualities) {
@@ -116,9 +118,11 @@ PYBIND11_MODULE(chiapos, m)
         .def("get_full_proof", [](DiskProver &dp, const py::bytes &challenge, uint32_t index, bool parallel_read) {
             std::string challenge_str(challenge);
             const uint8_t *challenge_ptr = reinterpret_cast<const uint8_t *>(challenge_str.data());
-            py::gil_scoped_release release;
-            LargeBits proof = dp.GetFullProof(challenge_ptr, index, parallel_read);
-            py::gil_scoped_acquire acquire;
+            LargeBits proof;
+            {
+                py::gil_scoped_release release;
+                proof = dp.GetFullProof(challenge_ptr, index, parallel_read);
+            }
             uint8_t *proof_buf = new uint8_t[Util::ByteAlign(64 * dp.GetSize()) / 8];
             proof.ToBytes(proof_buf);
             py::bytes ret = py::bytes(
@@ -146,8 +150,11 @@ PYBIND11_MODULE(chiapos, m)
                 std::string proof_str(proof);
                 const uint8_t *proof_ptr = reinterpret_cast<const uint8_t *>(proof_str.data());
 
-                LargeBits quality =
-                    v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, len(proof));
+                LargeBits quality;
+                {
+                    py::gil_scoped_release release;
+                    quality = v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, len(proof));
+                }
                 if (quality.GetSize() == 0) {
                     return stdx::optional<py::bytes>();
                 }
