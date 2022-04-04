@@ -176,6 +176,30 @@ class TestPythonBindings(unittest.TestCase):
         print(f"Successes: {successes}")
         print(f"Failures: {failures}")
 
+    def test_disk_prover_byte_conversions(self):
+        plot_path = Path("byte_conversion_plot.dat")
+        if plot_path.exists():
+            plot_path.unlink()
+        challenge = sha256(b"\x00").digest()
+        pl = DiskPlotter()
+        pl.create_plot_disk(
+            ".", ".", ".", str(plot_path), 21, bytes([1, 2, 3, 4, 5]), bytes(b'\0' * 32), 300, 32, 8192, 8, False
+        )
+        pr = DiskProver(str(plot_path))
+        serialized = bytes(pr)
+        pr_recovered = DiskProver.from_bytes(serialized)
+        assert bytes(pr_recovered) == serialized
+        assert pr.get_memo() == pr_recovered.get_memo()
+        assert pr.get_id() == pr_recovered.get_id()
+        assert pr.get_size() == pr_recovered.get_size()
+        assert pr.get_filename() == pr_recovered.get_filename()
+        assert pr.get_size() == pr_recovered.get_size()
+        assert pr.get_qualities_for_challenge(challenge) == pr_recovered.get_qualities_for_challenge(challenge)
+        with self.assertRaises(ValueError):
+            DiskProver.from_bytes(bytes())
+        with self.assertRaises(ValueError):
+            DiskProver.from_bytes(serialized[0:int(len(serialized)/2)])
+
 
 if __name__ == "__main__":
     unittest.main()
