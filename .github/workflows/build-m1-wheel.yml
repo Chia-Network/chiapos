@@ -25,6 +25,7 @@ jobs:
       run: |
         arch -arm64 brew install python@3.9
         arch -arm64 brew install python@3.10
+        arch -arm64 brew install python@3.11
 
     - name: Build ${{ matrix.os }} wheels
       run: |
@@ -43,6 +44,13 @@ jobs:
         arch -arm64 delocate-wheel -v dist/*cp310*.whl
         deactivate
         rm -rf venv
+        arch -arm64 $(brew --prefix python@3.11)/libexec/bin/python -m venv venv
+        . venv/bin/activate
+        arch -arm64 pip wheel -w dist --no-deps .
+        arch -arm64 pip install delocate
+        arch -arm64 delocate-wheel -v dist/*cp311*.whl
+        deactivate
+        rm -rf venv
 
     - name: Test wheel
       run: |
@@ -57,6 +65,13 @@ jobs:
         arch -arm64 $(brew --prefix python@3.10)/libexec/bin/python -m venv venv
         . venv/bin/activate
         arch -arm64 pip install ./dist/*cp310*.whl
+        arch -arm64 pip install pytest
+        arch -arm64 ./venv/bin/pytest -v ./tests
+        deactivate
+        rm -rf venv
+        arch -arm64 $(brew --prefix python@3.11)/libexec/bin/python -m venv venv
+        . venv/bin/activate
+        arch -arm64 pip install ./dist/*cp311*.whl
         arch -arm64 pip install pytest
         arch -arm64 ./venv/bin/pytest -v ./tests
         deactivate
