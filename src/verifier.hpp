@@ -18,8 +18,8 @@
 #include <utility>
 #include <vector>
 
+#include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
-#include "picosha2.hpp"
 
 class Verifier {
 public:
