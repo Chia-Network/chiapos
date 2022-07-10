@@ -111,6 +111,10 @@ jobs:
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
 
+    - name: Install pipx
+      run: |
+        pip install pipx
+
     - name: Build and test
       uses: pypa/cibuildwheel@v2.7.0
       with:
@@ -125,11 +129,12 @@ jobs:
         CIBW_MANYLINUX_X86_64_IMAGE: manylinux2010
         CIBW_ENVIRONMENT_LINUX: "PATH=/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH"
         CIBW_BEFORE_ALL_LINUX: >
-          curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh
+          curl -L https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh
           && yes | sh cmake.sh | cat
           && rm -f /usr/bin/cmake
           && which cmake
           && cmake --version
+          && uname -a
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
