@@ -194,7 +194,7 @@ if platform.system() == "Windows":
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
         url="https://github.com/Chia-Network/chiapos",
-        setup_requires=["pybind11"],
+        setup_requires=["pybind11>=2.10.0"],
         tests_require=["pytest"],
         ext_modules=ext_modules,
         cmdclass={"build_ext": BuildExt},
