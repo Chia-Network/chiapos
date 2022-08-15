@@ -134,9 +134,6 @@ jobs:
         pip install pipx
 
     - name: Build and test
-      uses: pypa/cibuildwheel@v2.9.0
-      with:
-        output-dir: dist
       env:
         CIBW_PRERELEASE_PYTHONS: True
         CIBW_BUILD_VERBOSITY_MACOS: 0
@@ -164,6 +161,8 @@ jobs:
         CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14"
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
+      run:
+        pipx run --spec='cibuildwheel==2.9.0' cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
