@@ -115,13 +115,26 @@ set(BLAKE3_SRC
     src/b3/blake3_dispatch.c
     src/b3/blake3_avx2.c
     src/b3/blake3_avx512.c
+    src/b3/blake3_sse2.c
     src/b3/blake3_sse41.c
 )
 ELSEIF(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64")
 set(BLAKE3_SRC
     src/b3/blake3.c
+    src/b3/blake3_neon.c
     src/b3/blake3_portable.c
     src/b3/blake3_dispatch.c
+)
+ELSEIF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+set(BLAKE3_SRC
+    src/b3/blake3.c
+    src/b3/blake3_neon.c
+    src/b3/blake3_portable.c
+    src/b3/blake3_dispatch.c
+    src/b3/blake3_avx2_x86-64_unix.S
+    src/b3/blake3_avx512_x86-64_unix.S
+    src/b3/blake3_sse2_x86-64_unix.S
+    src/b3/blake3_sse41_x86-64_unix.S
 )
 ELSE()
 set(BLAKE3_SRC
@@ -130,6 +143,7 @@ set(BLAKE3_SRC
     src/b3/blake3_dispatch.c
     src/b3/blake3_avx2_x86-64_unix.S
     src/b3/blake3_avx512_x86-64_unix.S
+    src/b3/blake3_sse2_x86-64_unix.S
     src/b3/blake3_sse41_x86-64_unix.S
 )
 ENDIF()
