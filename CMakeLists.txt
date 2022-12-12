@@ -151,12 +151,11 @@ ENDIF()
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v2.13.7
+  GIT_TAG        v3.2.1
 )
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(RunTests
-    tests/test-main.cpp
     tests/test.cpp
     src/chacha8.c
     ${BLAKE3_SRC}
