@@ -23,6 +23,10 @@ on:
         required: true
         default: '27'
 
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}--${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/long_lived/')) && github.sha || '' }}
+  cancel-in-progress: true
+
 jobs:
   Plot:
     name: Call Plotter
@@ -33,11 +37,6 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-    - name: Cancel previous runs on the same branch
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
-
     - name: Test for secrets access
       id: check_secrets
       shell: bash
