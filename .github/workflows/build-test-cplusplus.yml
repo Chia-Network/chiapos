@@ -2,18 +2,15 @@ name: Build and Test C++
 
 on: [push, pull_request]
 
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}--${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/long_lived/')) && github.sha || '' }}
+  cancel-in-progress: true
+
 jobs:
   valgrind:
     name: valgrind ubuntu
     runs-on: ubuntu-20.04
     steps:
-
-      - name: Cancel previous runs on the same branch
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -32,13 +29,6 @@ jobs:
     name: ASAN ubuntu
     runs-on: ubuntu-20.04
     steps:
-
-      - name: Cancel previous runs on the same branch
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -60,12 +50,6 @@ jobs:
     name: TSAN ubuntu
     runs-on: ubuntu-20.04
     steps:
-      - name: Cancel previous runs on the same branch
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -81,13 +65,6 @@ jobs:
     name: Windows Latest
     runs-on: windows-latest
     steps:
-
-    - name: Cancel previous runs on the same branch
-      if: ${{ github.ref != 'refs/heads/main' }}
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
-
     - name: Checkout code
       uses: actions/checkout@v2
 
