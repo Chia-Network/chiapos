@@ -17,9 +17,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       name: Install Python
       with:
         python-version: '3.8'
@@ -35,14 +35,14 @@ jobs:
 #         python -m markdown -x mdx_math --verbose -f proof_of_space.html proof_of_space.md
 
     - name: html to pdf
-      uses: fifsky/html-to-pdf-action@master
+      uses: fifsky/html-to-pdf-action@v0.1
       with:
         htmlFile: ./documents/proof_of_space.html
         outputFile: ./documents/proof_of_space.pdf
         pdfOptions: '{"margin": {"top": "1cm", "left": "1cm", "right": "1cm", "bottom": "1cm"}}'
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Proof-of-Space-Document
         path: ./documents/proof_of_space.pdf
