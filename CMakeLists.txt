@@ -152,23 +152,24 @@ ENDIF()
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v2.13.7
+  GIT_TAG        v3.0.0-preview4
 )
 FetchContent_MakeAvailable(Catch2)
 
-#add_executable(RunTests
-#    tests/test-main.cpp
-#    tests/test.cpp
-#    src/chacha8.c
-#    ${BLAKE3_SRC}
-#)
+add_executable(RunTests
+    tests/test-main.cpp
+    tests/test.cpp
+    src/chacha8.c
+    ${BLAKE3_SRC}
+)
 
-#target_link_libraries(RunTests
-#  PRIVATE
-#    fse
-#    Threads::Threads
-#    Catch2::Catch2WithMain
-#)
+target_link_libraries(RunTests
+  PRIVATE
+    fse
+    Threads::Threads
+    Catch2::Catch2WithMain
+    lib_bladebit
+)
 
 find_package(Threads REQUIRED)
 
@@ -191,11 +192,11 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 elseif (MSVC)
   target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128 lib_bladebit)
   target_link_libraries(ProofOfSpace fse Threads::Threads uint128 lib_bladebit)
-  # target_link_libraries(RunTests PRIVATE uint128)
+  target_link_libraries(RunTests PRIVATE uint128)
 else()
   target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads lib_bladebit)
   target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads lib_bladebit)
-  # target_link_libraries(RunTests PRIVATE stdc++fs)
+  target_link_libraries(RunTests PRIVATE stdc++fs)
 endif()
 
 #enable_testing()

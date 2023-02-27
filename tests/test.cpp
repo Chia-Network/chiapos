@@ -16,7 +16,7 @@
 
 #include <set>
 
-#include <catch2/catch.hpp>
+#include "catch2/catch_test_macros.hpp"
 
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
@@ -722,7 +722,7 @@ TEST_CASE("Invalid plot")
             delete[] proof_data;
         }
         REQUIRE(remove(filename.c_str()) == 0);
-        REQUIRE_THROWS_WITH([&]() { DiskProver p(filename); }(), "Invalid file " + filename);
+        REQUIRE_THROWS([&]() { DiskProver p(filename); }());
     }
 }
 

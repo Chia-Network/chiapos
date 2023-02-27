@@ -17,7 +17,7 @@ jobs:
       - name: cmake, RunTests, and valgrind on ubuntu-20.04
         run: |
           sudo apt update
-          sudo apt-get install valgrind -y
+          sudo apt-get install valgrind libnuma-dev -y
           mkdir build
           cd build
           cmake ../
@@ -34,6 +34,7 @@ jobs:
 
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
+          sudo apt-get install libnuma-dev -y
           sudo fallocate -l 16G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
@@ -55,6 +56,7 @@ jobs:
 
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
+          sudo apt-get install libnuma-dev -y
           mkdir build-tsan
           cd build-tsan
           cmake -DCMAKE_BUILD_TYPE=TSAN ../
