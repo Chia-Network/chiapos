@@ -188,7 +188,7 @@ public:
     {
         Deserializer deserializer(vecBytes);
         deserializer >> version;
-        if (version != VERSION) {
+        if (version != 1 && version != 2) {
             // TODO: Migrate to new version if we change something related to the data structure
             throw std::invalid_argument("DiskProver: Invalid version.");
         }
@@ -198,8 +198,7 @@ public:
         deserializer >> k;
         deserializer >> table_begin_pointers;
         deserializer >> C2;
-        // TODO: Change
-        this->compression_level = 0;
+        deserializer >> compression_level;
     }
 
     DiskProver(DiskProver const&) = delete;
@@ -438,7 +437,7 @@ public:
     std::vector<uint8_t> ToBytes() const
     {
         Serializer serializer;
-        serializer << version << filename << memo << id << k << table_begin_pointers << C2;
+        serializer << version << filename << memo << id << k << table_begin_pointers << C2 << compression_level;
         return serializer.Data();
     }
 
