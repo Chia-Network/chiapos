@@ -198,7 +198,11 @@ public:
         deserializer >> k;
         deserializer >> table_begin_pointers;
         deserializer >> C2;
-        deserializer >> compression_level;
+        if (version == 2) {
+            deserializer >> compression_level;
+        } else {
+            compression_level = 0;
+        }
     }
 
     DiskProver(DiskProver const&) = delete;
@@ -437,7 +441,10 @@ public:
     std::vector<uint8_t> ToBytes() const
     {
         Serializer serializer;
-        serializer << version << filename << memo << id << k << table_begin_pointers << C2 << compression_level;
+        serializer << version << filename << memo << id << k << table_begin_pointers << C2;
+        if (version == 2) {
+            serializer << compression_level;
+        }
         return serializer.Data();
     }
 
