@@ -138,8 +138,8 @@ jobs:
           && which cmake
           && cmake --version
           && uname -a
-          curl -L https://www.kernel.org/pub/linux/utils/kernel/libnuma/v2.0/libnuma-2.0.14.tar.gz >
-          tar xvfz libnuma-2.0.14.tar.gz
+          curl -L https://www.kernel.org/pub/linux/utils/kernel/libnuma/v2.0/libnuma-2.0.14.tar.gz
+          && tar xvfz libnuma-2.0.14.tar.gz
           && cd libnuma-2.0.14
           && ./configure --prefix=/usr
           && make
