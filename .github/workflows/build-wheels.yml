@@ -138,7 +138,12 @@ jobs:
           && which cmake
           && cmake --version
           && uname -a
-          && sudo apt-get install libnuma-dev -y
+          && wget https://www.kernel.org/pub/linux/utils/kernel/libnuma/v2.0/libnuma-2.0.14.tar.gz
+          && tar xvfz libnuma-2.0.14.tar.gz
+          && cd libnuma-2.0.14
+          && ./configure --prefix=/usr
+          && make
+          && sudo make install
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
