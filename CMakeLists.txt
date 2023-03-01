@@ -12,7 +12,6 @@ if(CCACHE_PROGRAM)
 endif()
 
 project(chiapos C CXX ASM)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/bladebit)
 
 # CMake 3.14+
 include(FetchContent)
@@ -34,6 +33,14 @@ FetchContent_Declare(
   GIT_TAG        v2.2.1
 )
 FetchContent_MakeAvailable(cxxopts)
+
+FetchContent_Declare(
+  bladebit
+  GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
+  GIT_TAG e2dddac6b774f37cc2f5f749156e3b243c210df6
+)
+FetchContent_MakeAvailable(bladebit)
+
 
 FetchContent_Declare(
   gulrak

@@ -13,6 +13,7 @@ src/python/.rendered*
 src/python/*.so
 **/*.DS_Store
 *.so
+*.cmake
 CmakeCache.txt
 CMakeFiles
 Makefile
