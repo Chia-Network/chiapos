@@ -31,8 +31,8 @@
 
 #include "../lib/include/picosha2.hpp"
 #define uint32 uint32_t
-#include "../bladebit/src/harvesting/GreenReaper.h"
-#include "../bladebit/src/plotting/Compression.h"
+#include "harvesting/GreenReaper.h"
+#include "plotting/Compression.h"
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "entry_sizes.hpp"

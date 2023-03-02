@@ -37,7 +37,7 @@ FetchContent_MakeAvailable(cxxopts)
 FetchContent_Declare(
   bladebit
   GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-  GIT_TAG e2dddac6b774f37cc2f5f749156e3b243c210df6
+  GIT_TAG 5961e4a450d2d46b542c304cbc864064010a2ecc
 )
 FetchContent_MakeAvailable(bladebit)
 
@@ -65,6 +65,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
+  ${bladebit_SOURCE_DIR}/src
   )
 
 add_library(fse ${FSE_FILES})
