@@ -37,7 +37,7 @@ FetchContent_MakeAvailable(cxxopts)
 FetchContent_Declare(
   bladebit
   GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-  GIT_TAG 9afa598c1b25ed95e793e84b856153f54d991e54
+  GIT_TAG 9c67d7e4737730e3d522cdf07c6374289083fb4a
 )
 FetchContent_MakeAvailable(bladebit)
 
