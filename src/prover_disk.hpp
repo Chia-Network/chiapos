@@ -40,7 +40,7 @@
 #include "util.hpp"
 
 #define CHIA_PLOT_V2_MAGIC       0x544F4C50ul   // "PLOT"
-#define CHIA_PLOT_VERSION_2_0_0  ((2ul*10000) + (0ul * 100) + 0)
+#define CHIA_PLOT_VERSION_2_0_0  2
 
 
 struct plot_header {
@@ -402,6 +402,8 @@ public:
                 GreenReaperContext* gr = nullptr;
                 GreenReaperConfig cfg = {};
                 cfg.threadCount = 4;
+                cfg.cpuOffset = 0;
+                cfg.disableCpuAffinity = 0;
                 gr = grCreateContext( &cfg );
 
                 uint32_t compressedProof[GR_POST_PROOF_CMP_X_COUNT] = {};
@@ -413,10 +415,10 @@ public:
                 req.compressionLevel = compression_level;
                 req.plotId = id.data();
                 
-                GRProofResult res = grFetchProofForChallenge(gr, &req);
-                if (res != GRProofResult_OK) {
+                GRResult res = grFetchProofForChallenge(gr, &req);
+                if (res != GRResult_OK) {
                     std::cout << "Got wrong result: " << static_cast<int>(res) << "\n";
-                    throw std::runtime_error("GRProofResult is not GRProofResult_OK.");
+                    throw std::runtime_error("GRResult is not GRResult_OK.");
                 }
                 std::vector<Bits> uncompressed_xs;
                 for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
