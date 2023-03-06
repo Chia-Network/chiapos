@@ -47,6 +47,19 @@
 #include "util.hpp"
 #include "progress.hpp"
 
+struct SharedData {
+    uint64_t left_writer_count;
+    uint64_t right_writer_count;
+    uint64_t matches;
+    std::unique_ptr<SortManager> L_sort_manager;
+    std::unique_ptr<SortManager> R_sort_manager;
+    uint64_t left_writer_buf_entries;
+    uint64_t left_writer;
+    uint64_t right_writer;
+    uint64_t stripe_size;
+    uint8_t num_threads;
+};
+
 struct THREADDATA {
     int index;
     Sem::type* mine;
@@ -60,22 +73,8 @@ struct THREADDATA {
     uint64_t prevtableentries;
     uint32_t compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks;
+    SharedData* shared_data;
 };
-
-struct GlobalData {
-    uint64_t left_writer_count;
-    uint64_t right_writer_count;
-    uint64_t matches;
-    std::unique_ptr<SortManager> L_sort_manager;
-    std::unique_ptr<SortManager> R_sort_manager;
-    uint64_t left_writer_buf_entries;
-    uint64_t left_writer;
-    uint64_t right_writer;
-    uint64_t stripe_size;
-    uint8_t num_threads;
-};
-
-GlobalData globals;
 
 PlotEntry GetLeftEntry(
     uint8_t const table_index,
@@ -129,12 +128,13 @@ void* phase1_thread(THREADDATA* ptd)
     uint64_t const prevtableentries = ptd->prevtableentries;
     uint32_t const compressed_entry_size_bytes = ptd->compressed_entry_size_bytes;
     std::vector<FileDisk>* ptmp_1_disks = ptd->ptmp_1_disks;
+    SharedData* shared_data = ptd->shared_data;
 
     // Streams to read and right to tables. We will have handles to two tables. We will
     // read through the left table, compute matches, and evaluate f for matching entries,
     // writing results to the right table.
-    uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
-    uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (globals.stripe_size));
+    uint64_t left_buf_entries = 5000 + (uint64_t)((1.1) * (shared_data->stripe_size));
+    uint64_t right_buf_entries = 5000 + (uint64_t)((1.1) * (shared_data->stripe_size));
     std::unique_ptr<uint8_t[]> right_writer_buf(new uint8_t[right_buf_entries * right_entry_size_bytes + 7]);
     std::unique_ptr<uint8_t[]> left_writer_buf(new uint8_t[left_buf_entries * compressed_entry_size_bytes + 7]);
 
@@ -150,12 +150,12 @@ void* phase1_thread(THREADDATA* ptd)
 
     // Start at left table pos = 0 and iterate through the whole table. Note that the left table
     // will already be sorted by y
-    uint64_t totalstripes = (prevtableentries + globals.stripe_size - 1) / globals.stripe_size;
-    uint64_t threadstripes = (totalstripes + globals.num_threads - 1) / globals.num_threads;
+    uint64_t totalstripes = (prevtableentries + shared_data->stripe_size - 1) / shared_data->stripe_size;
+    uint64_t threadstripes = (totalstripes + shared_data->num_threads - 1) / shared_data->num_threads;
 
     for (uint64_t stripe = 0; stripe < threadstripes; stripe++) {
-        uint64_t pos = (stripe * globals.num_threads + ptd->index) * globals.stripe_size;
-        uint64_t const endpos = pos + globals.stripe_size + 1;  // one y value overlap
+        uint64_t pos = (stripe * shared_data->num_threads + ptd->index) * shared_data->stripe_size;
+        uint64_t const endpos = pos + shared_data->stripe_size + 1;  // one y value overlap
         uint64_t left_reader = pos * entry_size_bytes;
         uint64_t left_writer_count = 0;
         uint64_t stripe_left_writer_count = 0;
@@ -181,8 +181,8 @@ void* phase1_thread(THREADDATA* ptd)
         bool bStripePregamePair = false;
         bool bStripeStartPair = false;
         bool need_new_bucket = false;
-        bool first_thread = ptd->index % globals.num_threads == 0;
-        bool last_thread = ptd->index % globals.num_threads == globals.num_threads - 1;
+        bool first_thread = ptd->index % shared_data->num_threads == 0;
+        bool last_thread = ptd->index % shared_data->num_threads == shared_data->num_threads - 1;
 
         uint64_t L_position_base = 0;
         uint64_t R_position_base = 0;
@@ -203,12 +203,12 @@ void* phase1_thread(THREADDATA* ptd)
         }
 
         Sem::Wait(ptd->theirs);
-        need_new_bucket = globals.L_sort_manager->CloseToNewBucket(left_reader);
+        need_new_bucket = shared_data->L_sort_manager->CloseToNewBucket(left_reader);
         if (need_new_bucket) {
             if (!first_thread) {
                 Sem::Wait(ptd->theirs);
             }
-            globals.L_sort_manager->TriggerNewBucket(left_reader);
+            shared_data->L_sort_manager->TriggerNewBucket(left_reader);
         }
         if (!last_thread) {
             // Do not post if we are the last thread, because first thread has already
@@ -226,7 +226,7 @@ void* phase1_thread(THREADDATA* ptd)
                 left_entry.used = false;
             } else {
                 // Reads a left entry from disk
-                uint8_t* left_buf = globals.L_sort_manager->ReadEntry(left_reader);
+                uint8_t* left_buf = shared_data->L_sort_manager->ReadEntry(left_reader);
                 left_reader += entry_size_bytes;
 
                 left_entry = GetLeftEntry(table_index, left_buf, k, metadata_size, pos_size);
@@ -488,7 +488,7 @@ void* phase1_thread(THREADDATA* ptd)
         uint32_t const startbyte = ysize / 8;
         uint32_t const endbyte = (ysize + pos_size + 7) / 8 - 1;
         uint64_t const shiftamt = (8 - ((ysize + pos_size) % 8)) % 8;
-        uint64_t const correction = (globals.left_writer_count - stripe_start_correction) << shiftamt;
+        uint64_t const correction = (shared_data->left_writer_count - stripe_start_correction) << shiftamt;
 
         // Correct positions
         for (uint32_t i = 0; i < right_writer_count; i++) {
@@ -506,31 +506,31 @@ void* phase1_thread(THREADDATA* ptd)
         }
         if (table_index < 6) {
             for (uint64_t i = 0; i < right_writer_count; i++) {
-                globals.R_sort_manager->AddToCache(right_writer_buf.get() + i * right_entry_size_bytes);
+                shared_data->R_sort_manager->AddToCache(right_writer_buf.get() + i * right_entry_size_bytes);
             }
         } else {
             // Writes out the right table for table 7
             (*ptmp_1_disks)[table_index + 1].Write(
-                globals.right_writer,
+                shared_data->right_writer,
                 right_writer_buf.get(),
                 right_writer_count * right_entry_size_bytes);
         }
-        globals.right_writer += right_writer_count * right_entry_size_bytes;
-        globals.right_writer_count += right_writer_count;
+        shared_data->right_writer += right_writer_count * right_entry_size_bytes;
+        shared_data->right_writer_count += right_writer_count;
 
         (*ptmp_1_disks)[table_index].Write(
-            globals.left_writer, left_writer_buf.get(), left_writer_count * compressed_entry_size_bytes);
-        globals.left_writer += left_writer_count * compressed_entry_size_bytes;
-        globals.left_writer_count += left_writer_count;
+            shared_data->left_writer, left_writer_buf.get(), left_writer_count * compressed_entry_size_bytes);
+        shared_data->left_writer += left_writer_count * compressed_entry_size_bytes;
+        shared_data->left_writer_count += left_writer_count;
 
-        globals.matches += matches;
+        shared_data->matches += matches;
         Sem::Post(ptd->mine);
     }
 
     return 0;
 }
 
-void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* smm)
+void* F1thread(int const index, uint8_t const k, const uint8_t* id, SharedData* shared_data, std::mutex* smm)
 {
     uint32_t const entry_size_bytes = 16;
     uint64_t const max_value = ((uint64_t)1 << (k));
@@ -545,7 +545,7 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
     // Instead of computing f1(1), f1(2), etc, for each x, we compute them in batches
     // to increase CPU efficency.
     for (uint64_t lp = index; lp <= (((uint64_t)1) << (k - kBatchSizes));
-         lp = lp + globals.num_threads)
+         lp = lp + shared_data->num_threads)
     {
         // For each pair x, y in the batch
 
@@ -571,7 +571,7 @@ void* F1thread(int const index, uint8_t const k, const uint8_t* id, std::mutex* 
 
         // Write it out
         for (uint32_t i = 0; i < right_writer_count; i++) {
-            globals.L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
+            shared_data->L_sort_manager->AddToCache(&(right_writer_buf[i * entry_size_bytes]));
         }
     }
 
@@ -599,14 +599,16 @@ std::vector<uint64_t> RunPhase1(
 {
     std::cout << "Computing table 1" << std::endl;
     std::cout << "Progress update: 0.01" << std::endl;
-    globals.stripe_size = stripe_size;
-    globals.num_threads = num_threads;
+    SharedData shared_data;
+
+    shared_data.stripe_size = stripe_size;
+    shared_data.num_threads = num_threads;
     Timer f1_start_time;
     F1Calculator f1(k, id);
     uint64_t x = 0;
 
     uint32_t const t1_entry_size_bytes = EntrySizes::GetMaxEntrySize(k, 1, true);
-    globals.L_sort_manager = std::make_unique<SortManager>(
+    shared_data.L_sort_manager = std::make_unique<SortManager>(
         memory_size,
         num_buckets,
         log_num_buckets,
@@ -614,7 +616,7 @@ std::vector<uint64_t> RunPhase1(
         tmp_dirname,
         filename + ".p1.t1",
         0,
-        globals.stripe_size);
+        shared_data.stripe_size);
 
     // These are used for sorting on disk. The sort on disk code needs to know how
     // many elements are in each bucket.
@@ -625,7 +627,7 @@ std::vector<uint64_t> RunPhase1(
         // Start of parallel execution
         std::vector<std::thread> threads;
         for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(F1thread, i, k, id, &sort_manager_mutex);
+            threads.emplace_back(F1thread, i, k, id, &shared_data, &sort_manager_mutex);
         }
 
         for (auto& t : threads) {
@@ -636,7 +638,7 @@ std::vector<uint64_t> RunPhase1(
 
     uint64_t prevtableentries = 1ULL << k;
     f1_start_time.PrintElapsed("F1 complete, time:");
-    globals.L_sort_manager->FlushCache();
+    shared_data.L_sort_manager->FlushCache();
     table_sizes[1] = x + 1;
 
     // Store positions to previous tables, in k bits.
@@ -671,13 +673,13 @@ std::vector<uint64_t> RunPhase1(
 
         FxCalculator f(k, table_index + 1);  // dummy to load static table
 
-        globals.matches = 0;
-        globals.left_writer_count = 0;
-        globals.right_writer_count = 0;
-        globals.right_writer = 0;
-        globals.left_writer = 0;
+        shared_data.matches = 0;
+        shared_data.left_writer_count = 0;
+        shared_data.right_writer_count = 0;
+        shared_data.right_writer = 0;
+        shared_data.left_writer = 0;
 
-        globals.R_sort_manager = std::make_unique<SortManager>(
+        shared_data.R_sort_manager = std::make_unique<SortManager>(
             memory_size,
             num_buckets,
             log_num_buckets,
@@ -685,9 +687,9 @@ std::vector<uint64_t> RunPhase1(
             tmp_dirname,
             filename + ".p1.t" + std::to_string(table_index + 1),
             0,
-            globals.stripe_size);
+            shared_data.stripe_size);
 
-        globals.L_sort_manager->TriggerNewBucket(0);
+        shared_data.L_sort_manager->TriggerNewBucket(0);
 
         Timer computation_pass_timer;
 
@@ -714,6 +716,7 @@ std::vector<uint64_t> RunPhase1(
             td[i].pos_size = pos_size;
             td[i].compressed_entry_size_bytes = compressed_entry_size_bytes;
             td[i].ptmp_1_disks = &tmp_1_disks;
+            td[i].shared_data = &shared_data;
 
             threads.emplace_back(phase1_thread, &td[i]);
         }
@@ -730,37 +733,37 @@ std::vector<uint64_t> RunPhase1(
         // end of parallel execution
 
         // Total matches found in the left table
-        std::cout << "\tTotal matches: " << globals.matches << std::endl;
+        std::cout << "\tTotal matches: " << shared_data.matches << std::endl;
 
-        table_sizes[table_index] = globals.left_writer_count;
-        table_sizes[table_index + 1] = globals.right_writer_count;
+        table_sizes[table_index] = shared_data.left_writer_count;
+        table_sizes[table_index + 1] = shared_data.right_writer_count;
 
         // Truncates the file after the final write position, deleting no longer useful
         // working space
-        tmp_1_disks[table_index].Truncate(globals.left_writer);
-        globals.L_sort_manager.reset();
+        tmp_1_disks[table_index].Truncate(shared_data.left_writer);
+        shared_data.L_sort_manager.reset();
         if (table_index < 6) {
-            globals.R_sort_manager->FlushCache();
-            globals.L_sort_manager = std::move(globals.R_sort_manager);
+            shared_data.R_sort_manager->FlushCache();
+            shared_data.L_sort_manager = std::move(shared_data.R_sort_manager);
         } else {
-            tmp_1_disks[table_index + 1].Truncate(globals.right_writer);
+            tmp_1_disks[table_index + 1].Truncate(shared_data.right_writer);
         }
 
         // Resets variables
-        if (globals.matches != globals.right_writer_count) {
+        if (shared_data.matches != shared_data.right_writer_count) {
             throw InvalidStateException(
                 "Matches do not match with number of write entries " +
-                std::to_string(globals.matches) + " " + std::to_string(globals.right_writer_count));
+                std::to_string(shared_data.matches) + " " + std::to_string(shared_data.right_writer_count));
         }
 
-        prevtableentries = globals.right_writer_count;
+        prevtableentries = shared_data.right_writer_count;
         table_timer.PrintElapsed("Forward propagation table time:");
         if (flags & SHOW_PROGRESS) {
             progress(1, table_index, 6);
         }
     }
     table_sizes[0] = 0;
-    globals.R_sort_manager.reset();
+    shared_data.R_sort_manager.reset();
     return table_sizes;
 }
 
