@@ -353,12 +353,12 @@ public:
                     req.compressionLevel = compression_level;
                     req.plotId = id.data();
                     req.challenge = challenge;
-                    req.xLinePoints[0].hi     = (uint64)(new_line_point >> 64);
-                    req.xLinePoints[0].lo     = (uint64)new_line_point;
+                    req.xLinePoints[0].hi = (uint64_t)(new_line_point >> 64);
+                    req.xLinePoints[0].lo = (uint64_t)new_line_point;
                     if (compression_level >= 6) {
                         uint128_t alt_line_point = ReadLinePoint(disk_file, GetEndTable(), alt_position);
-                        req.xLinePoints[1].hi     = (uint64)(alt_line_point >> 64);
-                        req.xLinePoints[1].lo     = (uint64)alt_line_point;
+                        req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
+                        req.xLinePoints[1].lo = (uint64_t)alt_line_point;
                     }
                     auto res = grGetFetchQualitiesXPair(context, &req);
                     if (res != GRResult_OK) {
