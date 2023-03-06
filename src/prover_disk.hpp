@@ -360,7 +360,7 @@ public:
                         req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
                         req.xLinePoints[1].lo = (uint64_t)alt_line_point;
                     }
-                    auto res = grGetFetchQualitiesXPair(context, &req);
+                    auto res = grGetFetchQualitiesXPair(gr, &req);
                     if (res != GRResult_OK) {
                         // Expect this will result in failure in a later step.
                         x1x2.first = x1x2.second = 0;
