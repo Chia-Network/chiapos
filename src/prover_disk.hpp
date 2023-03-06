@@ -299,6 +299,15 @@ public:
         uint32_t p7_entries_size = 0;
 
         {
+            GreenReaperContext* gr = nullptr;
+            if (compression_level > 0) {
+                GreenReaperConfig cfg = {};
+                cfg.threadCount = 4;
+                cfg.cpuOffset = 0;
+                cfg.disableCpuAffinity = 0;
+                gr = grCreateContext( &cfg );
+            }
+
             std::lock_guard<std::mutex> l(_mtx);
             std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
@@ -320,12 +329,10 @@ public:
             uint8_t last_5_bits = challenge[31] & 0x1f;
 
             for (uint64_t position : p7_entries) {
-                if (compression_level > 0) {
-                    continue;
-                }
                 // This inner loop goes from table 6 to table 1, getting the two backpointers,
                 // and following one of them.
-                for (uint8_t table_index = 6; table_index > 1; table_index--) {
+                uint64_t alt_position;
+                for (uint8_t table_index = 6; table_index > GetEndTable(); table_index--) {
                     uint128_t line_point = ReadLinePoint(disk_file, table_index, position);
 
                     auto xy = Encoding::LinePointToSquare(line_point);
@@ -333,13 +340,37 @@ public:
 
                     if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
                         position = xy.second;
+                        alt_position = xy.first;
                     } else {
                         position = xy.first;
+                        alt_position = xy.second;
                     }
                 }
-                uint128_t new_line_point = ReadLinePoint(disk_file, 1, position);
-                auto x1x2 = Encoding::LinePointToSquare(new_line_point);
-
+                uint128_t new_line_point = ReadLinePoint(disk_file, GetEndTable(), position);
+                std::pair<uint64_t, uint64_t> x1x2;
+                if (compression_level > 0) {
+                    GRCompressedQualitiesRequest req;
+                    req.compressionLevel = compression_level;
+                    req.plotId = id.data();
+                    req.challenge = challenge;
+                    req.xLinePoints[0].hi     = (uint64)(new_line_point >> 64);
+                    req.xLinePoints[0].lo     = (uint64)new_line_point;
+                    if (compression_level >= 6) {
+                        uint128_t alt_line_point = ReadLinePoint(disk_file, GetEndTable(), alt_position);
+                        req.xLinePoints[1].hi     = (uint64)(alt_line_point >> 64);
+                        req.xLinePoints[1].lo     = (uint64)alt_line_point;
+                    }
+                    auto res = grGetFetchQualitiesXPair(context, &req);
+                    if (res != GRResult_OK) {
+                        // Expect this will result in failure in a later step.
+                        x1x2.first = x1x2.second = 0;
+                    } else {
+                        x1x2.first = req.x1;
+                        x1x2.second = req.x2;
+                    }
+                } else {
+                    x1x2 = Encoding::LinePointToSquare(new_line_point);
+                }
                 // The final two x values (which are stored in the same location) are hashed
                 std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
                 memcpy(hash_input.data(), challenge, 32);
@@ -349,24 +380,11 @@ public:
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
                 qualities.emplace_back(hash.data(), 32, 256);
             }
+            if (compression_level > 0) {
+                grDestroyContext(gr);
+            }
         }  // Scope for disk_file
 
-        // This is intended to be throw-away code.
-        if (compression_level > 0) {
-            uint8_t failure_bytes[32];
-            for (int i = 0; i < 32; i++) {
-                failure_bytes[i] = 255;
-            }
-            for (uint32_t i = 0; i < p7_entries_size; i++) {
-                try {
-                    auto proof = GetFullProof(challenge, i);
-                    qualities.push_back(GetQualityStringFromVerifier(proof, challenge));
-                } catch (const std::exception& error) {
-                    std::cout << "Threw: " << error.what() << std::endl;
-                    qualities.emplace_back(failure_bytes, 32, 256);
-                }
-            }
-        }
         return qualities;
     }
 
