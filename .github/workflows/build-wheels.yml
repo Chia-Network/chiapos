@@ -138,7 +138,7 @@ jobs:
           && which cmake
           && cmake --version
           && uname -a
-          && yum install -y numactl-devel glibc-devel gmp-devel
+          && yum install -y numactl-devel glibc-devel epel-release
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
