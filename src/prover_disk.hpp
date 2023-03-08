@@ -474,6 +474,7 @@ public:
                 GRResult res = grFetchProofForChallenge(gr, &req);
                 if (res != GRResult_OK) {
                     std::cout << "Got wrong result: " << static_cast<int>(res) << "\n";
+                    decompresser_context_queue.push(gr);
                     throw std::runtime_error("GRResult is not GRResult_OK.");
                 }
                 std::vector<Bits> uncompressed_xs;
