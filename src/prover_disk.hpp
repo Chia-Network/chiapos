@@ -55,6 +55,7 @@ struct plot_header {
 
 
 class ContextQueue {
+public:
     ContextQueue() {}
 
     ContextQueue(uint32_t context_count, uint32_t thread_count, bool cpu_affinity) {
@@ -95,7 +96,7 @@ private:
     std::condition_variable condition_;
 };
 
-ContextQueue decompresser_context_queue = ContextQueue(4, 10, false);
+ContextQueue decompresser_context_queue(4, 10, false);
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
