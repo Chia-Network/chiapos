@@ -459,7 +459,7 @@ public:
             }
 
             if (compression_level > 0) {
-                gr = decompresser_context_queue.pop();
+                auto gr = decompresser_context_queue.pop();
 
                 uint32_t compressedProof[GR_POST_PROOF_CMP_X_COUNT] = {};
                 for (int i = 0; i < GR_POST_PROOF_CMP_X_COUNT; i++) {
