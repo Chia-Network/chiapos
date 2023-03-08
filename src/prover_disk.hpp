@@ -28,6 +28,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 
 #include "../lib/include/picosha2.hpp"
 #define uint32 uint32_t
@@ -50,6 +52,50 @@ struct plot_header {
     uint8_t fmt_desc_len[2];
     uint8_t fmt_desc[50];
 };
+
+
+class ContextQueue {
+    ContextQueue() {}
+
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool cpu_affinity) {
+        init(context_count, thread_count, cpu_affinity);
+    }
+
+    void init(uint32_t context_count, uint32_t thread_count, bool cpu_affinity) {
+        for (uint32_t i = 0; i < context_count; i++) {
+            GreenReaperConfig cfg = {};
+            cfg.threadCount = thread_count;
+            cfg.cpuOffset = i * thread_count;
+            cfg.disableCpuAffinity = cpu_affinity;
+            gr = grCreateContext(&cfg);
+            queue_.push(gr);
+        }
+    }
+
+    void push(GreenReaperContext* gr) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        queue_.push(gr);
+        lock.unlock();
+        condition_.notify_one();
+    }
+
+    GreenReaperContext* pop() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        while (queue_.empty()) {
+            condition_.wait(lock);
+        }
+        GreenReaperContext* gr = queue_.front();
+        queue_.pop();
+        return gr;
+    }
+
+private:
+    std::queue<GreenReaperContext*> queue_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+};
+
+decompresser_context_queue = ContextQueue(4, 10, false);
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
@@ -301,11 +347,7 @@ public:
         {
             GreenReaperContext* gr = nullptr;
             if (compression_level > 0) {
-                GreenReaperConfig cfg = {};
-                cfg.threadCount = 4;
-                cfg.cpuOffset = 0;
-                cfg.disableCpuAffinity = 0;
-                gr = grCreateContext( &cfg );
+                gr = decompresser_context_queue.pop();
             }
 
             std::lock_guard<std::mutex> l(_mtx);
@@ -381,7 +423,7 @@ public:
                 qualities.emplace_back(hash.data(), 32, 256);
             }
             if (compression_level > 0) {
-                grDestroyContext(gr);
+                decompresser_context_queue.push(gr);
             }
         }  // Scope for disk_file
 
@@ -417,12 +459,7 @@ public:
             }
 
             if (compression_level > 0) {
-                GreenReaperContext* gr = nullptr;
-                GreenReaperConfig cfg = {};
-                cfg.threadCount = 4;
-                cfg.cpuOffset = 0;
-                cfg.disableCpuAffinity = 0;
-                gr = grCreateContext( &cfg );
+                gr = decompresser_context_queue.pop();
 
                 uint32_t compressedProof[GR_POST_PROOF_CMP_X_COUNT] = {};
                 for (int i = 0; i < GR_POST_PROOF_CMP_X_COUNT; i++) {
@@ -443,7 +480,7 @@ public:
                     uncompressed_xs.push_back(Bits(req.fullProof[i], k));
                 }
                 xs = uncompressed_xs;
-                grDestroyContext(gr);
+                decompresser_context_queue.push(gr);
             }
 
             // Sorts them according to proof ordering, where
