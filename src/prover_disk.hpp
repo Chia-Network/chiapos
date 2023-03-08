@@ -67,7 +67,7 @@ class ContextQueue {
             cfg.threadCount = thread_count;
             cfg.cpuOffset = i * thread_count;
             cfg.disableCpuAffinity = cpu_affinity;
-            gr = grCreateContext(&cfg);
+            auto gr = grCreateContext(&cfg);
             queue_.push(gr);
         }
     }
@@ -95,7 +95,7 @@ private:
     std::condition_variable condition_;
 };
 
-decompresser_context_queue = ContextQueue(4, 10, false);
+ContextQueue decompresser_context_queue = ContextQueue(4, 10, false);
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
