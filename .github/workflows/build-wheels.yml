@@ -113,7 +113,7 @@ jobs:
         fetch-depth: 0
 
     - name: Set Env
-      if: runner.arch == 'X86' || runner.arch == 'X64'
+      if: env.RUNNER_ARCH != 'ARM64'
       uses: Chia-Network/actions/setjobenv@main
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
