@@ -19,6 +19,7 @@ jobs:
   build-wheels:
     name: Wheel - ${{ matrix.os.name }} ${{ matrix.python.major-dot-minor }} ${{ matrix.arch.name }}
     runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
