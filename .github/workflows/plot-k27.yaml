@@ -30,7 +30,7 @@ jobs:
         mkdir build
         cd build
         cmake ../
-        cmake --build . -- -j 6
+        cmake --build . -- -j $(nproc)
         mkdir plots
         mkdir plots/temp
         mkdir plots/final

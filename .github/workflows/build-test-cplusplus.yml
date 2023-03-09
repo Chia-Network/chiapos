@@ -21,9 +21,9 @@ jobs:
           mkdir build
           cd build
           cmake ../
-          cmake --build . -- -j 6
-          ctest -j 6 --output-on-failure
-          valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
+          cmake --build . -- -j $(nproc)
+          ctest -j $(nproc) --output-on-failure
+          valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j $(nproc) --output-on-failure
 
   asan:
     name: ASAN ubuntu
@@ -43,7 +43,7 @@ jobs:
           mkdir build-asan
           cd build-asan
           cmake -DCMAKE_BUILD_TYPE=ASAN ../
-          cmake --build . -- -j 6
+          cmake --build . -- -j $(nproc)
           swapon -s
           ./RunTests
 
@@ -60,7 +60,7 @@ jobs:
           mkdir build-tsan
           cd build-tsan
           cmake -DCMAKE_BUILD_TYPE=TSAN ../
-          cmake --build . -- -j 6
+          cmake --build . -- -j $(nproc)
           TSAN_OPTIONS="memory_limit_mb=6000" ./RunTests
 
   windows:
@@ -75,5 +75,5 @@ jobs:
         mkdir build-win
         cd build-win
         cmake ..
-        cmake --build . --config Release -j 6
-        ctest -C Release -j 6
+        cmake --build . --config Release -j $(nproc)
+        ctest -C Release -j $(nproc)
