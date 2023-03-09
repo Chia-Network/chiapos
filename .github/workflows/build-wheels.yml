@@ -282,6 +282,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      uses: Chia-Network/actions/setjobenv@wallentx/setjobarm
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
