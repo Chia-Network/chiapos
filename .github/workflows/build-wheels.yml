@@ -313,7 +313,7 @@ jobs:
       run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Publish distribution to Test PyPI
-      if: env.PRE_RELEASE == 'true' && contains('env.RELEASE_TAG', 'b') && steps.check_secrets.outputs.HAS_SECRET
+      if: env.PRE_RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         TWINE_USERNAME: __token__
