@@ -114,7 +114,7 @@ jobs:
 
     - name: Set Env
       if: env.RUNNER_ARCH != 'ARM64'
-      uses: Chia-Network/actions/setjobenv@main
+      uses: Chia-Network/actions/setjobenv@wallentx/setjobarm
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
