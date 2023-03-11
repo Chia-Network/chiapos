@@ -58,42 +58,55 @@ class ContextQueue {
 public:
     ContextQueue() {}
 
-    ContextQueue(uint32_t context_count, uint32_t thread_count, bool cpu_affinity) {
-        init(context_count, thread_count, cpu_affinity);
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity) {
+        init(context_count, thread_count, no_cpu_affinity);
     }
 
-    void init(uint32_t context_count, uint32_t thread_count, bool cpu_affinity) {
+    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity) {
+        GreenReaperConfig cfg = {};
+        cfg.threadCount = thread_count;
+        cfg.disableCpuAffinity = no_cpu_affinity;
+
         for (uint32_t i = 0; i < context_count; i++) {
-            GreenReaperConfig cfg = {};
-            cfg.threadCount = thread_count;
             cfg.cpuOffset = i * thread_count;
-            cfg.disableCpuAffinity = cpu_affinity;
             auto gr = grCreateContext(&cfg);
-            queue_.push(gr);
+
+            if (gr == nullptr) {
+                // Destroy contexts that were already created
+                while (!queue.empty()) {
+                    grDestroyContext( queue.front() );
+                    queue.pop();
+                }
+                throw std::logic_error("Failed to create GRContext");
+            }
+            queue.push(gr);
         }
     }
 
     void push(GreenReaperContext* gr) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        queue_.push(gr);
+        std::unique_lock<std::mutex> lock(mutex);
+        queue.push(gr);
         lock.unlock();
-        condition_.notify_one();
+        condition.notify_one();
     }
 
     GreenReaperContext* pop() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        while (queue_.empty()) {
-            condition_.wait(lock);
+        std::unique_lock<std::mutex> lock(mutex);
+        while (queue.empty()) {
+            condition.wait(lock);
         }
-        GreenReaperContext* gr = queue_.front();
-        queue_.pop();
+        dequeue_lock.lock();
+        GreenReaperContext* gr = queue.front();
+        queue.pop();
+        dequeue_lock.unlock();
         return gr;
     }
 
 private:
-    std::queue<GreenReaperContext*> queue_;
-    std::mutex mutex_;
-    std::condition_variable condition_;
+    std::queue<GreenReaperContext*> queue;
+    std::mutex mutex;
+    std::condition_variable condition;
+    std::mutex dequeue_lock;
 };
 
 ContextQueue decompresser_context_queue(4, 10, false);
@@ -346,11 +359,6 @@ public:
         uint32_t p7_entries_size = 0;
 
         {
-            GreenReaperContext* gr = nullptr;
-            if (compression_level > 0) {
-                gr = decompresser_context_queue.pop();
-            }
-
             std::lock_guard<std::mutex> l(_mtx);
             std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
@@ -403,7 +411,13 @@ public:
                         req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
                         req.xLinePoints[1].lo = (uint64_t)alt_line_point;
                     }
+
+                    GreenReaperContext* gr = decompresser_context_queue.pop();
+                    assert(gr);
+
                     auto res = grGetFetchQualitiesXPair(gr, &req);
+                    decompresser_context_queue.push(gr);
+
                     if (res != GRResult_OK) {
                         // Expect this will result in failure in a later step.
                         x1x2.first = x1x2.second = 0;
@@ -422,9 +436,6 @@ public:
                 std::vector<unsigned char> hash(picosha2::k_digest_size);
                 picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
                 qualities.emplace_back(hash.data(), 32, 256);
-            }
-            if (compression_level > 0) {
-                decompresser_context_queue.push(gr);
             }
         }  // Scope for disk_file
 
