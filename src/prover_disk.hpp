@@ -483,9 +483,10 @@ public:
                 req.plotId = id.data();
                 
                 GRResult res = grFetchProofForChallenge(gr, &req);
+                decompresser_context_queue.push(gr);
+
                 if (res != GRResult_OK) {
                     std::cout << "Got wrong result: " << static_cast<int>(res) << "\n";
-                    decompresser_context_queue.push(gr);
                     throw std::runtime_error("GRResult is not GRResult_OK.");
                 }
                 std::vector<Bits> uncompressed_xs;
@@ -493,7 +494,6 @@ public:
                     uncompressed_xs.push_back(Bits(req.fullProof[i], k));
                 }
                 xs = uncompressed_xs;
-                decompresser_context_queue.push(gr);
             }
 
             // Sorts them according to proof ordering, where
