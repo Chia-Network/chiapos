@@ -486,7 +486,9 @@ public:
                 decompresser_context_queue.push(gr);
 
                 if (res != GRResult_OK) {
-                    std::cout << "Got wrong result: " << static_cast<int>(res) << "\n";
+                    if (res == GRResult_NoProof) {
+                        throw std::runtime_error("GRResult_NoProof received");
+                    }
                     throw std::runtime_error("GRResult is not GRResult_OK.");
                 }
                 std::vector<Bits> uncompressed_xs;
