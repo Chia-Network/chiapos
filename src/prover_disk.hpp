@@ -58,8 +58,8 @@ class ContextQueue {
 public:
     ContextQueue() {}
 
-    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity) {
-        init(context_count, thread_count, no_cpu_affinity);
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
+        init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
     }
 
     void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
@@ -113,7 +113,7 @@ private:
     std::mutex dequeue_lock;
 };
 
-ContextQueue decompresser_context_queue(4, 10, false);
+ContextQueue decompresser_context_queue(4, 10, false, 7);
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
