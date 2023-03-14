@@ -62,7 +62,7 @@ public:
         init(context_count, thread_count, no_cpu_affinity);
     }
 
-    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity) {
+    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
         GreenReaperConfig cfg = {};
         cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
@@ -78,6 +78,10 @@ public:
                     queue.pop();
                 }
                 throw std::logic_error("Failed to create GRContext");
+            }
+            auto result = grPreallocateForCompressionLevel(gr, 32, maxCompressionLevel);
+            if (result != GRResult_OK) {
+                throw std::logic_error("Failed to allocate enough memory for contexts");
             }
             queue.push(gr);
         }
