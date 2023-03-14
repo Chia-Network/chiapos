@@ -300,54 +300,7 @@ public:
 
     uint8_t GetSize() const noexcept { return k; }
 
-    // This is intended to be throw-away code. Took from verifier.
-    bool CompareProofBits(const LargeBits& left, const LargeBits& right, uint8_t k)
-    {
-        uint16_t size = left.GetSize() / k;
-        assert(left.GetSize() == right.GetSize());
-        for (int16_t i = size - 1; i >= 0; i--) {
-            LargeBits left_val = left.Slice(k * i, k * (i + 1));
-            LargeBits right_val = right.Slice(k * i, k * (i + 1));
-            if (left_val < right_val) {
-                return true;
-            }
-            if (left_val > right_val) {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    LargeBits GetQualityStringFromVerifier(
-        LargeBits proof,
-        const uint8_t* challenge)
-    {
-        Bits challenge_bits = Bits(challenge, 256 / 8, 256);
-        uint16_t quality_index = challenge_bits.Slice(256 - 5).GetValue() << 1;
-
-        // Converts the proof from proof ordering to plot ordering
-        for (uint8_t table_index = 1; table_index < 7; table_index++) {
-            LargeBits new_proof;
-            uint16_t size = k * (1 << (table_index - 1));
-            for (int j = 0; j < (1 << (7 - table_index)); j += 2) {
-                LargeBits L = proof.Slice(j * size, (j + 1) * size);
-                LargeBits R = proof.Slice((j + 1) * size, (j + 2) * size);
-                if (CompareProofBits(L, R, k)) {
-                    new_proof += (L + R);
-                } else {
-                    new_proof += (R + L);
-                }
-            }
-            proof = new_proof;
-        }
-        // Hashes two of the x values, based on the quality index
-        std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
-        memcpy(hash_input.data(), challenge, 32);
-        proof.Slice(k * quality_index, k * (quality_index + 2)).ToBytes(hash_input.data() + 32);
-        std::vector<unsigned char> hash(picosha2::k_digest_size);
-        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-        return LargeBits(hash.data(), 32, 256);
-    }
+    uint8_t GetCompressionLevel() const noexcept { return compression_level; }
 
     // Given a challenge, returns a quality string, which is sha256(challenge + 2 adjecent x
     // values), from the 64 value proof. Note that this is more efficient than fetching all 64 x
