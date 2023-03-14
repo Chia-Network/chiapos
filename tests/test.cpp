@@ -16,7 +16,9 @@
 
 #include <set>
 
-#include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_session.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
@@ -1167,4 +1169,10 @@ TEST_CASE("FilteredDisk")
     }
 */
     remove("test_file.bin");
+}
+
+int main(int argc, char* argv[])
+{
+    int result = Catch::Session().run(argc, argv);
+    return result;
 }
