@@ -19,7 +19,7 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
-
+#include <atomic>
 #include <algorithm>  // std::min
 #include <fstream>
 #include <future>
@@ -58,8 +58,10 @@ class ContextQueue {
 public:
     ContextQueue() {}
 
-    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
-        init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) : offset(0) {
+        //init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
+        this->thread_count = thread_count;
+        this->no_cpu_affinity = no_cpu_affinity;
     }
 
     void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
@@ -88,21 +90,16 @@ public:
     }
 
     void push(GreenReaperContext* gr) {
-        std::unique_lock<std::mutex> lock(mutex);
-        queue.push(gr);
-        lock.unlock();
-        condition.notify_one();
+        grDestroyContext(gr);
     }
 
     GreenReaperContext* pop() {
-        std::unique_lock<std::mutex> lock(mutex);
-        while (queue.empty()) {
-            condition.wait(lock);
-        }
-        dequeue_lock.lock();
-        GreenReaperContext* gr = queue.front();
-        queue.pop();
-        dequeue_lock.unlock();
+        GreenReaperConfig cfg = {};
+        cfg.threadCount = thread_count;
+        cfg.disableCpuAffinity = no_cpu_affinity;
+        cfg.cpuOffset = (offset.load() % 100) * thread_count;
+        auto gr = grCreateContext(&cfg);
+        ++offset;
         return gr;
     }
 
@@ -111,6 +108,9 @@ private:
     std::mutex mutex;
     std::condition_variable condition;
     std::mutex dequeue_lock;
+    uint32_t thread_count;
+    bool no_cpu_affinity;
+    std::atomic<uint64_t> offset;
 };
 
 ContextQueue decompresser_context_queue(4, 10, false, 7);
