@@ -58,11 +58,10 @@ class ContextQueue {
 public:
     ContextQueue() {}
 
-    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) : offset(0) {
         //init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
         this->thread_count = thread_count;
         this->no_cpu_affinity = no_cpu_affinity;
-        this->offset = 0;
     }
 
     void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
@@ -98,9 +97,9 @@ public:
         GreenReaperConfig cfg = {};
         cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
-        cfg.cpuOffset = offset * thread_count;
+        cfg.cpuOffset = (offset.load() % 100) * thread_count;
         auto gr = grCreateContext(&cfg);
-        offset = (offset + 1) % 100;
+        ++offset;
         return gr;
     }
 
@@ -111,7 +110,7 @@ private:
     std::mutex dequeue_lock;
     uint32_t thread_count;
     bool no_cpu_affinity;
-    std::atomic<uint16_t> offset(0);
+    std::atomic<uint64_t> offset;
 };
 
 ContextQueue decompresser_context_queue(4, 10, false, 7);
