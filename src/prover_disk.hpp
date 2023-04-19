@@ -19,6 +19,7 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
+#include <chrono>
 #include <atomic>
 #include <algorithm>  // std::min
 #include <fstream>
@@ -372,7 +373,12 @@ public:
                     GreenReaperContext* gr = decompresser_context_queue.pop();
                     assert(gr);
 
+                    auto gr_start = std::chrono::high_resolution_clock::now();
                     auto res = grGetFetchQualitiesXPair(gr, &req);
+                    auto gr_end = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(gr_end - gr_start);
+                    std::cout << "Time taken GR qualities: " << duration.count() << " microseconds" << std::endl;
+
                     decompresser_context_queue.push(gr);
 
                     if (res != GRResult_OK) {
@@ -439,7 +445,12 @@ public:
                 req.compressionLevel = compression_level;
                 req.plotId = id.data();
                 
+                auto gr_start = std::chrono::high_resolution_clock::now();
                 GRResult res = grFetchProofForChallenge(gr, &req);
+                auto gr_end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(gr_end - gr_start);
+                std::cout << "Time taken GR full proof: " << duration.count() << " microseconds" << std::endl;
+
                 decompresser_context_queue.push(gr);
 
                 if (res != GRResult_OK) {
