@@ -19,8 +19,7 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
-#include <chrono>
-#include <atomic>
+
 #include <algorithm>  // std::min
 #include <fstream>
 #include <future>
@@ -59,13 +58,7 @@ class ContextQueue {
 public:
     ContextQueue() {}
 
-    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) : offset(0) {
-        //init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
-        this->thread_count = thread_count;
-        this->no_cpu_affinity = no_cpu_affinity;
-    }
-
-    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
+    ContextQueue(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
         GreenReaperConfig cfg = {};
         cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
@@ -90,17 +83,25 @@ public:
         }
     }
 
+    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
+    }
+
     void push(GreenReaperContext* gr) {
-        grDestroyContext(gr);
+        std::unique_lock<std::mutex> lock(mutex);
+        queue.push(gr);
+        lock.unlock();
+        condition.notify_one();
     }
 
     GreenReaperContext* pop() {
-        GreenReaperConfig cfg = {};
-        cfg.threadCount = thread_count;
-        cfg.disableCpuAffinity = no_cpu_affinity;
-        cfg.cpuOffset = (offset.load() % 100) * thread_count;
-        auto gr = grCreateContext(&cfg);
-        ++offset;
+        std::unique_lock<std::mutex> lock(mutex);
+        while (queue.empty()) {
+            condition.wait(lock);
+        }
+        dequeue_lock.lock();
+        GreenReaperContext* gr = queue.front();
+        queue.pop();
+        dequeue_lock.unlock();
         return gr;
     }
 
@@ -109,12 +110,9 @@ private:
     std::mutex mutex;
     std::condition_variable condition;
     std::mutex dequeue_lock;
-    uint32_t thread_count;
-    bool no_cpu_affinity;
-    std::atomic<uint64_t> offset;
 };
 
-ContextQueue decompresser_context_queue(4, 10, false, 7);
+ContextQueue decompresser_context_queue(1, 4, false, 7);
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
@@ -373,12 +371,7 @@ public:
                     GreenReaperContext* gr = decompresser_context_queue.pop();
                     assert(gr);
 
-                    auto gr_start = std::chrono::high_resolution_clock::now();
                     auto res = grGetFetchQualitiesXPair(gr, &req);
-                    auto gr_end = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(gr_end - gr_start);
-                    std::cout << "Time taken GR qualities: " << duration.count() << " microseconds" << std::endl;
-
                     decompresser_context_queue.push(gr);
 
                     if (res != GRResult_OK) {
@@ -445,12 +438,7 @@ public:
                 req.compressionLevel = compression_level;
                 req.plotId = id.data();
                 
-                auto gr_start = std::chrono::high_resolution_clock::now();
                 GRResult res = grFetchProofForChallenge(gr, &req);
-                auto gr_end = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(gr_end - gr_start);
-                std::cout << "Time taken GR full proof: " << duration.count() << " microseconds" << std::endl;
-
                 decompresser_context_queue.push(gr);
 
                 if (res != GRResult_OK) {
