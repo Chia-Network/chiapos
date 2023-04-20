@@ -431,7 +431,8 @@ public:
                 auto gr = decompresser_context_queue.pop();
 
                 uint32_t compressedProof[GR_POST_PROOF_CMP_X_COUNT] = {};
-                for (int i = 0; i < GR_POST_PROOF_CMP_X_COUNT; i++) {
+                uint8_t compressed_proof_size = (compression_level <= 8 ? GR_POST_PROOF_CMP_X_COUNT : (GR_POST_PROOF_CMP_X_COUNT / 2));
+                for (int i = 0; i < compressed_proof_size; i++) {
                     compressedProof[i] = xs[i].GetValue();
                 }
                 GRCompressedProofRequest req;
@@ -524,7 +525,7 @@ private:
         if (compression_level == 0) {
             return 1;
         }
-        if (compression_level < 8) {
+        if (compression_level <= 8) {
             return 2;
         }
         return 3;
