@@ -113,7 +113,7 @@ private:
     std::mutex dequeue_lock;
 };
 
-ContextQueue decompresser_context_queue(4, 10, false, 7);
+ContextQueue decompresser_context_queue;
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
