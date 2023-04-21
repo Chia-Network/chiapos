@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) try {
                 num_threads,
                 phases_flags);
     } else if (operation == "prove") {
-        decompresser_context_queue.init(1, 10, false, 9);
+        decompresser_context_queue.init(1, 10, false, 9, false, 0, false);
         if (argc < 3) {
             HelpAndQuit(options);
         }
