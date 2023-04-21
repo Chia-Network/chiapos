@@ -62,10 +62,28 @@ public:
         init(context_count, thread_count, no_cpu_affinity, maxCompressionLevel);
     }
 
-    void init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity, const uint32_t maxCompressionLevel) {
+    bool init(
+        uint32_t context_count,
+        uint32_t thread_count,
+        bool no_cpu_affinity,
+        const uint32_t maxCompressionLevel,
+        bool use_gpu_harvesting,
+        uint32_t gpu_index,
+        bool enforce_gpu_index,
+    ) {
         GreenReaperConfig cfg = {};
         cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
+        if (!use_gpu_harvesting) {
+            cfg.gpuRequest = GRGpuRequestKind_None;
+        } else {
+            if (enforce_gpu_index) {
+                cfg.gpuRequest = GRGpuRequestKind_ExactDevice;
+            } else {
+                cfg.gpuRequest = GRGpuRequestKind_FirstAvailable;
+            }
+        }
+        cfg.gpuDeviceIndex = gpu_index;
 
         for (uint32_t i = 0; i < context_count; i++) {
             cfg.cpuOffset = i * thread_count;
@@ -84,7 +102,16 @@ public:
                 throw std::logic_error("Failed to allocate enough memory for contexts");
             }
             queue.push(gr);
+            if (i == 0 && use_gpu_harvesting) {
+                if (grHasGpuDecompresser(gr)) {
+                    return true;
+                } else {
+                    // default to CPU
+                    cfg.gpuRequest = GRGpuRequestKind_None;
+                }
+            }
         }
+        return false;
     }
 
     void push(GreenReaperContext* gr) {
