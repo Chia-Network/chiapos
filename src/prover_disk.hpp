@@ -65,7 +65,7 @@ public:
         const uint32_t maxCompressionLevel,
         bool use_gpu_harvesting,
         uint32_t gpu_index,
-        bool enforce_gpu_index,
+        bool enforce_gpu_index
     ) {
         GreenReaperConfig cfg = {};
         cfg.threadCount = thread_count;
