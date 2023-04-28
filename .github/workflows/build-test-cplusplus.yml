@@ -25,7 +25,7 @@ jobs:
           sudo apt-get install valgrind libnuma-dev -y
           mkdir build
           cd build
-          cmake ../
+          cmake .. -DBLADEBIT_HARVESTING=ON
           cmake --build . -- -j "$(nproc)"
           ctest -j "$(nproc)" --output-on-failure
           valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j "$(nproc)" --output-on-failure
@@ -52,7 +52,7 @@ jobs:
           swapon -s
           mkdir build-asan
           cd build-asan
-          cmake -DCMAKE_BUILD_TYPE=ASAN ../
+          cmake .. -DCMAKE_BUILD_TYPE=ASAN -DBLADEBIT_HARVESTING=ON
           cmake --build . -- -j "$(nproc)"
           swapon -s
           ./RunTests
@@ -74,7 +74,7 @@ jobs:
           sudo apt-get install libnuma-dev -y
           mkdir build-tsan
           cd build-tsan
-          cmake -DCMAKE_BUILD_TYPE=TSAN ../
+          cmake .. -DCMAKE_BUILD_TYPE=TSAN -DBLADEBIT_HARVESTING=ON
           cmake --build . -- -j "$(nproc)"
           TSAN_OPTIONS="memory_limit_mb=6000" ./RunTests
 
@@ -94,6 +94,6 @@ jobs:
         run: |
           mkdir build-win
           cd build-win
-          cmake ..
+          cmake .. -DBLADEBIT_HARVESTING=ON
           cmake --build . --config Release -j "$(nproc)"
           ctest -C Release -j "$(nproc)"
