@@ -138,6 +138,13 @@ private:
 
 ContextQueue decompresser_context_queue;
 
+struct CacheEntryProof {
+    // Input
+    uint8_t* challenge;
+    uint32_t index;
+    // Output
+    LargeBits full_proof;
+};
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
@@ -150,6 +157,7 @@ public:
     {
         struct plot_header header{};
         this->compression_level = 0;
+        this->cache_entry_proof_position = 0;
         this->filename = filename;
 
         std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -289,6 +297,7 @@ public:
             deserializer >> compression_level;
         } else {
             compression_level = 0;
+            cache_entry_proof_position = 0;
         }
     }
 
@@ -304,6 +313,7 @@ public:
         table_begin_pointers = std::move(other.table_begin_pointers);
         C2 = std::move(other.C2);
         version = std::move(other.version);
+        cache_entry_proof_position = 0;
     }
 
     ~DiskProver()
@@ -328,6 +338,54 @@ public:
     uint8_t GetSize() const noexcept { return k; }
 
     uint8_t GetCompressionLevel() const noexcept { return compression_level; }
+
+    bool CompareProofBits(const LargeBits& left, const LargeBits& right, uint8_t k)
+    {
+        uint16_t size = left.GetSize() / k;
+        assert(left.GetSize() == right.GetSize());
+        for (int16_t i = size - 1; i >= 0; i--) {
+            LargeBits left_val = left.Slice(k * i, k * (i + 1));
+            LargeBits right_val = right.Slice(k * i, k * (i + 1));
+            if (left_val < right_val) {
+                return true;
+            }
+            if (left_val > right_val) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    LargeBits GetQualityStringFromProof(
+        LargeBits proof,
+        const uint8_t* challenge)
+    {
+        Bits challenge_bits = Bits(challenge, 256 / 8, 256);
+        uint16_t quality_index = challenge_bits.Slice(256 - 5).GetValue() << 1;
+
+        // Converts the proof from proof ordering to plot ordering
+        for (uint8_t table_index = 1; table_index < 7; table_index++) {
+            LargeBits new_proof;
+            uint16_t size = k * (1 << (table_index - 1));
+            for (int j = 0; j < (1 << (7 - table_index)); j += 2) {
+                LargeBits L = proof.Slice(j * size, (j + 1) * size);
+                LargeBits R = proof.Slice((j + 1) * size, (j + 2) * size);
+                if (CompareProofBits(L, R, k)) {
+                    new_proof += (L + R);
+                } else {
+                    new_proof += (R + L);
+                }
+            }
+            proof = new_proof;
+        }
+        // Hashes two of the x values, based on the quality index
+        std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+        memcpy(hash_input.data(), challenge, 32);
+        proof.Slice(k * quality_index, k * (quality_index + 2)).ToBytes(hash_input.data() + 32);
+        std::vector<unsigned char> hash(picosha2::k_digest_size);
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
+        return LargeBits(hash.data(), 32, 256);
+    }
 
     // Given a challenge, returns a quality string, which is sha256(challenge + 2 adjecent x
     // values), from the 64 value proof. Note that this is more efficient than fetching all 64 x
@@ -360,6 +418,9 @@ public:
             uint8_t last_5_bits = challenge[31] & 0x1f;
 
             for (uint64_t position : p7_entries) {
+                if (compression_level == 9) {
+                    continue;
+                }
                 // This inner loop goes from table 6 to table 1, getting the two backpointers,
                 // and following one of them.
                 uint64_t alt_position;
@@ -419,7 +480,43 @@ public:
             }
         }  // Scope for disk_file
 
+        if (compression_level == 9) {
+            uint8_t failure_bytes[32];
+            for (int i = 0; i < 32; i++) {
+                failure_bytes[i] = 255;
+            }
+            for (uint32_t i = 0; i < p7_entries_size; i++) {
+                try {
+                    auto proof = GetFullProof(challenge, i);
+                    qualities.push_back(GetQualityStringFromProof(proof, challenge));
+                } catch (const std::exception& error) {
+                    qualities.emplace_back(failure_bytes, 32, 256);
+                }
+            }
+        }
         return qualities;
+    }
+
+    bool FoundCachedProof(CacheEntryProof* proof_entry) {
+        for (uint32_t i = 0; i < cached_entry_proofs.size(); i++) {
+            if (
+                memcmp(cached_entry_proofs[i].challenge, proof_entry->challenge, sizeof(proof_entry->challenge)) == 0
+                && cached_entry_proofs[i].index == proof_entry->index
+            ) {
+                proof_entry->full_proof = cached_entry_proofs[i].full_proof;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void AddCachedProof(CacheEntryProof proof_entry) {
+        if (cached_entry_proofs.size() < 1000) {
+            cached_entry_proofs.emplace_back(proof_entry);
+        } else {
+            cached_entry_proofs[cache_entry_proof_position] = proof_entry;
+        }
+        cache_entry_proof_position = (cache_entry_proof_position + 1) % 1000;
     }
 
     // Given a challenge, and an index, returns a proof of space. This assumes GetQualities was
@@ -429,6 +526,14 @@ public:
     {
         LargeBits full_proof;
 
+        if (compression_level == 9) {
+            CacheEntryProof proof_entry;
+            memcpy(proof_entry.challenge, challenge, sizeof(challenge));
+            proof_entry.index = index;
+            if (FoundCachedProof(&proof_entry)) {
+                return proof_entry.full_proof;
+            }
+        }
         std::lock_guard<std::mutex> l(_mtx);
         {
             std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -488,6 +593,13 @@ public:
                 full_proof += x;
             }
         }  // Scope for disk_file
+        if (compression_level == 9) {
+            CacheEntryProof proof_entry;
+            memcpy(proof_entry.challenge, challenge, sizeof(challenge));
+            proof_entry.index = index;
+            proof_entry.full_proof = full_proof;
+            AddCachedProof(proof_entry);
+        }
         return full_proof;
     }
 
@@ -507,6 +619,8 @@ private:
     std::string filename;
     std::vector<uint8_t> memo;
     std::vector<uint8_t> id;  // Unique plot id
+    std::vector<CacheEntryProof> cached_entry_proofs;
+    uint32_t cache_entry_proof_position;
     uint8_t k;
     uint8_t compression_level;
     std::vector<uint64_t> table_begin_pointers;
