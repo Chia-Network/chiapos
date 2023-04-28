@@ -42,6 +42,7 @@ class CMakeBuild(build_ext):
         cmake_args = [
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + str(extdir),
             "-DPYTHON_EXECUTABLE=" + sys.executable,
+            "-BLADEBIT_HARVESTING=ON",  # Build with bladebit compressed harvesting support
         ]
 
         cfg = "Debug" if self.debug else "Release"
