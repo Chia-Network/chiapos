@@ -42,6 +42,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install CUDA Prerequisites
+        run: |
+            distro=ubuntu2004
+            arch=x86_64
+            sudo apt-key del 7fa2af80
+            wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb
+            sudo dpkg -i cuda-keyring_1.0-1_all.deb
+            sudo apt-get update
+            sudo apt-get install cuda
+
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
           sudo apt-get install libnuma-dev -y
@@ -68,6 +78,16 @@ jobs:
         uses: Chia-Network/actions/setjobenv@main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install CUDA Prerequisites
+        run: |
+            distro=ubuntu2004
+            arch=x86_64
+            sudo apt-key del 7fa2af80
+            wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb
+            sudo dpkg -i cuda-keyring_1.0-1_all.deb
+            sudo apt-get update
+            sudo apt-get install cuda
 
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
