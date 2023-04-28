@@ -37,11 +37,12 @@ FetchContent_MakeAvailable(cxxopts)
 FetchContent_Declare(
   bladebit
   GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-  GIT_TAG 197a83304786e5274e2f85d56a1e64a44dae5d47
+  GIT_TAG 3f3198fa5167e83a9e47f7b35c44fc580ba3ca53
 )
 set(BLADEBIT_ENABLE_TESTS "off" CACHE STRING "")
 FetchContent_MakeAvailable(bladebit)
 
+option(BLADEBIT_HARVESTING "Enable bladebit harvesting" OFF)
 
 FetchContent_Declare(
   gulrak
@@ -171,14 +172,6 @@ add_executable(RunTests
     ${BLAKE3_SRC}
 )
 
-target_link_libraries(RunTests
-  PRIVATE
-    fse
-    Threads::Threads
-    Catch2::Catch2WithMain
-    lib_bladebit
-)
-
 find_package(Threads REQUIRED)
 
 add_library(uint128 STATIC uint128_t/uint128_t.cpp)
@@ -188,23 +181,26 @@ target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
 # target_compile_features(RunTests PUBLIC cxx_std_17)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
-  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
-  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
-  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
-elseif (MSVC)
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128 lib_bladebit)
-  target_link_libraries(ProofOfSpace fse Threads::Threads uint128 lib_bladebit)
-  target_link_libraries(RunTests PRIVATE uint128)
-else()
-  target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads lib_bladebit)
-  target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads lib_bladebit)
-  target_link_libraries(RunTests PRIVATE stdc++fs)
+target_link_libraries(chiapos PRIVATE fse Threads::Threads
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+  $<$<BOOL:${BLADEBIT_HARVESTING}>:lib_bladebit_harvester>
+)
+target_link_libraries(ProofOfSpace PRIVATE fse Threads::Threads
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+  $<$<BOOL:${BLADEBIT_HARVESTING}>:lib_bladebit_harvester>
+)
+target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMain
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+  $<$<BOOL:${BLADEBIT_HARVESTING}>:lib_bladebit_harvester>
+)
+
+if (BLADEBIT_HARVESTING)   
+  target_compile_definitions(chiapos PUBLIC USE_GREEN_REAPER=1)
+  target_compile_definitions(ProofOfSpace PUBLIC USE_GREEN_REAPER=1)
+  target_compile_definitions(RunTests PUBLIC USE_GREEN_REAPER=1)
 endif()
 
 #enable_testing()

@@ -63,6 +63,17 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
+// Not thread safe
+inline void InitDecompresserQueueDefault(bool no_cuda = false)
+{
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+    decompresser_context_queue.init(1, (uint32_t)std::thread::hardware_concurrency(), false, 9, !no_cuda, 0, false);
+    initialized = true;
+}
+
 int main(int argc, char *argv[]) try {
     cxxopts::Options options(
         "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
@@ -161,7 +172,8 @@ int main(int argc, char *argv[]) try {
                 num_threads,
                 phases_flags);
     } else if (operation == "prove") {
-        decompresser_context_queue.init(1, 10, false, 9, false, 0, false);
+        InitDecompresserQueueDefault();
+
         if (argc < 3) {
             HelpAndQuit(options);
         }
@@ -239,6 +251,8 @@ int main(int argc, char *argv[]) try {
         }
         delete[] proof_bytes;
     } else if (operation == "check") {
+        InitDecompresserQueueDefault();
+
         uint32_t iterations = 1000;
         if (argc == 3) {
             iterations = std::stoi(argv[2]);
@@ -293,7 +307,7 @@ int main(int argc, char *argv[]) try {
         std::cout << "Exceptions: " << exceptions << std::endl;
         if (show_progress) { progress(4, 1, 1); }
     } else {
-        cout << "Invalid operation. Use create/prove/verify/check" << endl;
+        cout << "Invalid operation '" << operation << "'. Use create/prove/verify/check" << endl;
     }
     return 0;
 } catch (const cxxopts::OptionException &e) {

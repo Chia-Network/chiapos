@@ -99,7 +99,7 @@ public:
             }
             queue.push(gr);
             if (i == 0 && use_gpu_harvesting) {
-                if (grHasGpuDecompresser(gr)) {
+                if (grHasGpuDecompressor(gr)) {
                     return true;
                 } else {
                     // default to CPU
