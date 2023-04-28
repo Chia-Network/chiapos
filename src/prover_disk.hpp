@@ -498,6 +498,7 @@ public:
     }
 
     bool FoundCachedProof(CacheEntryProof* proof_entry) {
+        std::lock_guard<std::mutex> l(_cache_mtx);
         for (uint32_t i = 0; i < cached_entry_proofs.size(); i++) {
             if (
                 memcmp(cached_entry_proofs[i].challenge, proof_entry->challenge, sizeof(proof_entry->challenge)) == 0
@@ -511,6 +512,7 @@ public:
     }
 
     void AddCachedProof(CacheEntryProof proof_entry) {
+        std::lock_guard<std::mutex> l(_cache_mtx);
         if (cached_entry_proofs.size() < 1000) {
             cached_entry_proofs.emplace_back(proof_entry);
         } else {
@@ -616,6 +618,7 @@ public:
 private:
     uint16_t version{VERSION};
     mutable std::mutex _mtx;
+    mutable std::mutex _cache_mtx;
     std::string filename;
     std::vector<uint8_t> memo;
     std::vector<uint8_t> id;  // Unique plot id
