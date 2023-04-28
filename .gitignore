@@ -26,3 +26,5 @@ build
 *.whl
 venv
 build-tsan
+build-*
+cmake-build*
