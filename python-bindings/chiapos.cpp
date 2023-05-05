@@ -105,6 +105,7 @@ PYBIND11_MODULE(chiapos, m)
                 return py::bytes(reinterpret_cast<const char*>(id.data()), id.size());
             })
         .def("get_size", [](DiskProver &dp) { return dp.GetSize(); })
+        .def("get_compresion_level", [](DiskProver &dp) { return dp.GetCompressionLevel(); })
         .def("get_filename", [](DiskProver &dp) { return dp.GetFilename(); })
         .def(
             "get_qualities_for_challenge",
@@ -179,6 +180,10 @@ PYBIND11_MODULE(chiapos, m)
                 delete[] quality_buf;
                 return stdx::optional<py::bytes>(quality_py);
             });
+
+    py::class_<ContextQueue>(m, "ContextQueue")
+        .def("init", &ContextQueue::init);
+    m.attr("decompresser_context_queue") = &decompresser_context_queue;
 }
 
 #endif  // PYTHON_BINDINGS_PYTHON_BINDINGS_HPP_
