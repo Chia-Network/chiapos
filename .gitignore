@@ -25,3 +25,6 @@ build
 .mypy_cache
 *.whl
 venv
+build-tsan
+build-*
+cmake-build*
