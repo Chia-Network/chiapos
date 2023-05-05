@@ -32,14 +32,15 @@
 #include <condition_variable>
 
 #include "../lib/include/picosha2.hpp"
-#define uint32 uint32_t
-#include "harvesting/GreenReaper.h"
-#include "plotting/Compression.h"
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
 #include "entry_sizes.hpp"
 #include "serialize.hpp"
 #include "util.hpp"
+
+#if USE_GREEN_REAPER
+    #include "bladebit/GreenReaperPortable.h"
+#endif
 
 #define CHIA_PLOT_V2_MAGIC       0x544F4C50ul   // "PLOT"
 #define CHIA_PLOT_VERSION_2_0_0  2
@@ -53,7 +54,9 @@ struct plot_header {
     uint8_t fmt_desc[50];
 };
 
-
+#if USE_GREEN_REAPER
+static GRApi _grApi{};
+static bool _dcompressor_queue_initialized = false;
 class ContextQueue {
 public:
     ContextQueue() {}
@@ -62,12 +65,48 @@ public:
         uint32_t context_count,
         uint32_t thread_count,
         bool no_cpu_affinity,
-        const uint32_t maxCompressionLevel,
+        const uint32_t max_compression_level,
         bool use_gpu_harvesting,
         uint32_t gpu_index,
         bool enforce_gpu_index
     ) {
+        assert(!_dcompressor_queue_initialized);
+        _dcompressor_queue_initialized = true;
+
+        // Populate the API
+        #if _WIN32
+            #define GR_LIB_PREFIX ""
+            #define GR_LIB_EXT ".dll"
+        #else
+            #define GR_LIB_PREFIX "lib"
+
+            #if __APPLE__
+                #define GR_LIB_EXT ".dylib"
+            #else
+                #define GR_LIB_EXT ".so"
+            #endif
+        #endif
+
+        void* lib = grLoadModule(GR_LIB_PREFIX "bladebit_harvester" GR_LIB_EXT);
+
+        if (lib == nullptr) {
+            std::stringstream err; err << "Failed to load bladebit_harvester with error: '" << dlerror() << "'";
+            throw std::runtime_error(err.str());
+        }
+        #undef GR_LIB_PREFIX
+        #undef GR_LIB_EXT
+
+        // Init GR API
+        {
+            const auto r = grPopulateApiFromModule(lib, &_grApi, sizeof(GRApi), GR_API_VERSION);
+            if (r != GRResult_OK) {
+                std::stringstream err; err << "Failed to initialize GR API with error " << r;
+                throw std::runtime_error(err.str());
+            }
+        }
+
         GreenReaperConfig cfg = {};
+        cfg.apiVersion = GR_API_VERSION;
         cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
         if (!use_gpu_harvesting) {
@@ -82,24 +121,30 @@ public:
         cfg.gpuDeviceIndex = gpu_index;
 
         for (uint32_t i = 0; i < context_count; i++) {
+            
             cfg.cpuOffset = i * thread_count;
-            auto gr = grCreateContext(&cfg);
+            GreenReaperContext* gr = nullptr;
+            const auto r = _grApi.CreateContext(&gr, &cfg, sizeof(cfg));
 
-            if (gr == nullptr) {
+            if (r != GRResult_OK) {
                 // Destroy contexts that were already created
                 while (!queue.empty()) {
-                    grDestroyContext( queue.front() );
+                    _grApi.DestroyContext( queue.front() );
                     queue.pop();
                 }
-                throw std::logic_error("Failed to create GRContext");
+                std::stringstream err; err << "Failed to create GRContext with error " << r;
+                throw std::runtime_error(err.str());
             }
-            auto result = grPreallocateForCompressionLevel(gr, 32, maxCompressionLevel);
+            assert(gr);
+
+            auto result = _grApi.PreallocateForCompressionLevel(gr, 32, max_compression_level);
             if (result != GRResult_OK) {
-                throw std::logic_error("Failed to allocate enough memory for contexts");
+                std::stringstream err; err << "Failed to preallocate memory for contexts with error " << r;
+                throw std::runtime_error(err.str());
             }
             queue.push(gr);
             if (i == 0 && use_gpu_harvesting) {
-                if (grHasGpuDecompressor(gr)) {
+                if (_grApi.HasGpuDecompressor(gr) == GR_TRUE) {
                     return true;
                 } else {
                     // default to CPU
@@ -138,13 +183,70 @@ private:
 
 ContextQueue decompresser_context_queue;
 
-struct CacheEntryProof {
-    // Input
-    uint8_t* challenge;
-    uint32_t index;
-    // Output
-    LargeBits full_proof;
+class ProofCache {
+    static constexpr uint32_t MAX_ENTRIES = 64;
+
+    struct Entry {
+        alignas(16) uint8_t challenge[32];
+        uint32_t index;
+    };
+
+    uint32_t cache_entry_proof_position = 0;
+    std::vector<Entry> challenges;
+    std::vector<LargeBits> full_proofs;
+    mutable std::mutex lock;
+
+public:
+    inline ProofCache() = default;
+    inline ProofCache(ProofCache&& other)
+        : cache_entry_proof_position(other.cache_entry_proof_position)
+        , challenges(std::move(other.challenges))
+        , full_proofs(std::move(other.full_proofs))
+    {
+        other.cache_entry_proof_position = 0;
+    }
+
+    inline ProofCache(ProofCache const& other) = delete;
+
+    inline bool FoundCachedProof(const uint32_t index, const uint8_t* challenge, LargeBits& out_full_proof) {
+        std::lock_guard<std::mutex> l(lock);
+
+        Entry entry;
+        memcpy(entry.challenge, challenge, sizeof(entry.challenge));
+        entry.index = index;
+
+        for (uint32_t i = 0; i < challenges.size(); i++) {
+            if (memcmp(&challenges[i], &entry, sizeof(Entry)) == 0) {
+                out_full_proof = full_proofs[i];
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline void CacheProof(const uint32_t index, const uint8_t* challenge, const LargeBits& full_proof) {
+        std::lock_guard<std::mutex> l(lock);
+
+        Entry entry;
+        memcpy(entry.challenge, challenge, sizeof(entry.challenge));
+        entry.index = index;
+
+        if (challenges.size() < MAX_ENTRIES) {
+            challenges.emplace_back(entry);
+            full_proofs.emplace_back(full_proof);
+        } else {
+            challenges[cache_entry_proof_position] = entry;
+            full_proofs[cache_entry_proof_position] = full_proof;
+        }
+        cache_entry_proof_position = (cache_entry_proof_position + 1) % MAX_ENTRIES;
+    }
+
+    static_assert(alignof(ProofCache::Entry) == 16);
 };
+
+#endif // USE_GREEN_REAPER
+
+
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
 // of space, for a given challenge.
@@ -157,7 +259,6 @@ public:
     {
         struct plot_header header{};
         this->compression_level = 0;
-        this->cache_entry_proof_position = 0;
         this->filename = filename;
 
         std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -236,9 +337,12 @@ public:
                 uint8_t compression_level;
                 SafeRead(disk_file, &compression_level, sizeof(compression_level));
                 this->compression_level = compression_level;
-                std::cout << "Compression level: " << (int)compression_level << "\n";
             }
         }
+        #if !defined( USE_GREEN_REAPER )
+            if (this->compression_level > 0)
+                throw std::logic_error("Harvester does not support compressed plots.");
+        #endif
 
         this->table_begin_pointers = std::vector<uint64_t>(11, 0);
         this->C2 = std::vector<uint64_t>();
@@ -297,13 +401,20 @@ public:
             deserializer >> compression_level;
         } else {
             compression_level = 0;
-            cache_entry_proof_position = 0;
         }
+
+        #if !defined( USE_GREEN_REAPER )
+            if (compression_level > 0)
+                throw std::runtime_error("Harvester does not support compressed plots.");
+        #endif
     }
 
     DiskProver(DiskProver const&) = delete;
 
     DiskProver(DiskProver&& other) noexcept
+        #if USE_GREEN_REAPER
+            : cached_proofs(std::move(other.cached_proofs))
+        #endif
     {
         filename = std::move(other.filename);
         memo = std::move(other.memo);
@@ -313,7 +424,6 @@ public:
         table_begin_pointers = std::move(other.table_begin_pointers);
         C2 = std::move(other.C2);
         version = std::move(other.version);
-        cache_entry_proof_position = 0;
     }
 
     ~DiskProver()
@@ -418,9 +528,11 @@ public:
             uint8_t last_5_bits = challenge[31] & 0x1f;
 
             for (uint64_t position : p7_entries) {
-                if (compression_level == 9) {
-                    continue;
-                }
+                #if USE_GREEN_REAPER
+                    if (compression_level >= 9) {
+                        break;
+                    }
+                #endif
                 // This inner loop goes from table 6 to table 1, getting the two backpointers,
                 // and following one of them.
                 uint64_t alt_position;
@@ -440,33 +552,37 @@ public:
                 }
                 uint128_t new_line_point = ReadLinePoint(disk_file, GetEndTable(), position);
                 std::pair<uint64_t, uint64_t> x1x2;
-                if (compression_level > 0) {
-                    GRCompressedQualitiesRequest req;
-                    req.compressionLevel = compression_level;
-                    req.plotId = id.data();
-                    req.challenge = challenge;
-                    req.xLinePoints[0].hi = (uint64_t)(new_line_point >> 64);
-                    req.xLinePoints[0].lo = (uint64_t)new_line_point;
-                    if (compression_level >= 6) {
-                        uint128_t alt_line_point = ReadLinePoint(disk_file, GetEndTable(), alt_position);
-                        req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
-                        req.xLinePoints[1].lo = (uint64_t)alt_line_point;
-                    }
+                
+                #if USE_GREEN_REAPER
+                    if (compression_level > 0) {
+                        GRCompressedQualitiesRequest req;
+                        req.compressionLevel = compression_level;
+                        req.plotId = id.data();
+                        req.challenge = challenge;
+                        req.xLinePoints[0].hi = (uint64_t)(new_line_point >> 64);
+                        req.xLinePoints[0].lo = (uint64_t)new_line_point;
+                        if (compression_level >= 6) {
+                            uint128_t alt_line_point = ReadLinePoint(disk_file, GetEndTable(), alt_position);
+                            req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
+                            req.xLinePoints[1].lo = (uint64_t)alt_line_point;
+                        }
 
-                    GreenReaperContext* gr = decompresser_context_queue.pop();
-                    assert(gr);
+                        GreenReaperContext* gr = decompresser_context_queue.pop();
+                        assert(gr);
 
-                    auto res = grGetFetchQualitiesXPair(gr, &req);
-                    decompresser_context_queue.push(gr);
+                        auto res = _grApi.GetFetchQualitiesXPair(gr, &req);
+                        decompresser_context_queue.push(gr);
 
-                    if (res != GRResult_OK) {
-                        // Expect this will result in failure in a later step.
-                        x1x2.first = x1x2.second = 0;
-                    } else {
-                        x1x2.first = req.x1;
-                        x1x2.second = req.x2;
-                    }
-                } else {
+                        if (res != GRResult_OK) {
+                            // Expect this will result in failure in a later step.
+                            x1x2.first = x1x2.second = 0;
+                        } else {
+                            x1x2.first = req.x1;
+                            x1x2.second = req.x2;
+                        }
+                    } else 
+                #endif // #if USE_GREEN_REAPER
+                {
                     x1x2 = Encoding::LinePointToSquare(new_line_point);
                 }
                 // The final two x values (which are stored in the same location) are hashed
@@ -480,45 +596,23 @@ public:
             }
         }  // Scope for disk_file
 
-        if (compression_level == 9) {
-            uint8_t failure_bytes[32];
-            for (int i = 0; i < 32; i++) {
-                failure_bytes[i] = 255;
-            }
-            for (uint32_t i = 0; i < p7_entries_size; i++) {
-                try {
-                    auto proof = GetFullProof(challenge, i);
-                    qualities.push_back(GetQualityStringFromProof(proof, challenge));
-                } catch (const std::exception& error) {
-                    qualities.emplace_back(failure_bytes, 32, 256);
+        #if USE_GREEN_REAPER
+            if (compression_level >= 9) {
+                uint8_t failure_bytes[32];
+                for (int i = 0; i < 32; i++) {
+                    failure_bytes[i] = 255;
+                }
+                for (uint32_t i = 0; i < p7_entries_size; i++) {
+                    try {
+                        auto proof = GetFullProof(challenge, i);
+                        qualities.push_back(GetQualityStringFromProof(proof, challenge));
+                    } catch (const std::exception& error) {
+                        qualities.emplace_back(failure_bytes, 32, 256);
+                    }
                 }
             }
-        }
+        #endif
         return qualities;
-    }
-
-    bool FoundCachedProof(CacheEntryProof* proof_entry) {
-        std::lock_guard<std::mutex> l(_cache_mtx);
-        for (uint32_t i = 0; i < cached_entry_proofs.size(); i++) {
-            if (
-                memcmp(cached_entry_proofs[i].challenge, proof_entry->challenge, sizeof(proof_entry->challenge)) == 0
-                && cached_entry_proofs[i].index == proof_entry->index
-            ) {
-                proof_entry->full_proof = cached_entry_proofs[i].full_proof;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void AddCachedProof(CacheEntryProof proof_entry) {
-        std::lock_guard<std::mutex> l(_cache_mtx);
-        if (cached_entry_proofs.size() < 1000) {
-            cached_entry_proofs.emplace_back(proof_entry);
-        } else {
-            cached_entry_proofs[cache_entry_proof_position] = proof_entry;
-        }
-        cache_entry_proof_position = (cache_entry_proof_position + 1) % 1000;
     }
 
     // Given a challenge, and an index, returns a proof of space. This assumes GetQualities was
@@ -527,15 +621,13 @@ public:
     LargeBits GetFullProof(const uint8_t* challenge, uint32_t index, bool parallel_read = true)
     {
         LargeBits full_proof;
-
-        if (compression_level == 9) {
-            CacheEntryProof proof_entry;
-            memcpy(proof_entry.challenge, challenge, sizeof(challenge));
-            proof_entry.index = index;
-            if (FoundCachedProof(&proof_entry)) {
-                return proof_entry.full_proof;
+        
+        #if USE_GREEN_REAPER
+            if (compression_level >= 9 && cached_proofs.FoundCachedProof(index, challenge, full_proof)) {
+                return full_proof;
             }
-        }
+        #endif
+
         std::lock_guard<std::mutex> l(_mtx);
         {
             std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
@@ -557,34 +649,35 @@ public:
                 xs = GetInputs(p7_entries[index], 6, &disk_file); // Passing in a disk_file disabled the parallel reads
             }
 
-            if (compression_level > 0) {
-                auto gr = decompresser_context_queue.pop();
+            #if USE_GREEN_REAPER
+                if (compression_level > 0) {
+                    auto gr = decompresser_context_queue.pop();
 
-                uint32_t compressedProof[GR_POST_PROOF_CMP_X_COUNT] = {};
-                uint8_t compressed_proof_size = (compression_level <= 8 ? GR_POST_PROOF_CMP_X_COUNT : (GR_POST_PROOF_CMP_X_COUNT / 2));
-                for (int i = 0; i < compressed_proof_size; i++) {
-                    compressedProof[i] = xs[i].GetValue();
-                }
-                GRCompressedProofRequest req;
-                memcpy(req.compressedProof, compressedProof, sizeof(req.compressedProof));
-                req.compressionLevel = compression_level;
-                req.plotId = id.data();
-                
-                GRResult res = grFetchProofForChallenge(gr, &req);
-                decompresser_context_queue.push(gr);
+                    GRCompressedProofRequest req{};
+                    req.compressionLevel = compression_level;
+                    req.plotId = id.data();
 
-                if (res != GRResult_OK) {
-                    if (res == GRResult_NoProof) {
-                        throw std::runtime_error("GRResult_NoProof received");
+                    uint8_t compressed_proof_size = (compression_level <= 8 ? GR_POST_PROOF_CMP_X_COUNT : (GR_POST_PROOF_CMP_X_COUNT / 2));
+                    for (int i = 0; i < compressed_proof_size; i++) {
+                        req.compressedProof[i] = xs[i].GetValue();
                     }
-                    throw std::runtime_error("GRResult is not GRResult_OK.");
+
+                    GRResult res = _grApi.FetchProofForChallenge(gr, &req);
+                    decompresser_context_queue.push(gr);
+
+                    if (res != GRResult_OK) {
+                        if (res == GRResult_NoProof) {
+                            throw std::runtime_error("GRResult_NoProof received");
+                        }
+                        throw std::runtime_error("GRResult is not GRResult_OK.");
+                    }
+                    std::vector<Bits> uncompressed_xs;
+                    for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
+                        uncompressed_xs.push_back(Bits(req.fullProof[i], k));
+                    }
+                    xs = uncompressed_xs;
                 }
-                std::vector<Bits> uncompressed_xs;
-                for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
-                    uncompressed_xs.push_back(Bits(req.fullProof[i], k));
-                }
-                xs = uncompressed_xs;
-            }
+            #endif
 
             // Sorts them according to proof ordering, where
             // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not stored in
@@ -595,13 +688,12 @@ public:
                 full_proof += x;
             }
         }  // Scope for disk_file
-        if (compression_level == 9) {
-            CacheEntryProof proof_entry;
-            memcpy(proof_entry.challenge, challenge, sizeof(challenge));
-            proof_entry.index = index;
-            proof_entry.full_proof = full_proof;
-            AddCachedProof(proof_entry);
-        }
+
+        #if USE_GREEN_REAPER
+            if (compression_level >= 9) {
+                cached_proofs.CacheProof(index, challenge, full_proof);
+            }
+        #endif
         return full_proof;
     }
 
@@ -618,16 +710,16 @@ public:
 private:
     uint16_t version{VERSION};
     mutable std::mutex _mtx;
-    mutable std::mutex _cache_mtx;
     std::string filename;
     std::vector<uint8_t> memo;
     std::vector<uint8_t> id;  // Unique plot id
-    std::vector<CacheEntryProof> cached_entry_proofs;
-    uint32_t cache_entry_proof_position;
     uint8_t k;
     uint8_t compression_level;
     std::vector<uint64_t> table_begin_pointers;
     std::vector<uint64_t> C2;
+    #if USE_GREEN_REAPER
+        ProofCache cached_proofs;
+    #endif
 
     // Using this method instead of simply seeking will prevent segfaults that would arise when
     // continuing the process of looking up qualities.
@@ -680,13 +772,34 @@ private:
         uint8_t table_index,
         uint64_t position
     ) {
-        CompressionInfo info;
-        bool is_compressed = compression_level > 0 && table_index == GetEndTable();
-        if (is_compressed) {
-            info = GetCompressionInfoForLevel(compression_level);
-        }
+        size_t compressed_park_size = 0;
+        uint32_t compressed_stub_size_bits = 0;
+        double compressed_ans_r_value = 0;
+
+        const bool is_compressed = compression_level > 0 && table_index == GetEndTable();
+        (void)is_compressed;
+
+        #if USE_GREEN_REAPER
+            if (is_compressed) {
+                GRCompressionInfo info{};
+                const auto r = _grApi.GetCompressionInfo(&info, sizeof(info), k, compression_level);
+                if (r != GRResult_OK) {
+                    std::stringstream err; err << "Failed to obtain compression info with error " << r;
+                    throw std::runtime_error(err.str());
+                }
+                
+                compressed_park_size = info.tableParkSize;;
+                compressed_stub_size_bits = info.subtSizeBits;
+                compressed_ans_r_value = info.ansRValue;
+            }
+        #else
+            (void)compressed_stub_size_bits;
+            (void)compressed_ans_r_value;
+            (void)compressed_park_size;
+        #endif
+
         uint64_t park_index = position / kEntriesPerPark;
-        uint32_t park_size_bits = (is_compressed ? info.tableParkSize : EntrySizes::CalculateParkSize(k, table_index)) * 8;
+        uint32_t park_size_bits = (is_compressed ? compressed_park_size : EntrySizes::CalculateParkSize(k, table_index)) * 8;
 
         SafeSeek(disk_file, table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
 
@@ -697,12 +810,12 @@ private:
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
 
         // Reads EPP stubs
-        uint32_t stubs_size_bits = (is_compressed ? (Util::ByteAlign((kEntriesPerPark - 1) * info.subtSizeBits) / 8) : EntrySizes::CalculateStubsSize(k)) * 8;
+        uint32_t stubs_size_bits = (is_compressed ? (Util::ByteAlign((kEntriesPerPark - 1) * compressed_stub_size_bits) / 8) : EntrySizes::CalculateStubsSize(k)) * 8;
         auto* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
         SafeRead(disk_file, stubs_bin, stubs_size_bits / 8);
 
         // Reads EPP deltas        
-        uint32_t max_deltas_size_bits = (is_compressed ? info.tableParkSize - (line_point_size + stubs_size_bits) : EntrySizes::CalculateMaxDeltasSize(k, table_index)) * 8;
+        uint32_t max_deltas_size_bits = (is_compressed ? compressed_park_size - (line_point_size + stubs_size_bits) : EntrySizes::CalculateMaxDeltasSize(k, table_index)) * 8;
         auto* deltas_bin = new uint8_t[max_deltas_size_bits / 8];
 
         // Reads the size of the encoded deltas object
@@ -725,13 +838,13 @@ private:
             SafeRead(disk_file, deltas_bin, encoded_deltas_size);
 
             // Decodes the deltas
-            double R = (is_compressed ? info.ansRValue : kRValues[table_index - 1]);
+            double R = (is_compressed ? compressed_ans_r_value : kRValues[table_index - 1]);
             deltas =
                 Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
         }
 
         uint32_t start_bit = 0;
-        uint8_t stub_size = (is_compressed ? info.subtSizeBits : k - kStubMinusBits);
+        uint8_t stub_size = (uint8_t)(is_compressed ? compressed_stub_size_bits : k - kStubMinusBits);
         uint64_t sum_deltas = 0;
         uint64_t sum_stubs = 0;
         for (uint32_t i = 0;
