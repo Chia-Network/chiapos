@@ -63,6 +63,17 @@ void HelpAndQuit(cxxopts::Options options)
     exit(0);
 }
 
+// Not thread safe
+inline void InitDecompresserQueueDefault(bool no_cuda = false)
+{
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+    decompresser_context_queue.init(1, (uint32_t)std::thread::hardware_concurrency(), false, 9, !no_cuda, 0, false);
+    initialized = true;
+}
+
 int main(int argc, char *argv[]) try {
     cxxopts::Options options(
         "ProofOfSpace", "Utility for plotting, generating and verifying proofs of space.");
@@ -161,6 +172,8 @@ int main(int argc, char *argv[]) try {
                 num_threads,
                 phases_flags);
     } else if (operation == "prove") {
+        InitDecompresserQueueDefault();
+
         if (argc < 3) {
             HelpAndQuit(options);
         }
@@ -238,6 +251,8 @@ int main(int argc, char *argv[]) try {
         }
         delete[] proof_bytes;
     } else if (operation == "check") {
+        InitDecompresserQueueDefault();
+
         uint32_t iterations = 1000;
         if (argc == 3) {
             iterations = std::stoi(argv[2]);
@@ -247,6 +262,8 @@ int main(int argc, char *argv[]) try {
         Verifier verifier = Verifier();
 
         uint32_t success = 0;
+        uint32_t failures = 0;
+        uint32_t exceptions = 0;
         std::vector<uint8_t> id_bytes = prover.GetId();
         k = prover.GetSize();
 
@@ -257,10 +274,10 @@ int main(int argc, char *argv[]) try {
             vector<unsigned char> hash(picosha2::k_digest_size);
             picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
 
-            try {
-                vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
+            vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
 
-                for (uint32_t i = 0; i < qualities.size(); i++) {
+            for (uint32_t i = 0; i < qualities.size(); i++) {
+                try {
                     LargeBits proof = prover.GetFullProof(hash.data(), i, parallel_read);
                     uint8_t *proof_data = new uint8_t[proof.GetSize() / 8];
                     proof.ToBytes(proof_data);
@@ -275,19 +292,22 @@ int main(int argc, char *argv[]) try {
                         success++;
                     } else {
                         cout << "Proof verification failed." << endl;
+                        failures += 1;
                     }
                     delete[] proof_data;
+                } catch (const std::exception& error) {
+                    cout << "Threw: " << error.what() << endl;
+                    exceptions += 1;
                 }
-            } catch (const std::exception& error) {
-                cout << "Threw: " << error.what() << endl;
-                continue;
             }
         }
         std::cout << "Total success: " << success << "/" << iterations << ", "
                   << (success * 100 / static_cast<double>(iterations)) << "%." << std::endl;
+        std::cout << "Total failures: " << failures << std::endl;
+        std::cout << "Exceptions: " << exceptions << std::endl;
         if (show_progress) { progress(4, 1, 1); }
     } else {
-        cout << "Invalid operation. Use create/prove/verify/check" << endl;
+        cout << "Invalid operation '" << operation << "'. Use create/prove/verify/check" << endl;
     }
     return 0;
 } catch (const cxxopts::OptionException &e) {
