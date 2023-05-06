@@ -144,6 +144,9 @@ jobs:
         sudo mkdir -p /usr/local/include/bladebit
         sudo cp -r include/* /usr/local/include/bladebit/
         sudo cp lib/libbladebit_harvester.so /usr/lib64/libbladebit_harvester.so
+        ls -la /usr/local/include
+        ls -la /usr/local/include/bladebit
+        
         popd
         ls -la
         rm -rf green_reaper
