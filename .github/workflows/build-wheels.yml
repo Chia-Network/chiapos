@@ -190,18 +190,16 @@ jobs:
   
           mkdir -p green_reaper && pushd green_reaper
           tar -xzvf ../green_reaper.tar.gz
-  
-          sudo mkdir -p /usr/local/include/bladebit
-          sudo cp -r include/* /usr/local/include/bladebit/
-          sudo cp lib/libbladebit_harvester.so /usr/lib64/libbladebit_harvester.so
-          ls -la /usr/local/include
-          ls -la /usr/local/include/bladebit
           popd
-          ls -la
-          
+  
           mkdir -p dist
-          ls -la
           cp green_reaper/lib/libbladebit_harvester.so dist/
+
+          cp -r green_reaper/include ./src/bladebit
+          sudo cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
+          ls -la src/bladebit
+          ls -la /usr/lib
+          ls -la
           rm -rf green_reaper
           
         CIBW_BEFORE_BUILD_LINUX: >
