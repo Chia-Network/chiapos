@@ -200,7 +200,7 @@ jobs:
           ls -la src/bladebit
           ls -la /usr/lib
           ls -la
-          rm -rf green_reaper
+          # rm -rf green_reaper
           
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
@@ -218,7 +218,9 @@ jobs:
     - name: Pack Bladebit Harvesrter
       run: |
         set -exo pipefail
-        sudo cp /usr/lib/libbladebit_harvester.so ./dist/
+        ls -la
+        ls -la dist
+        cp cp green_reaper/lib/libbladebit_harvester.so dist/
         ls -la dist
 
     - name: Upload artifacts
