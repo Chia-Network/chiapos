@@ -141,8 +141,8 @@ jobs:
         mkdir -p green_reaper && pushd green_reaper
         tar -xzvf ../green_reaper.tar.gz
 
-        sudo mkdir -p /usr/local/include
-        sudo cp -r include /usr/local/include/bladebit
+        sudo mkdir -p /usr/local/include/bladebit
+        sudo cp -r include/* /usr/local/include/bladebit/
         sudo cp lib/libbladebit_harvester.so /usr/lib64/libbladebit_harvester.so
         popd
         ls -la
