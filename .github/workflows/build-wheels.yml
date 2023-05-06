@@ -23,23 +23,23 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - name: macOS
-            matrix: macos
-            runs-on:
-              arm: [macOS, ARM64]
-              intel: [macos-latest]
-            cibw-archs-macos:
-              arm: arm64
-              intel: x86_64
+          # - name: macOS
+          #   matrix: macos
+          #   runs-on:
+          #     arm: [macOS, ARM64]
+          #     intel: [macos-latest]
+          #   cibw-archs-macos:
+          #     arm: arm64
+          #     intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              arm: [Linux, ARM64]
+              # arm: [Linux, ARM64]
               intel: [ubuntu-latest]
-          - name: Windows
-            matrix: windows
-            runs-on:
-              intel: [windows-latest]
+          # - name: Windows
+          #   matrix: windows
+          #   runs-on:
+          #     intel: [windows-latest]
         python:
           - major-dot-minor: '3.7'
             cibw-build: 'cp37-*'
@@ -72,8 +72,8 @@ jobs:
               intel: manylinux2014
             matrix: '3.11'
         arch:
-          - name: ARM
-            matrix: arm
+          # - name: ARM
+          #   matrix: arm
           - name: Intel
             matrix: intel
         exclude:
@@ -119,6 +119,22 @@ jobs:
     - name: Install pipx
       run: |
         pip install pipx
+
+    - name: Fetch Bladebit Harvesrter
+      run: |
+        set -exo pipefail
+        curl https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha3-linux-x86-64.tar.gz > green_reaper.tar.gz
+        mkdir -p green_reaper && pushd green_reaper
+        tar -xzvf ../green_reaper.tar.gz
+        sudo mkdir -p /usr/local/include
+        sudo cp -r include /usr/local/include/bladebit
+        sudo cp lib/lib/libbladebit_harvester.so /usr/lib64/libbladebit_harvester.so
+        popd
+        ls -la
+        mkdir -p dist
+        ls -la
+        cp green_reaper/lib/libbladebit_harvester.so dist/
+
 
     - name: Build and test
       env:
