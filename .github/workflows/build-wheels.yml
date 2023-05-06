@@ -215,13 +215,13 @@ jobs:
       run:
         pipx run --spec='cibuildwheel==2.9.0' cibuildwheel --output-dir dist 2>&1
 
-    - name: Pack Bladebit Harvesrter
-      run: |
-        set -exo pipefail
-        ls -la
-        ls -la dist
-        cp green_reaper/lib/libbladebit_harvester.so dist/
-        ls -la dist
+    # - name: Pack Bladebit Harvesrter
+    #   run: |
+    #     set -exo pipefail
+    #     ls -la
+    #     ls -la dist
+    #     cp green_reaper/lib/libbladebit_harvester.so dist/
+    #     ls -la dist
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3

@@ -71,6 +71,9 @@ class CMakeBuild(build_ext):
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
+        subprocess.check_call(
+            ["cp", "green_reaper/lib/libbladebit_harvester.so", f'{str(extdir)}/']
+        )
 
 
 class get_pybind_include(object):
