@@ -220,7 +220,7 @@ jobs:
         set -exo pipefail
         ls -la
         ls -la dist
-        cp cp green_reaper/lib/libbladebit_harvester.so dist/
+        cp green_reaper/lib/libbladebit_harvester.so dist/
         ls -la dist
 
     - name: Upload artifacts
