@@ -124,7 +124,7 @@ jobs:
     - name: Fetch Bladebit Harvesrter
       run: |
         set -exo pipefail
-        curl https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha3-linux-x86-64.tar.gz > green_reaper.tar.gz
+        curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha3-linux-x86-64.tar.gz > green_reaper.tar.gz
         mkdir -p green_reaper && pushd green_reaper
         tar -xzvf ../green_reaper.tar.gz
         sudo mkdir -p /usr/local/include
