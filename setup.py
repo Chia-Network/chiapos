@@ -43,6 +43,7 @@ class CMakeBuild(build_ext):
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + str(extdir),
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DBLADEBIT_HARVESTING=ON",
+            "-DLINK_BLADEBIT_HARVESTER=ON"
         ]
 
         cfg = "Debug" if self.debug else "Release"
