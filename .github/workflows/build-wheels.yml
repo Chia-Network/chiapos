@@ -174,7 +174,7 @@ jobs:
           && cmake --version\
           && uname -a
 
-          # Install bladebit
+          # Install bladebit harvester
           ref_gr_sha256='8de4a1e1b8c07157b6d7899b38e03e68dae816856fb4e1027020a79f9840f1db'
           curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha3-linux-x86-64.tar.gz > green_reaper.tar.gz
           ls -la
@@ -192,8 +192,8 @@ jobs:
           tar -xzvf ../green_reaper.tar.gz
           popd
   
-          mkdir -p dist
-          cp green_reaper/lib/libbladebit_harvester.so dist/
+          # mkdir -p dist
+          # cp green_reaper/lib/libbladebit_harvester.so dist/
 
           cp -r green_reaper/include ./src/bladebit
           sudo cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so

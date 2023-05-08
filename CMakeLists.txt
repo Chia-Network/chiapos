@@ -37,6 +37,11 @@ FetchContent_MakeAvailable(cxxopts)
 
 option(BUILD_BLADEBIT_HARVESTING "Builds and links against build." OFF)
 option(BLADEBIT_HARVESTING "Enable bladebit harvesting. Requires libbladebit_harvester." OFF)
+option(LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
+
+if (${LINK_BLADEBIT_HARVESTER} AND NOT ${BLADEBIT_HARVESTING})
+  set(BLADEBIT_HARVESTING ON)
+endif()
 
 IF (${BUILD_BLADEBIT_HARVESTING})
   FetchContent_Declare(
@@ -207,9 +212,19 @@ target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMa
 )
 
 IF (${BLADEBIT_HARVESTING})
-  target_compile_definitions(chiapos PUBLIC USE_GREEN_REAPER=1)
-  target_compile_definitions(ProofOfSpace PUBLIC USE_GREEN_REAPER=1)
-  target_compile_definitions(RunTests PUBLIC USE_GREEN_REAPER=1)
+
+  set(bb_defs
+    USE_GREEN_REAPER=1
+    $<$<BOOL:${BLADEBIT_HARVESTING}>:BLADEBIT_HARVESTER_LINKED=1>
+  )
+
+  target_compile_definitions(chiapos PUBLIC ${bb_defs})
+  target_compile_definitions(ProofOfSpace PUBLIC ${bb_defs})
+  target_compile_definitions(RunTests PUBLIC ${bb_defs})
+
+  target_link_libraries(chiapos PUBLIC bladebit_harvester)
+  target_link_libraries(ProofOfSpace PUBLIC bladebit_harvester)
+  target_link_libraries(RunTests PUBLIC bladebit_harvester)
 
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
