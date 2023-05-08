@@ -196,6 +196,9 @@ jobs:
           # cp green_reaper/lib/libbladebit_harvester.so dist/
 
           cp -r green_reaper/include ./src/bladebit
+
+          mkdir -p /usr/local/include
+          cp -r green_reaper/include /usr/local/include/bladebit
           sudo cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
           ls -la src/bladebit
           ls -la /usr/lib
