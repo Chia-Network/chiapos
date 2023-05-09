@@ -142,7 +142,7 @@ jobs:
 
           # Install bladebit harvester
           set -eo pipefail
-          ref_gr_sha256='af38b52adf48747b13dc41728d0274bb29f80163ccb676cf1dd92c8b2173ba65'
+          ref_gr_sha256='40f7a582972c74fb8a78ee7dc8280f7f5a3900a3eb1e6ba7d46132a876ad8ce0'
           curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
 
           ls -la
