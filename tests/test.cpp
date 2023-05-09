@@ -49,6 +49,14 @@ vector<unsigned char> intToBytes(uint32_t paramInt, uint32_t numBytes)
 
 static uint128_t to_uint128(uint64_t hi, uint64_t lo) { return (uint128_t)hi << 64 | lo; }
 
+void wjb();
+
+TEST_CASE("WJB")
+{
+    wjb();
+    exit(0);
+}
+
 TEST_CASE("SliceInt64FromBytes 1 bit")
 {
     const uint8_t bytes[9 + 7] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
@@ -598,6 +606,21 @@ void HexToBytes(const string& hex, uint8_t* result)
         uint8_t byte = (uint8_t)strtol(byteString.c_str(), NULL, 16);
         result[i / 2] = byte;
     }
+}
+
+void wjb()
+{
+    vector<unsigned char> hash(32);
+    HexToBytes("85f599e0963f3a06c0446c9feabd0c4b337470f063706a3126a2c9a28c442d94", hash.data());
+    uint8_t k=32;
+    vector<unsigned char> plot_id(32);
+    HexToBytes("40338f14d60a045dbcb48bfec2956ba7b938ca90fd3d542228d19515510f6f1e", plot_id.data());
+
+    vector<unsigned char> proof_data(512*4/8);
+    HexToBytes("0a881bdf1f46f5d6fc824b65c7db14499049ce164f15f5f8e2a98e03ab1981603eff9337684674d97102d427a2b8e4a1389dcbbf6950a78ec0deeae41e6ea413a15335a45fc6510d30416d3519a5e22b2540359fa111c471669977374ef00bea5ae8387f20460f1a9aaf4ba8fb62ae8a55da77929b2dd23dd7bd9e9b78d389b901b7cb49c8c0f3ed53088feda02edec0eccc72920be0608c3e93f49ba36de4fed3956b105399e05d2e1f470b8c2b2627ab125585f18e1322fd6542770b0949224127d57b7aad4f6d1f4e8b60e06c90ebe54eea82acb46f58ef34c943ba9bd25fa56e7f1db04e7bedff9cfc3384ba7caa07647d051d2bcc7aa2ee3802f17a2de3", proof_data.data());
+    Verifier verifier = Verifier();
+    LargeBits quality = verifier.ValidateProof(plot_id.data(), k, hash.data(), proof_data.data(), k * 8);
+    cout << "quality: " << quality.GetSize() << endl;
 }
 
 void TestProofOfSpace(
