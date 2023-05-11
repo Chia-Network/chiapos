@@ -4,7 +4,7 @@ on:
   push:
     branches:
     - 'main'
-    - 'hb.bladebit-ci-update'
+    - 'hb.bladebit-harvest-integration'
     tags:
     - '**'
   pull_request:
