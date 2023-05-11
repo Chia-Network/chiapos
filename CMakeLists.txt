@@ -192,7 +192,9 @@ target_link_libraries(chiapos PRIVATE fse Threads::Threads
 target_link_libraries(ProofOfSpace PRIVATE fse Threads::Threads
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
-  $<$<BOOL:${BLADEBIT_HARVESTING}>:dl>
+  $<$<NOT:$<PLATFORM_ID:Windows> 
+    $<BOOL:${BLADEBIT_HARVESTING}>:dl>
+  >
 )
 target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMain
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
@@ -206,14 +208,17 @@ IF (${BLADEBIT_HARVESTING})
     USE_GREEN_REAPER=1
     $<$<BOOL:${BLADEBIT_HARVESTING}>:BLADEBIT_HARVESTER_LINKED=1>
   )
-
+  set(bb_libs
+    bladebit_harvester
+    $<$<NOT:$<PLATFORM_ID:Windows>>:dl>
+  )
   target_compile_definitions(chiapos PUBLIC ${bb_defs})
   target_compile_definitions(ProofOfSpace PUBLIC ${bb_defs})
   target_compile_definitions(RunTests PUBLIC ${bb_defs})
 
-  target_link_libraries(chiapos PUBLIC bladebit_harvester)
-  target_link_libraries(ProofOfSpace PUBLIC bladebit_harvester)
-  target_link_libraries(RunTests PUBLIC bladebit_harvester)
+  target_link_libraries(chiapos PUBLIC ${bb_libs})
+  target_link_libraries(ProofOfSpace PUBLIC ${bb_libs})
+  target_link_libraries(RunTests PUBLIC ${bb_libs})
 
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")

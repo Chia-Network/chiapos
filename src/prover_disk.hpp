@@ -87,23 +87,30 @@ public:
             #endif
         #endif
 
-        void* lib = grLoadModule(GR_LIB_PREFIX "bladebit_harvester" GR_LIB_EXT);
+        // void* lib = grLoadModule(GR_LIB_PREFIX "bladebit_harvester" GR_LIB_EXT);
 
-        if (lib == nullptr) {
-            std::stringstream err; err << "Failed to load bladebit_harvester with error: '" << dlerror() << "'";
-            throw std::runtime_error(err.str());
-        }
-        #undef GR_LIB_PREFIX
-        #undef GR_LIB_EXT
+        // if (lib == nullptr) {
+        //     int code;
+        //     #if _WIN32
+        //         code = (int)::GetLastError();
+        //     #else
+        //         code = (int)dlerror();
+        //     #endif
 
-        // Init GR API
-        {
-            const auto r = grPopulateApiFromModule(lib, &_grApi, sizeof(GRApi), GR_API_VERSION);
-            if (r != GRResult_OK) {
-                std::stringstream err; err << "Failed to initialize GR API with error " << r;
-                throw std::runtime_error(err.str());
-            }
-        }
+        //     std::stringstream err; err << "Failed to load bladebit_harvester with error: '" << code << "'";
+        //     throw std::runtime_error(err.str());
+        // }
+        // #undef GR_LIB_PREFIX
+        // #undef GR_LIB_EXT
+
+        // // Init GR API
+        // {
+        //     const auto r = grPopulateApiFromModule(lib, &_grApi, sizeof(GRApi), GR_API_VERSION);
+        //     if (r != GRResult_OK) {
+        //         std::stringstream err; err << "Failed to initialize GR API with error " << r;
+        //         throw std::runtime_error(err.str());
+        //     }
+        // }
 
         GreenReaperConfig cfg = {};
         cfg.apiVersion = GR_API_VERSION;
@@ -124,12 +131,12 @@ public:
             
             cfg.cpuOffset = i * thread_count;
             GreenReaperContext* gr = nullptr;
-            const auto r = _grApi.CreateContext(&gr, &cfg, sizeof(cfg));
+            const auto r = grCreateContext(&gr, &cfg, sizeof(cfg));
 
             if (r != GRResult_OK) {
                 // Destroy contexts that were already created
                 while (!queue.empty()) {
-                    _grApi.DestroyContext( queue.front() );
+                    grDestroyContext( queue.front() );
                     queue.pop();
                 }
                 std::stringstream err; err << "Failed to create GRContext with error " << r;
@@ -137,14 +144,14 @@ public:
             }
             assert(gr);
 
-            auto result = _grApi.PreallocateForCompressionLevel(gr, 32, max_compression_level);
+            auto result = grPreallocateForCompressionLevel(gr, 32, max_compression_level);
             if (result != GRResult_OK) {
                 std::stringstream err; err << "Failed to preallocate memory for contexts with error " << r;
                 throw std::runtime_error(err.str());
             }
             queue.push(gr);
             if (i == 0 && use_gpu_harvesting) {
-                if (_grApi.HasGpuDecompressor(gr) == GR_TRUE) {
+                if (grHasGpuDecompressor(gr) == GR_TRUE) {
                     return true;
                 } else {
                     // default to CPU
@@ -570,7 +577,7 @@ public:
                         GreenReaperContext* gr = decompresser_context_queue.pop();
                         assert(gr);
 
-                        auto res = _grApi.GetFetchQualitiesXPair(gr, &req);
+                        auto res = grGetFetchQualitiesXPair(gr, &req);
                         decompresser_context_queue.push(gr);
 
                         if (res != GRResult_OK) {
@@ -662,7 +669,7 @@ public:
                         req.compressedProof[i] = xs[i].GetValue();
                     }
 
-                    GRResult res = _grApi.FetchProofForChallenge(gr, &req);
+                    GRResult res = grFetchProofForChallenge(gr, &req);
                     decompresser_context_queue.push(gr);
 
                     if (res != GRResult_OK) {
@@ -782,7 +789,7 @@ private:
         #if USE_GREEN_REAPER
             if (is_compressed) {
                 GRCompressionInfo info{};
-                const auto r = _grApi.GetCompressionInfo(&info, sizeof(info), k, compression_level);
+                const auto r = grGetCompressionInfo(&info, sizeof(info), k, compression_level);
                 if (r != GRResult_OK) {
                     std::stringstream err; err << "Failed to obtain compression info with error " << r;
                     throw std::runtime_error(err.str());
