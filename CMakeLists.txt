@@ -191,8 +191,6 @@ target_link_libraries(chiapos PRIVATE fse Threads::Threads
 target_link_libraries(ProofOfSpace PRIVATE fse Threads::Threads
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
-  $<$<NOT:$<PLATFORM_ID:Windows> 
-  >
 )
 target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMain
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
