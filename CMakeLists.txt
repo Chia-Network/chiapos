@@ -212,7 +212,6 @@ target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMa
 )
 
 IF (${BLADEBIT_HARVESTING})
-
   set(bb_defs
     USE_GREEN_REAPER=1
     $<$<BOOL:${BLADEBIT_HARVESTING}>:BLADEBIT_HARVESTER_LINKED=1>
@@ -225,6 +224,7 @@ IF (${BLADEBIT_HARVESTING})
   target_link_libraries(chiapos PUBLIC bladebit_harvester)
   target_link_libraries(ProofOfSpace PUBLIC bladebit_harvester)
   target_link_libraries(RunTests PUBLIC bladebit_harvester)
+
 
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
