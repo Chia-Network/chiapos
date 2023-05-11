@@ -187,19 +187,16 @@ target_compile_features(chiapos PUBLIC cxx_std_17)
 target_link_libraries(chiapos PRIVATE fse Threads::Threads
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
-  $<$<BOOL:${BLADEBIT_HARVESTING}>:dl>
 )
 target_link_libraries(ProofOfSpace PRIVATE fse Threads::Threads
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
   $<$<NOT:$<PLATFORM_ID:Windows> 
-    $<BOOL:${BLADEBIT_HARVESTING}>:dl>
   >
 )
 target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMain
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
-  $<$<BOOL:${BLADEBIT_HARVESTING}>:dl>
 )
 
 IF (${BLADEBIT_HARVESTING})
