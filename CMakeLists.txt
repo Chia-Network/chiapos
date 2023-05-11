@@ -35,7 +35,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cxxopts)
 
 
-option(BUILD_BLADEBIT_HARVESTING "Builds and links against build." OFF)
 option(BLADEBIT_HARVESTING "Enable bladebit harvesting. Requires libbladebit_harvester." OFF)
 option(LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
 
@@ -43,16 +42,6 @@ if (${LINK_BLADEBIT_HARVESTER} AND NOT ${BLADEBIT_HARVESTING})
   set(BLADEBIT_HARVESTING ON)
 endif()
 
-IF (${BUILD_BLADEBIT_HARVESTING})
-  FetchContent_Declare(
-    bladebit
-    GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-    GIT_TAG v3-alpha4-fixes
-    EXCLUDE_FROM_ALL ON
-  )
-  FetchContent_MakeAvailable(bladebit)
-  set(BLADEBIT_HARVESTING ON)
-ENDIF()
 
 FetchContent_Declare(
   gulrak
