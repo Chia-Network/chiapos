@@ -215,6 +215,10 @@ IF (${BLADEBIT_HARVESTING})
   target_link_libraries(ProofOfSpace PUBLIC ${bb_libs})
   target_link_libraries(RunTests PUBLIC ${bb_libs})
 
+  target_link_directories(chiapos PUBLIC ${CMAKE_SOURCE_DIR}/libs)
+  target_link_directories(ProofOfSpace PUBLIC ${CMAKE_SOURCE_DIR}/libs)
+  target_link_directories(RunTests PUBLIC ${CMAKE_SOURCE_DIR}/libs)
+  
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET RunTests APPEND PROPERTY BUILD_RPATH "$ORIGIN")
