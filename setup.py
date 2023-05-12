@@ -200,6 +200,7 @@ class BuildExt(build_ext):
         if os.getenv("CP_USE_GREEN_REAPER") == "1" and sys.platform == "win32":
             shutil.copy2("libs/bladebit_harvester.dll", self.build_lib + "/bladebit_harvester.dll")
 
+
 if platform.system() == "Windows":
     setup(
         name="chiapos",
