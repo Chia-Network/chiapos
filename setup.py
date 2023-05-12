@@ -195,13 +195,10 @@ class BuildExt(build_ext):
             ext.extra_link_args = link_opts
         build_ext.build_extensions(self)
 
-        # Copy bladebit_harvester.dll on windows to the target build directory 
+        # Copy bladebit_harvester.dll on windows to the target build directory
         # in order to package it into the root directory of the wheel
         if os.getenv("CP_USE_GREEN_REAPER") == "1" and sys.platform == "win32":
             shutil.copy2("libs/bladebit_harvester.dll", self.build_lib + "/bladebit_harvester.dll")
-
-            
-
 
 if platform.system() == "Windows":
     setup(
