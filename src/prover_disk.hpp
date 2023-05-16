@@ -188,8 +188,6 @@ private:
     std::mutex dequeue_lock;
 };
 
-ContextQueue decompresser_context_queue;
-
 class ProofCache {
     static constexpr uint32_t MAX_ENTRIES = 64;
 
@@ -250,9 +248,25 @@ public:
 
     static_assert(alignof(ProofCache::Entry) == 16);
 };
+#else
+// Dummy one for python
+class ContextQueue {
+public:
+    inline ContextQueue() {}
 
+    inline bool init(
+        uint32_t context_count,
+        uint32_t thread_count,
+        bool no_cpu_affinity,
+        const uint32_t max_compression_level,
+        bool use_gpu_harvesting,
+        uint32_t gpu_index,
+        bool enforce_gpu_index
+    ) {}
+};
 #endif // USE_GREEN_REAPER
 
+ContextQueue decompresser_context_queue;
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs

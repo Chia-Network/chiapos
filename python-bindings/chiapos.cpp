@@ -180,11 +180,10 @@ PYBIND11_MODULE(chiapos, m)
                 delete[] quality_buf;
                 return stdx::optional<py::bytes>(quality_py);
             });
-#if USE_GREEN_REAPER
+
     py::class_<ContextQueue>(m, "ContextQueue")
         .def("init", &ContextQueue::init);
     m.attr("decompresser_context_queue") = &decompresser_context_queue;
-#endif
 }
 
 #endif  // PYTHON_BINDINGS_PYTHON_BINDINGS_HPP_
