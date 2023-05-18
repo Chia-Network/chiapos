@@ -35,7 +35,7 @@ jobs:
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              # arm: [Linux, ARM64]
+              arm: [Linux, ARM64]
               intel: [ubuntu-latest]
           - name: Windows
             matrix: windows
@@ -73,8 +73,8 @@ jobs:
               intel: manylinux2014
             matrix: '3.11'
         arch:
-          # - name: ARM
-          #   matrix: arm
+          - name: ARM
+            matrix: arm
           - name: Intel
             matrix: intel
         exclude:
@@ -162,8 +162,14 @@ jobs:
 
           # Install bladebit harvester
           set -eo pipefail
-          ref_gr_sha256='3522a588d79445453d1b3c3928d0057aefa5833f0acff6d00f62fd0697b2ce1a'
-          curl -L https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
+          ARCH=$(uname -m)
+          if [[ $ARCH == x86_64 ]]; then
+            ref_gr_sha256='3522a588d79445453d1b3c3928d0057aefa5833f0acff6d00f62fd0697b2ce1a'
+            curl -Ls https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
+          else
+            ref_gr_sha256='339aeb32b606cf10e07393fd986251cb023f83643dc97041611973549bce9961'
+            curl -Ls https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-ARM64.tar.gz > green_reaper.tar.gz
+          fi
 
           ls -la
 
