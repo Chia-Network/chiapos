@@ -134,8 +134,8 @@ jobs:
         set -eo pipefail
         set -x
 
-        ref_gr_sha256='44bcfeb319709b1c5c3114c1b6aa9160736a91daa9d8446ab2b6b3a8edec21c0'
-        curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha4-windows-x86-64.zip > green_reaper.zip
+        ref_gr_sha256='9546179d82f03b4b328d2f1328d671a424b49d8877cb86efb1f4b0ac76315c03'
+        curl -L https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-windows-x86-64.zip > green_reaper.zip
         unzip -d green_reaper "green_reaper.zip"
         cp -r green_reaper/include src/bladebit
         cp -r green_reaper/lib libs
@@ -162,24 +162,24 @@ jobs:
 
           # Install bladebit harvester
           set -eo pipefail
-          ref_gr_sha256='40f7a582972c74fb8a78ee7dc8280f7f5a3900a3eb1e6ba7d46132a876ad8ce0'
-          curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
+          ref_gr_sha256='3522a588d79445453d1b3c3928d0057aefa5833f0acff6d00f62fd0697b2ce1a'
+          curl -L https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
 
           ls -la
 
           gr_sha256=$(sha256sum green_reaper.tar.gz | cut -f1 -d' ')
-  
+
           if [[ "${ref_gr_sha256}" != "${gr_sha256}" ]]; then
               >&2 echo "GreenReaper SHA256 mismatch!: "
               >&2 echo "Got     : '${gr_sha256}'"
               >&2 echo "Expected: '${ref_gr_sha256}'"
               exit 1
           fi
-  
+
           mkdir -p green_reaper && pushd green_reaper
           tar -xzvf ../green_reaper.tar.gz
           popd
-  
+
           mkdir -p /usr/local/include
           cp -r green_reaper/include /usr/local/include/bladebit
           cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
@@ -189,7 +189,7 @@ jobs:
           ls -la /usr/lib
           ls -la
           # rm -rf green_reaper
-          
+
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
