@@ -164,7 +164,7 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
-            ref_gr_sha256='3522a588d79445453d1b3c3928d0057aefa5833f0acff6d00f62fd0697b2ce1a'
+            ref_gr_sha256='21f6c3c7b4693118436edd532aade72a97e9801dbfd4b39df335b873a0d207db'
             curl -Ls https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
           else
             ref_gr_sha256='36dc8cd732c51976d2ac244beb31eeadbcc335c36bde8add3ed9018866fc0756'
