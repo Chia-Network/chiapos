@@ -24,14 +24,14 @@ jobs:
       fail-fast: false
       matrix:
         os:
-           - name: macOS
-             matrix: macos
-             runs-on:
-               arm: [macOS, ARM64]
-               intel: [macos-latest]
-             cibw-archs-macos:
-               arm: arm64
-               intel: x86_64
+          - name: macOS
+            matrix: macos
+            runs-on:
+              arm: [macOS, ARM64]
+              intel: [macos-latest]
+            cibw-archs-macos:
+              arm: arm64
+              intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
