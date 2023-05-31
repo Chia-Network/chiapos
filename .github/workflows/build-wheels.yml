@@ -134,7 +134,7 @@ jobs:
         set -eo pipefail
         set -x
 
-        ref_gr_sha256='9546179d82f03b4b328d2f1328d671a424b49d8877cb86efb1f4b0ac76315c03'
+        ref_gr_sha256='a2cda1d56f33ff78c055593ed27038084d668cd5e3ff4a8e1150009da928fbf8'
         curl -L https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-windows-x86-64.zip > green_reaper.zip
         unzip -d green_reaper "green_reaper.zip"
         cp -r green_reaper/include src/bladebit
@@ -164,10 +164,10 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
-            ref_gr_sha256='21f6c3c7b4693118436edd532aade72a97e9801dbfd4b39df335b873a0d207db'
+            ref_gr_sha256='96dfc73a5bdc5b0ce19a8a02226be10db317a5f4f250b3722467f854b113fcd1'
             curl -Ls https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
           else
-            ref_gr_sha256='36dc8cd732c51976d2ac244beb31eeadbcc335c36bde8add3ed9018866fc0756'
+            ref_gr_sha256='c76ecc2d1f015e5103be7c3515c41e1e4d682a6926c66cfb5fd9e06921b8885e'
             curl -Ls https://github.com/wallentx/bladebit/releases/download/alpha4.1/green_reaper-v3.0.0-alpha4-linux-ARM64.tar.gz > green_reaper.tar.gz
           fi
 
