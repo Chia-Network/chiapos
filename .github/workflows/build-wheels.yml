@@ -163,7 +163,7 @@ jobs:
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=${{ github.workspace }}/site-packages LIBRARY_PATH=${{ github.workspace }}/libs"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=$GITHUB_WORKSPACE/site-packages LIBRARY_PATH=$GITHUB_WORKSPACE/libs"
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
           DYLD_LIBRARY_PATH=${{ github.workspace }}/libs delocate-listdeps {wheel} &&
           DYLD_LIBRARY_PATH=${{ github.workspace }}/libs delocate-wheel --require-archs {delocate_archs} -w {dest_dir} {wheel}
