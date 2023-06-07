@@ -147,7 +147,7 @@ jobs:
           cp -r $pypath/bladebit/include src/bladebit
 
         CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1" CPATH=/project/site-packages LIBRARY_PATH=/project/libs LD_LIBRARY_PATH=/project/libs
-        CIBW_BEFORE_BUILD_LINUX: >
+        CIBW_BEFORE_BUILD_LINUX: |
           python -m pip install --upgrade pip
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib {project}/libs
@@ -155,7 +155,7 @@ jobs:
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
         CIBW_BEFORE_ALL_MACOS: |
           brew install gmp boost cmake
-        CIBW_BEFORE_BUILD_MACOS: >
+        CIBW_BEFORE_BUILD_MACOS: |
           python -m pip install --upgrade pip
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
