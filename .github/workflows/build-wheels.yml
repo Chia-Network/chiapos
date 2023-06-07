@@ -154,7 +154,7 @@ jobs:
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
-        CIBW_BEFORE_ALL_MACOS: >
+        CIBW_BEFORE_ALL_MACOS: |
           brew install gmp boost cmake
 
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
