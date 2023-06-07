@@ -127,19 +127,6 @@ jobs:
       run: |
         pip install pipx
 
-    - name: Get Windows Bladebit Harvester Artifact
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        set -eo pipefail
-        set -x
-
-        ref_gr_sha256='44bcfeb319709b1c5c3114c1b6aa9160736a91daa9d8446ab2b6b3a8edec21c0'
-        curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha4-windows-x86-64.zip > green_reaper.zip
-        unzip -d green_reaper "green_reaper.zip"
-        cp -r green_reaper/include src/bladebit
-        cp -r green_reaper/lib libs
-
     - name: Build and test
       env:
         CIBW_PRERELEASE_PYTHONS: True
@@ -151,6 +138,8 @@ jobs:
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
         CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
+        CIBW_BEFORE_ALL_WINDOWS: |
+          pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
         CIBW_ENVIRONMENT_LINUX: PATH="/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH" CP_USE_GREEN_REAPER="1"
         CIBW_BEFORE_ALL_LINUX: |
           curl -L https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh\
@@ -160,44 +149,20 @@ jobs:
           && cmake --version\
           && uname -a
 
-          # Install bladebit harvester
-          set -eo pipefail
-          ref_gr_sha256='40f7a582972c74fb8a78ee7dc8280f7f5a3900a3eb1e6ba7d46132a876ad8ce0'
-          curl -L https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes/green_reaper-v3.0.0-alpha4-linux-x86-64.tar.gz > green_reaper.tar.gz
+          pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
 
-          ls -la
-
-          gr_sha256=$(sha256sum green_reaper.tar.gz | cut -f1 -d' ')
-  
-          if [[ "${ref_gr_sha256}" != "${gr_sha256}" ]]; then
-              >&2 echo "GreenReaper SHA256 mismatch!: "
-              >&2 echo "Got     : '${gr_sha256}'"
-              >&2 echo "Expected: '${ref_gr_sha256}'"
-              exit 1
-          fi
-  
-          mkdir -p green_reaper && pushd green_reaper
-          tar -xzvf ../green_reaper.tar.gz
-          popd
-  
-          mkdir -p /usr/local/include
-          cp -r green_reaper/include /usr/local/include/bladebit
-          cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
-
-          # ls -la src/bladebit
-          ls -la /usr/local/include/bladebit
-          ls -la /usr/lib
-          ls -la
-          # rm -rf green_reaper
-          
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
         CIBW_BEFORE_ALL_MACOS: >
           brew install gmp boost cmake
+
+          pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
+          # Delocate wont find the library properly without this
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=$(pip show bladebit | grep Location | awk '{print $2}' ) LIBRARY_PATH=$(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib"
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
