@@ -32,11 +32,11 @@ jobs:
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
-#          - name: Ubuntu
-#            matrix: ubuntu
-#            runs-on:
-#              arm: [Linux, ARM64]
-#              intel: [ubuntu-latest]
+          - name: Ubuntu
+            matrix: ubuntu
+            runs-on:
+              arm: [Linux, ARM64]
+              intel: [ubuntu-latest]
 #          - name: Windows
 #            matrix: windows
 #            runs-on:
@@ -140,7 +140,7 @@ jobs:
         CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
         CIBW_BEFORE_ALL_WINDOWS: |
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
-        CIBW_ENVIRONMENT_LINUX: PATH="/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH" CP_USE_GREEN_REAPER="1"
+        CIBW_ENVIRONMENT_LINUX: PATH="/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH" CP_USE_GREEN_REAPER="1" CPATH=${{ github.workspace }}/site-packages LIBRARY_PATH=${{ github.workspace }}/libs
         CIBW_BEFORE_ALL_LINUX: |
           curl -L https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh\
           && yes | sh cmake.sh | cat\
@@ -150,7 +150,8 @@ jobs:
           && uname -a
 
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
-
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
@@ -158,7 +159,6 @@ jobs:
           brew install gmp boost cmake
 
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
-          # Delocate wont find the library properly without this
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_MACOS: >
