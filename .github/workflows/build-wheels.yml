@@ -140,8 +140,7 @@ jobs:
         CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
         CIBW_BEFORE_BUILD_WINDOWS: >
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit;
-          $_pypath=(pip show bladebit | findstr Location);
-          $pypath=$_pypath.split(" ")[1];
+          $pypath=(pip show bladebit | findstr "Location").split(" ")[1];
           echo $pypath;
           cp -r $pypath/bladebit/lib libs;
           cp -r $pypath/bladebit/include src/bladebit;
