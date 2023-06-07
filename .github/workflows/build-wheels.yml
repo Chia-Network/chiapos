@@ -37,10 +37,10 @@ jobs:
             runs-on:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
-#          - name: Windows
-#            matrix: windows
-#            runs-on:
-#              intel: [windows-latest]
+          - name: Windows
+            matrix: windows
+            runs-on:
+              intel: [windows-latest]
         python:
           - major-dot-minor: '3.7'
             cibw-build: 'cp37-*'
