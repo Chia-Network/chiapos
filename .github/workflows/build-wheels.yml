@@ -150,8 +150,8 @@ jobs:
           && uname -a
 
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
-          ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
-          ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib {project}/libs
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) {project}/site-packages
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
@@ -163,7 +163,7 @@ jobs:
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH={project}/site-packages LIBRARY_PATH={project}/libs"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=${{ github.workspace }}/site-packages LIBRARY_PATH=${{ github.workspace }}/libs"
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
           DYLD_LIBRARY_PATH=${{ github.workspace }}/libs delocate-listdeps {wheel} &&
           DYLD_LIBRARY_PATH=${{ github.workspace }}/libs delocate-wheel --require-archs {delocate_archs} -w {dest_dir} {wheel}
