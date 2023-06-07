@@ -28,81 +28,81 @@ jobs:
             matrix: macos
             runs-on:
               arm: [macOS, ARM64]
-              intel: [macos-latest]
+#              intel: [macos-latest]
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
-          - name: Ubuntu
-            matrix: ubuntu
-            runs-on:
-              arm: [Linux, ARM64]
-              intel: [ubuntu-latest]
-          - name: Windows
-            matrix: windows
-            runs-on:
-              intel: [windows-latest]
+#          - name: Ubuntu
+#            matrix: ubuntu
+#            runs-on:
+#              arm: [Linux, ARM64]
+#              intel: [ubuntu-latest]
+#          - name: Windows
+#            matrix: windows
+#            runs-on:
+#              intel: [windows-latest]
         python:
-          - major-dot-minor: '3.7'
-            cibw-build: 'cp37-*'
-            manylinux:
-              arm: manylinux2014
-              intel: manylinux2014
-            matrix: '3.7'
-          - major-dot-minor: '3.8'
-            cibw-build: 'cp38-*'
-            manylinux:
-              arm: manylinux2014
-              intel: manylinux2014
-            matrix: '3.8'
-          - major-dot-minor: '3.9'
-            cibw-build: 'cp39-*'
-            manylinux:
-              arm: manylinux2014
-              intel: manylinux2014
-            matrix: '3.9'
+#          - major-dot-minor: '3.7'
+#            cibw-build: 'cp37-*'
+#            manylinux:
+#              arm: manylinux2014
+#              intel: manylinux2014
+#            matrix: '3.7'
+#          - major-dot-minor: '3.8'
+#            cibw-build: 'cp38-*'
+#            manylinux:
+#              arm: manylinux2014
+#              intel: manylinux2014
+#            matrix: '3.8'
+#          - major-dot-minor: '3.9'
+#            cibw-build: 'cp39-*'
+#            manylinux:
+#              arm: manylinux2014
+#              intel: manylinux2014
+#            matrix: '3.9'
           - major-dot-minor: '3.10'
             cibw-build: 'cp310-*'
             manylinux:
               arm: manylinux2014
               intel: manylinux2014
             matrix: '3.10'
-          - major-dot-minor: '3.11'
-            cibw-build: 'cp311-*'
-            manylinux:
-              arm: manylinux2014
-              intel: manylinux2014
-            matrix: '3.11'
+#          - major-dot-minor: '3.11'
+#            cibw-build: 'cp311-*'
+#            manylinux:
+#              arm: manylinux2014
+#              intel: manylinux2014
+#            matrix: '3.11'
         arch:
           - name: ARM
             matrix: arm
-          - name: Intel
-            matrix: intel
-        exclude:
-          # Only partial entries are required here by GitHub Actions so generally I
-          # only specify the `matrix:` entry.  The super linter complains so for now
-          # all entries are included to avoid that.  Reported at
-          # https://github.com/github/super-linter/issues/3016
-          - os:
-              name: Windows
-              matrix: windows
-              runs-on:
-                intel: [windows-latest]
-            arch:
-              name: ARM
-              matrix: arm
-          - os:
-              name: macOS
-              matrix: macos
-              runs-on:
-                arm: [macOS, ARM64]
-                intel: [macos-latest]
-            python:
-              major-dot-minor: '3.7'
-              cibw-build: 'cp37-*'
-              matrix: '3.7'
-            arch:
-              name: ARM
-              matrix: arm
+#          - name: Intel
+#            matrix: intel
+#        exclude:
+#          # Only partial entries are required here by GitHub Actions so generally I
+#          # only specify the `matrix:` entry.  The super linter complains so for now
+#          # all entries are included to avoid that.  Reported at
+#          # https://github.com/github/super-linter/issues/3016
+#          - os:
+#              name: Windows
+#              matrix: windows
+#              runs-on:
+#                intel: [windows-latest]
+#            arch:
+#              name: ARM
+#              matrix: arm
+#          - os:
+#              name: macOS
+#              matrix: macos
+#              runs-on:
+#                arm: [macOS, ARM64]
+#                intel: [macos-latest]
+#            python:
+#              major-dot-minor: '3.7'
+#              cibw-build: 'cp37-*'
+#              matrix: '3.7'
+#            arch:
+#              name: ARM
+#              matrix: arm
 
     steps:
     - name: Clean workspace
@@ -163,7 +163,7 @@ jobs:
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=site-packages LIBRARY_PATH=libs"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=${{ github.workspace }}/site-packages LIBRARY_PATH=${{ github.workspace }}/libs"
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
