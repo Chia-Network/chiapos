@@ -24,18 +24,18 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          # - name: macOS
-          #   matrix: macos
-          #   runs-on:
-          #     arm: [macOS, ARM64]
-          #     intel: [macos-latest]
-          #   cibw-archs-macos:
-          #     arm: arm64
-          #     intel: x86_64
+          - name: macOS
+            matrix: macos
+            runs-on:
+              arm: [macOS, ARM64]
+              intel: [macos-latest]
+            cibw-archs-macos:
+              arm: arm64
+              intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              # arm: [Linux, ARM64]
+              arm: [Linux, ARM64]
               intel: [ubuntu-latest]
           - name: Windows
             matrix: windows
@@ -73,8 +73,8 @@ jobs:
               intel: manylinux2014
             matrix: '3.11'
         arch:
-          # - name: ARM
-          #   matrix: arm
+          - name: ARM
+            matrix: arm
           - name: Intel
             matrix: intel
         exclude:
