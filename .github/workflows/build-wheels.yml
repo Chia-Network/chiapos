@@ -142,7 +142,7 @@ jobs:
           choco install awk grep
         CIBW_BEFORE_BUILD_WINDOWS: >
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit;
-          $pypath=pip show bladebit | grep Location | awk '{print $2}';
+          $pypath=pip show bladebit | grep Location | awk "{print $2}";
           echo $pypath;
           cp -r $pypath/bladebit/lib libs;
           cp -r $pypath/bladebit/include src/bladebit;
