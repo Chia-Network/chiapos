@@ -160,9 +160,10 @@ jobs:
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
           # Delocate wont find the library properly without this
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=$(pip show bladebit | grep Location | awk '{print $2}' ) LIBRARY_PATH=$(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=site-packages LIBRARY_PATH=libs"
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
