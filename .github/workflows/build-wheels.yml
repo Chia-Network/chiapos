@@ -139,7 +139,13 @@ jobs:
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
         CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
         CIBW_BEFORE_ALL_WINDOWS: |
+          choco install awk grep
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
+
+          $pypath=$(pip show bladebit | grep Location | awk '{print $2}')
+          cp -r $pypath/bladebit/lib libs
+          cp -r $pypath/bladebit/include src/bladebit
+
         CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1" CPATH=/project/site-packages LIBRARY_PATH=/project/libs LD_LIBRARY_PATH=/project/libs
         CIBW_BEFORE_ALL_LINUX: |
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
