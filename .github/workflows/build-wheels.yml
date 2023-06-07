@@ -143,8 +143,12 @@ jobs:
           pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
 
           $pypath=$(pip show bladebit | grep Location | awk '{print $2}')
+          echo $pypath
           cp -r $pypath/bladebit/lib libs
           cp -r $pypath/bladebit/include src/bladebit
+          ls
+          ls libs
+          ls src/bladebit
 
         CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1" CPATH=/project/site-packages LIBRARY_PATH=/project/libs LD_LIBRARY_PATH=/project/libs
         CIBW_BEFORE_BUILD_LINUX: |
