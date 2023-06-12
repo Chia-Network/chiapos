@@ -152,8 +152,6 @@ jobs:
           pip install -i https://test.pypi.org/simple/ bladebit
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib {project}/libs
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) {project}/site-packages
-          cp libs/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
-
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
         CIBW_BEFORE_ALL_MACOS: |
           brew install gmp boost cmake
