@@ -131,13 +131,9 @@ jobs:
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install --extra-index-url https://pypi.chia.net/simple/ bladebit
+        pip install -i https://test.pypi.org/simple/ bladebit
         cp -r $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
         cp -r $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/include src/bladebit
-
-        ls
-        ls libs
-        ls src/bladebit
 
     - name: Build and test
       env:
