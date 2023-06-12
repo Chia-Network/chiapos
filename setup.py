@@ -75,6 +75,9 @@ class CMakeBuild(build_ext):
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
 
+        if os.getenv("CP_USE_GREEN_REAPER") == "1" and platform.system() == "Linux":
+            subprocess.check_call(["cp", "libs/libbladebit_harvester.so", f'{str(extdir)}/'])
+
 
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
