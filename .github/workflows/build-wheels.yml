@@ -24,23 +24,23 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - name: macOS
-            matrix: macos
-            runs-on:
-              arm: [macOS, ARM64]
-              intel: [macos-latest]
-            cibw-archs-macos:
-              arm: arm64
-              intel: x86_64
+#          - name: macOS
+#            matrix: macos
+#            runs-on:
+#              arm: [macOS, ARM64]
+#              intel: [macos-latest]
+#            cibw-archs-macos:
+#              arm: arm64
+#              intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
-          - name: Windows
-            matrix: windows
-            runs-on:
-              intel: [windows-latest]
+#          - name: Windows
+#            matrix: windows
+#            runs-on:
+#              intel: [windows-latest]
         python:
           - major-dot-minor: '3.7'
             cibw-build: 'cp37-*'
@@ -75,8 +75,8 @@ jobs:
         arch:
           - name: ARM
             matrix: arm
-          - name: Intel
-            matrix: intel
+#          - name: Intel
+#            matrix: intel
         exclude:
           # Only partial entries are required here by GitHub Actions so generally I
           # only specify the `matrix:` entry.  The super linter complains so for now
