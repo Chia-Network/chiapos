@@ -146,13 +146,14 @@ jobs:
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
         CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
-        CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1"
+        CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1" CPATH=/project/site-packages
         CIBW_BEFORE_BUILD_LINUX: |
           python -m pip install --upgrade pip
           pip install -i https://test.pypi.org/simple/ bladebit
-          mkdir -p /usr/local/include
-          cp -r $(pip show bladebit | grep Location | awk '{print $2}' ) /usr/local/include
-          cp $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib {project}/libs
+          ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) {project}/site-packages
+          cp libs/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
+
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
         CIBW_BEFORE_ALL_MACOS: |
           brew install gmp boost cmake
