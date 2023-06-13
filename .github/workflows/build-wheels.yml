@@ -24,23 +24,23 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - name: macOS
-            matrix: macos
-            runs-on:
-              arm: [macOS, ARM64]
-              intel: [macos-latest]
-            cibw-archs-macos:
-              arm: arm64
-              intel: x86_64
+#          - name: macOS
+#            matrix: macos
+#            runs-on:
+#              arm: [macOS, ARM64]
+#              intel: [macos-latest]
+#            cibw-archs-macos:
+#              arm: arm64
+#              intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
-          - name: Windows
-            matrix: windows
-            runs-on:
-              intel: [windows-latest]
+#          - name: Windows
+#            matrix: windows
+#            runs-on:
+#              intel: [windows-latest]
         python:
           - major-dot-minor: '3.7'
             cibw-build: 'cp37-*'
@@ -73,8 +73,8 @@ jobs:
               intel: manylinux2014
             matrix: '3.11'
         arch:
-          - name: ARM
-            matrix: arm
+#          - name: ARM
+#            matrix: arm
           - name: Intel
             matrix: intel
         exclude:
@@ -131,7 +131,7 @@ jobs:
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install -i https://test.pypi.org/simple/ bladebit
+        pip install -i https://pypi.chia.net/simple/ bladebit
         cp -r $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
         cp -r $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/include src/bladebit
 
@@ -149,7 +149,7 @@ jobs:
         CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1" CPATH=/project/site-packages LIBRARY_PATH=/project/libs
         CIBW_BEFORE_BUILD_LINUX: |
           python -m pip install --upgrade pip
-          pip install -i https://test.pypi.org/simple/ bladebit
+          pip install -i https://pypi.chia.net/simple/ bladebit
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib {project}/libs
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) {project}/site-packages
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
@@ -157,7 +157,7 @@ jobs:
           brew install gmp boost cmake
         CIBW_BEFORE_BUILD_MACOS: |
           python -m pip install --upgrade pip
-          pip install -i https://test.pypi.org/simple/ bladebit
+          pip install -i https://pypi.chia.net/simple/ bladebit
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' )/bladebit/lib libs
           ln -s $(pip show bladebit | grep Location | awk '{print $2}' ) site-packages
         CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1 CPATH=${{ github.workspace }}/site-packages LIBRARY_PATH=${{ github.workspace }}/libs"
