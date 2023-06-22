@@ -46,7 +46,7 @@ class CMakeBuild(build_ext):
         ]
 
         if os.getenv("CP_USE_GREEN_REAPER") == "1":
-            cmake_args.append("-DLINK_BLADEBIT_HARVESTER=ON")
+            cmake_args.append("-DCP_LINK_BLADEBIT_HARVESTER=ON")
 
         cfg = "Debug" if self.debug else "Release"
         build_args = ["--config", cfg]
@@ -76,7 +76,10 @@ class CMakeBuild(build_ext):
         )
 
         if os.getenv("CP_USE_GREEN_REAPER") == "1":
-            subprocess.check_call(["cp", "green_reaper/lib/libbladebit_harvester.so", f'{str(extdir)}/'])
+            if sys.platform == "darwin":
+                subprocess.check_call(["cp", "green_reaper/lib/libbladebit_harvester.dylib", f'{str(extdir)}/'])
+            else:
+                subprocess.check_call(["cp", "green_reaper/lib/libbladebit_harvester.so", f'{str(extdir)}/'])
 
 
 class get_pybind_include(object):
@@ -188,6 +191,7 @@ class BuildExt(build_ext):
             # Link bladebit_harvester
             if os.getenv("CP_USE_GREEN_REAPER") == "1":
                 opts.append("/DUSE_GREEN_REAPER=1")
+                opts.append("/DBLADEBIT_HARVESTER_LINKED=1")
                 link_opts.append("libs/bladebit_harvester.lib")
 
         for ext in self.extensions:

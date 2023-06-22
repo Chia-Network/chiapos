@@ -35,13 +35,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cxxopts)
 
 
-option(BLADEBIT_HARVESTING "Enable bladebit harvesting. Requires libbladebit_harvester." OFF)
-option(LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
+option(CP_LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
+option(CP_BUILD_BLADEBIT_HARVESTING "Pulls bladebit harvester target from git and builds it as a dependency.")
 
-if (${LINK_BLADEBIT_HARVESTER} AND NOT ${BLADEBIT_HARVESTING})
-  set(BLADEBIT_HARVESTING ON)
+if (${CP_BUILD_BLADEBIT_HARVESTING} AND NOT ${CP_LINK_BLADEBIT_HARVESTER})
+  set(CP_LINK_BLADEBIT_HARVESTER ON)
 endif()
 
+if (${CP_BUILD_BLADEBIT_HARVESTING})
+  FetchContent_Declare(
+    bladebit
+    GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
+    GIT_TAG        cuda-compression-macos
+  )
+
+  set(BB_HARVESTER_ONLY ON)
+  set(BB_HARVESTER_STATIC ON)
+  FetchContent_MakeAvailable(bladebit)
+endif()
 
 FetchContent_Declare(
   gulrak
@@ -68,9 +79,8 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/test
 )
 
-IF (${BLADEBIT_HARVESTING})
+IF (${CP_LINK_BLADEBIT_HARVESTER})
   message ("Bladebit Harvesting Enabled")
-#   include_directories(${bladebit_SOURCE_DIR}/src)
 ENDIF ()
 
 add_library(fse ${FSE_FILES})
@@ -197,16 +207,18 @@ target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMa
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
 )
 
-IF (${BLADEBIT_HARVESTING})
+if (${CP_LINK_BLADEBIT_HARVESTER})
 
   set(bb_defs
     USE_GREEN_REAPER=1
-    $<$<BOOL:${BLADEBIT_HARVESTING}>:BLADEBIT_HARVESTER_LINKED=1>
+    BLADEBIT_HARVESTER_LINKED=1
+    $<$<BOOL:${CP_BUILD_BLADEBIT_HARVESTING}>:BLADEBIT_IS_PROJECT_DEPENDENCY=1>
   )
   set(bb_libs
     bladebit_harvester
     $<$<NOT:$<PLATFORM_ID:Windows>>:dl>
   )
+
   target_compile_definitions(chiapos PUBLIC ${bb_defs})
   target_compile_definitions(ProofOfSpace PUBLIC ${bb_defs})
   target_compile_definitions(RunTests PUBLIC ${bb_defs})
@@ -222,7 +234,7 @@ IF (${BLADEBIT_HARVESTING})
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET RunTests APPEND PROPERTY BUILD_RPATH "$ORIGIN")
-ENDIF()
+endif()
 
 
 #enable_testing()

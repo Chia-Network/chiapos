@@ -39,7 +39,11 @@
 #include "util.hpp"
 
 #if USE_GREEN_REAPER
-    #include "bladebit/GreenReaperPortable.h"
+    #if BLADEBIT_IS_PROJECT_DEPENDENCY
+        #include "harvesting/GreenReaperPortable.h"
+    #else
+        #include "bladebit/GreenReaperPortable.h"
+    #endif
 #endif
 
 #define CHIA_PLOT_V2_MAGIC       0x544F4C50ul   // "PLOT"
@@ -262,7 +266,10 @@ public:
         bool use_gpu_harvesting,
         uint32_t gpu_index,
         bool enforce_gpu_index
-    ) {}
+    ) 
+    {
+        return false;
+    }
 };
 #endif // USE_GREEN_REAPER
 
