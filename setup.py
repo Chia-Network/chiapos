@@ -75,12 +75,6 @@ class CMakeBuild(build_ext):
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
 
-        if os.getenv("CP_USE_GREEN_REAPER") == "1":
-            if sys.platform == "darwin":
-                subprocess.check_call(["cp", "green_reaper/lib/libbladebit_harvester.dylib", f'{str(extdir)}/'])
-            else:
-                subprocess.check_call(["cp", "green_reaper/lib/libbladebit_harvester.so", f'{str(extdir)}/'])
-
 
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
@@ -198,11 +192,6 @@ class BuildExt(build_ext):
             ext.extra_compile_args = opts
             ext.extra_link_args = link_opts
         build_ext.build_extensions(self)
-
-        # Copy bladebit_harvester.dll on windows to the target build directory
-        # in order to package it into the root directory of the wheel
-        if os.getenv("CP_USE_GREEN_REAPER") == "1" and sys.platform == "win32":
-            shutil.copy2("libs/bladebit_harvester.dll", self.build_lib + "/bladebit_harvester.dll")
 
 
 if platform.system() == "Windows":
