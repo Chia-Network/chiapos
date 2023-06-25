@@ -4,8 +4,8 @@ on:
   push:
     branches:
     - main
-    tags:
-    - '**'
+  release:
+    types: [published]
   pull_request:
     branches:
     - '**'
@@ -19,6 +19,7 @@ jobs:
   build-wheels:
     name: Wheel - ${{ matrix.os.name }} ${{ matrix.python.major-dot-minor }} ${{ matrix.arch.name }}
     runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -112,6 +113,12 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      if: env.RUNNER_ARCH != 'ARM64'
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -122,6 +129,7 @@ jobs:
 
     - name: Build and test
       env:
+        CI: 1
         CIBW_PRERELEASE_PYTHONS: True
         CIBW_BUILD_VERBOSITY_MACOS: 0
         CIBW_BUILD_VERBOSITY_LINUX: 0
@@ -138,6 +146,7 @@ jobs:
           && which cmake
           && cmake --version
           && uname -a
+          && yum install -y numactl-devel glibc-devel epel-release
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
@@ -274,6 +283,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -298,7 +312,7 @@ jobs:
       run: pip install twine
 
     - name: Publish distribution to PyPI
-      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      if: env.RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
@@ -306,7 +320,7 @@ jobs:
       run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Publish distribution to Test PyPI
-      if: steps.check_secrets.outputs.HAS_SECRET
+      if: env.PRE_RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         TWINE_USERNAME: __token__

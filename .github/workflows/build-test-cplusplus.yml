@@ -14,16 +14,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set Env
+        uses: Chia-Network/actions/setjobenv@main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: cmake, RunTests, and valgrind on ubuntu-20.04
         run: |
           sudo apt update
-          sudo apt-get install valgrind -y
+          sudo apt-get install valgrind libnuma-dev -y
           mkdir build
           cd build
           cmake ../
-          cmake --build . -- -j 6
-          ctest -j 6 --output-on-failure
-          valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
+          cmake --build . -- -j "$(nproc)"
+          ctest -j "$(nproc)" --output-on-failure
+          valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j "$(nproc)" --output-on-failure
 
   asan:
     name: ASAN ubuntu
@@ -32,8 +37,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set Env
+        uses: Chia-Network/actions/setjobenv@main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
+          sudo apt-get install libnuma-dev -y
           sudo fallocate -l 16G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
@@ -42,7 +53,7 @@ jobs:
           mkdir build-asan
           cd build-asan
           cmake -DCMAKE_BUILD_TYPE=ASAN ../
-          cmake --build . -- -j 6
+          cmake --build . -- -j "$(nproc)"
           swapon -s
           ./RunTests
 
@@ -53,25 +64,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set Env
+        uses: Chia-Network/actions/setjobenv@main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
+          sudo apt-get install libnuma-dev -y
           mkdir build-tsan
           cd build-tsan
           cmake -DCMAKE_BUILD_TYPE=TSAN ../
-          cmake --build . -- -j 6
+          cmake --build . -- -j "$(nproc)"
           TSAN_OPTIONS="memory_limit_mb=6000" ./RunTests
 
   windows:
     name: Windows Latest
     runs-on: windows-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: cmake, RunTests with Windows
-      run: |
-        mkdir build-win
-        cd build-win
-        cmake ..
-        cmake --build . --config Release -j 6
-        ctest -C Release -j 6
+      - name: Set Env
+        uses: Chia-Network/actions/setjobenv@main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: cmake, RunTests with Windows
+        run: |
+          mkdir build-win
+          cd build-win
+          cmake ..
+          cmake --build . --config Release -j "$(nproc)"
+          ctest -C Release -j "$(nproc)"

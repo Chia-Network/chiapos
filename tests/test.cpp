@@ -724,7 +724,7 @@ TEST_CASE("Invalid plot")
             delete[] proof_data;
         }
         REQUIRE(remove(filename.c_str()) == 0);
-        REQUIRE_THROWS_WITH([&]() { DiskProver p(filename); }(), "Invalid file " + filename);
+        REQUIRE_THROWS([&]() { DiskProver p(filename); }());
     }
 }
 

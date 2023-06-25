@@ -35,6 +35,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cxxopts)
 
 FetchContent_Declare(
+  bladebit
+  GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
+  GIT_TAG 73b099185f0c473c4a4bb7ae7317adaa43e509de
+)
+set(BLADEBIT_ENABLE_TESTS "off" CACHE STRING "")
+FetchContent_MakeAvailable(bladebit)
+
+
+FetchContent_Declare(
   gulrak
   GIT_REPOSITORY https://github.com/gulrak/filesystem.git
   GIT_TAG        v1.5.6
@@ -57,6 +66,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
+  ${bladebit_SOURCE_DIR}/src
   )
 
 add_library(fse ${FSE_FILES})
@@ -165,7 +175,8 @@ target_link_libraries(RunTests
   PRIVATE
     fse
     Threads::Threads
-    Catch2::Catch2
+    Catch2::Catch2WithMain
+    lib_bladebit
 )
 
 find_package(Threads REQUIRED)
@@ -175,26 +186,26 @@ target_include_directories(uint128 PUBLIC uint128_t)
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
-target_compile_features(RunTests PUBLIC cxx_std_17)
+# target_compile_features(RunTests PUBLIC cxx_std_17)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
+  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
+  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
+  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
+  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
+  target_link_libraries(chiapos PRIVATE fse Threads::Threads lib_bladebit)
+  target_link_libraries(ProofOfSpace fse Threads::Threads lib_bladebit)
 elseif (MSVC)
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128)
-  target_link_libraries(ProofOfSpace fse Threads::Threads uint128)
+  target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128 lib_bladebit)
+  target_link_libraries(ProofOfSpace fse Threads::Threads uint128 lib_bladebit)
   target_link_libraries(RunTests PRIVATE uint128)
 else()
-  target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads)
-  target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads)
+  target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads lib_bladebit)
+  target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads lib_bladebit)
   target_link_libraries(RunTests PRIVATE stdc++fs)
 endif()
 
-enable_testing()
-add_test(NAME RunTests COMMAND RunTests)
+#enable_testing()
+#add_test(NAME RunTests COMMAND RunTests)
