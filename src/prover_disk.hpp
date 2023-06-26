@@ -697,7 +697,21 @@ public:
                         if (res == GRResult_NoProof) {
                             throw std::runtime_error("GRResult_NoProof received");
                         }
-                        throw std::runtime_error("GRResult is not GRResult_OK.");
+                        if (res == GRResult_Failed) {
+                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_Failed");
+                        }
+                        if (res == GRResult_OutOfMemory) {
+                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_OutOfMemory");
+                        }
+                        if (res == GRResult_WrongVersion) {
+                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_WrongVersion");
+                        }
+                        if (res == GRResult_InvalidGPU) {
+                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_InvalidGPU");
+                        }
+                        if (res == GRResult_InvalidArg) {
+                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_InvalidArg");
+                        }
                     }
                     std::vector<Bits> uncompressed_xs;
                     for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
