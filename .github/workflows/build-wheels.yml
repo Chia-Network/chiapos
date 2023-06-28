@@ -168,7 +168,6 @@ jobs:
           ls -la
 
           gr_sha256=$(sha256sum green_reaper.tar.gz | cut -f1 -d' ')
-  
           if [[ "${ref_gr_sha256}" != "${gr_sha256}" ]]; then
               >&2 echo "GreenReaper SHA256 mismatch!: "
               >&2 echo "Got     : '${gr_sha256}'"
@@ -182,7 +181,7 @@ jobs:
   
           mkdir -p /usr/local/include
           cp -r green_reaper/include /usr/local/include/bladebit
-          cp green_reaper/lib/libbladebit_harvester.so /usr/lib/libbladebit_harvester.so
+          cp green_reaper/lib/libbladebit_harvester.a /usr/lib/libbladebit_harvester.a
 
           # ls -la src/bladebit
           ls -la /usr/local/include/bladebit
