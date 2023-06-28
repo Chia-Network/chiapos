@@ -39,11 +39,7 @@
 #include "util.hpp"
 
 #if USE_GREEN_REAPER
-    #if BLADEBIT_IS_PROJECT_DEPENDENCY
-        #include "harvesting/GreenReaperPortable.h"
-    #else
-        #include "bladebit/GreenReaperPortable.h"
-    #endif
+    #include "GreenReaperPortable.h"
 #endif
 
 #define CHIA_PLOT_V2_MAGIC       0x544F4C50ul   // "PLOT"

@@ -36,17 +36,17 @@ FetchContent_MakeAvailable(cxxopts)
 
 
 option(CP_LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
-option(CP_BUILD_BLADEBIT_HARVESTING "Pulls bladebit harvester target from git and builds it as a dependency.")
+option(CP_BUILD_BLADEBIT_HARVESTER "Pulls bladebit harvester target from git and builds it as a dependency.")
 
-if (${CP_BUILD_BLADEBIT_HARVESTING} AND NOT ${CP_LINK_BLADEBIT_HARVESTER})
+if (${CP_BUILD_BLADEBIT_HARVESTER} AND NOT ${CP_LINK_BLADEBIT_HARVESTER})
   set(CP_LINK_BLADEBIT_HARVESTER ON)
 endif()
 
-if (${CP_BUILD_BLADEBIT_HARVESTING})
+if (${CP_BUILD_BLADEBIT_HARVESTER})
   FetchContent_Declare(
     bladebit
     GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-    GIT_TAG        cuda-compression-macos
+    GIT_TAG        fix-cuda-compression-device-lost
   )
 
   set(BB_HARVESTER_ONLY ON)
@@ -212,11 +212,21 @@ if (${CP_LINK_BLADEBIT_HARVESTER})
   set(bb_defs
     USE_GREEN_REAPER=1
     BLADEBIT_HARVESTER_LINKED=1
-    $<$<BOOL:${CP_BUILD_BLADEBIT_HARVESTING}>:BLADEBIT_IS_PROJECT_DEPENDENCY=1>
+    $<$<BOOL:${CP_BUILD_BLADEBIT_HARVESTER}>:BLADEBIT_IS_PROJECT_DEPENDENCY=1>
   )
   set(bb_libs
     bladebit_harvester
     $<$<NOT:$<PLATFORM_ID:Windows>>:dl>
+  )
+
+  include_directories(
+    ${INCLUDE_DIRECTORIES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/green_reaper/include
+  )
+
+  link_directories(
+    ${LINK_DIRECTORIES}
+    ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib
   )
 
   target_compile_definitions(chiapos PUBLIC ${bb_defs})
@@ -227,9 +237,9 @@ if (${CP_LINK_BLADEBIT_HARVESTER})
   target_link_libraries(ProofOfSpace PUBLIC ${bb_libs})
   target_link_libraries(RunTests PUBLIC ${bb_libs})
 
-  target_link_directories(chiapos PUBLIC ${CMAKE_SOURCE_DIR}/libs)
-  target_link_directories(ProofOfSpace PUBLIC ${CMAKE_SOURCE_DIR}/libs)
-  target_link_directories(RunTests PUBLIC ${CMAKE_SOURCE_DIR}/libs)
+  target_link_directories(chiapos PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
+  target_link_directories(ProofOfSpace PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
+  target_link_directories(RunTests PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
   
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
