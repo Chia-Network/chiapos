@@ -135,25 +135,34 @@ public:
             
             cfg.cpuOffset = i * thread_count;
             GreenReaperContext* gr = nullptr;
-            const auto r = grCreateContext(&gr, &cfg, sizeof(cfg));
+            auto result = grCreateContext(&gr, &cfg, sizeof(cfg));
 
-            if (r != GRResult_OK) {
+            std::string error_msg;
+
+            if (result == GRResult_OK) {
+                assert(gr);
+                queue.push(gr);
+
+                // Preallocate memory required fot the maximum compression level we are supporting initially
+                result = grPreallocateForCompressionLevel(gr, 32, max_compression_level);
+                if (result != GRResult_OK) {
+                    std::stringstream err; err << "Failed to preallocate memory for contexts with result " << result;
+                    error_msg = err.str();
+                }
+            }
+            if (result != GRResult_OK) {
                 // Destroy contexts that were already created
                 while (!queue.empty()) {
                     grDestroyContext( queue.front() );
                     queue.pop();
                 }
-                std::stringstream err; err << "Failed to create GRContext with error " << r;
-                throw std::runtime_error(err.str());
+                if (error_msg.length() < 1) {
+                    std::stringstream err; err << "Failed to create GRContext with result " << result;
+                    error_msg = err.str();
+                }
+                throw std::runtime_error(error_msg);
             }
-            assert(gr);
 
-            auto result = grPreallocateForCompressionLevel(gr, 32, max_compression_level);
-            if (result != GRResult_OK) {
-                std::stringstream err; err << "Failed to preallocate memory for contexts with error " << r;
-                throw std::runtime_error(err.str());
-            }
-            queue.push(gr);
             if (i == 0 && use_gpu_harvesting) {
                 if (grHasGpuDecompressor(gr) == GR_TRUE) {
                     return true;
