@@ -185,7 +185,8 @@ class BuildExt(build_ext):
             if os.getenv("CP_USE_GREEN_REAPER") == "1":
                 opts.append("/DUSE_GREEN_REAPER=1")
                 opts.append("/DBLADEBIT_HARVESTER_LINKED=1")
-                link_opts.append("libs/bladebit_harvester.lib")
+                opts.append("/Ilibs/green_reaper/include")
+                link_opts.append("libs/green_reaper/lib/bladebit_harvester.lib")
 
         for ext in self.extensions:
             ext.extra_compile_args = opts
