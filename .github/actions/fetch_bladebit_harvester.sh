@@ -75,7 +75,7 @@ if [[ "${artifact_ext}" == "zip" ]]; then
   unzip -d "${dst_dir}" "${artifact_name}"
 else
   pushd "${dst_dir}"
-  tar -xzvf "../${artifact_name}"
+  tar -xzvf "../../${artifact_name}"
   popd
 fi
 
