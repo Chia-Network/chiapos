@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import os
 import re
+import shutil
 import sys
 import platform
 import subprocess
@@ -43,6 +44,9 @@ class CMakeBuild(build_ext):
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + str(extdir),
             "-DPYTHON_EXECUTABLE=" + sys.executable,
         ]
+
+        if os.getenv("CP_USE_GREEN_REAPER") == "1":
+            cmake_args.append("-DCP_LINK_BLADEBIT_HARVESTER=ON")
 
         cfg = "Debug" if self.debug else "Release"
         build_args = ["--config", cfg]
@@ -177,10 +181,23 @@ class BuildExt(build_ext):
                 opts.append("-fvisibility=hidden")
         elif ct == "msvc":
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
+
+            # Link bladebit_harvester
+            if os.getenv("CP_USE_GREEN_REAPER") == "1":
+                opts.append("/DUSE_GREEN_REAPER=1")
+                opts.append("/DBLADEBIT_HARVESTER_LINKED=1")
+                opts.append("/Ilibs/green_reaper/include")
+                link_opts.append("libs/green_reaper/lib/bladebit_harvester.lib")
+
         for ext in self.extensions:
             ext.extra_compile_args = opts
             ext.extra_link_args = link_opts
         build_ext.build_extensions(self)
+
+        # Copy bladebit_harvester.dll on windows to the target build directory
+        # in order to package it into the root directory of the wheel
+        if os.getenv("CP_USE_GREEN_REAPER") == "1" and sys.platform == "win32":
+            shutil.copy2("libs/green_reaper/lib/bladebit_harvester.dll", self.build_lib + "/bladebit_harvester.dll")
 
 
 if platform.system() == "Windows":

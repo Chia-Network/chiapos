@@ -4,8 +4,8 @@ on:
   push:
     branches:
     - main
-    tags:
-    - '**'
+  release:
+    types: [published]
   pull_request:
     branches:
     - '**'
@@ -19,6 +19,7 @@ jobs:
   build-wheels:
     name: Wheel - ${{ matrix.os.name }} ${{ matrix.python.major-dot-minor }} ${{ matrix.arch.name }}
     runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -44,31 +45,31 @@ jobs:
           - major-dot-minor: '3.7'
             cibw-build: 'cp37-*'
             manylinux:
-              arch: manylinux2014
-              intel: manylinux2010
+              arm: manylinux2014
+              intel: manylinux2014
             matrix: '3.7'
           - major-dot-minor: '3.8'
             cibw-build: 'cp38-*'
             manylinux:
-              arch: manylinux2014
-              intel: manylinux2010
+              arm: manylinux2014
+              intel: manylinux2014
             matrix: '3.8'
           - major-dot-minor: '3.9'
             cibw-build: 'cp39-*'
             manylinux:
-              arch: manylinux2014
-              intel: manylinux2010
+              arm: manylinux2014
+              intel: manylinux2014
             matrix: '3.9'
           - major-dot-minor: '3.10'
             cibw-build: 'cp310-*'
             manylinux:
-              arch: manylinux2014
-              intel: manylinux2010
+              arm: manylinux2014
+              intel: manylinux2014
             matrix: '3.10'
           - major-dot-minor: '3.11'
             cibw-build: 'cp311-*'
             manylinux:
-              arch: manylinux2014
+              arm: manylinux2014
               intel: manylinux2014
             matrix: '3.11'
         arch:
@@ -112,6 +113,12 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      if: env.RUNNER_ARCH != 'ARM64'
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -119,6 +126,16 @@ jobs:
     - name: Install pipx
       run: |
         pip install pipx
+
+    - name: Get Windows Bladebit Harvester Artifact
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eo pipefail
+        set -x
+
+        windows_sha256='8ad2710faad4a41f72de20707539f024f02db079968ea546699f4ded56fe9a57'
+        .github/actions/fetch_bladebit_harvester.sh windows x86-64
 
     - name: Build and test
       env:
@@ -130,22 +147,41 @@ jobs:
         CIBW_SKIP: '*-manylinux_i686 *-win32 *-musllinux_*'
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
-        CIBW_ENVIRONMENT_LINUX: "PATH=/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH"
-        CIBW_BEFORE_ALL_LINUX: >
-          curl -L https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh
-          && yes | sh cmake.sh | cat
-          && rm -f /usr/bin/cmake
-          && which cmake
-          && cmake --version
-          && uname -a
+        CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
+        CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1"
+        CIBW_BEFORE_ALL_LINUX: |
+          set -eo pipefail
+          set -x
+          # Get bladebit harvester
+          set -eo pipefail
+          ARCH=$(uname -m)
+          if [[ $ARCH == x86_64 ]]; then
+            linux_sha256='3d0cc6e62a7936966789349c4bc573882866a3f1a9f5e365e4961e7bea80831b'
+            .github/actions/fetch_bladebit_harvester.sh linux x86-64
+          else
+            linux_sha256='637c6b073c26d87be513d1e04a97f4e6cc6b27532dc716cc462ee7fbaae31470'
+            .github/actions/fetch_bladebit_harvester.sh linux arm64
+          fi
+
         CIBW_BEFORE_BUILD_LINUX: >
           python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
-        CIBW_BEFORE_ALL_MACOS: >
+        CIBW_BEFORE_ALL_MACOS: |
           brew install gmp boost cmake
+          # Get bladebit harvester
+          set -eo pipefail
+          ARCH=$(uname -m)
+          if [[ $ARCH == x86_64 ]]; then
+            macos_sha256='a76d7da43c6e045f3d0a57a51924211283ba60880558dbbb636d9601c62f6390'
+            .github/actions/fetch_bladebit_harvester.sh macos x86-64
+          else
+            macos_sha256='6894b1b3ebae13a3233b9bc31d2b2a179078ba67595b8be0ee9a69a2a75bec23'
+            .github/actions/fetch_bladebit_harvester.sh macos arm64
+          fi
+
         CIBW_BEFORE_BUILD_MACOS: >
           python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14"
+        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1"
         CIBW_TEST_REQUIRES: pytest
         CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
@@ -274,6 +310,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -298,7 +339,7 @@ jobs:
       run: pip install twine
 
     - name: Publish distribution to PyPI
-      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      if: env.RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
@@ -306,7 +347,7 @@ jobs:
       run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Publish distribution to Test PyPI
-      if: steps.check_secrets.outputs.HAS_SECRET
+      if: env.PRE_RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         TWINE_USERNAME: __token__
