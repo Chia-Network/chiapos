@@ -134,15 +134,15 @@ jobs:
         set -eo pipefail
         set -x
 
-        windows_sha256='8ad2710faad4a41f72de20707539f024f02db079968ea546699f4ded56fe9a57'
+        windows_sha256='98627bc1866aef67cb6307178caa5da15d59ad6fbddf2817ba8737619e68607f'
         .github/actions/fetch_bladebit_harvester.sh windows x86-64
 
     - name: Build and test
       env:
         CIBW_PRERELEASE_PYTHONS: True
-        CIBW_BUILD_VERBOSITY_MACOS: 0
-        CIBW_BUILD_VERBOSITY_LINUX: 0
-        CIBW_BUILD_VERBOSITY_WINDOWS: 0
+        CIBW_BUILD_VERBOSITY_MACOS: 1
+        CIBW_BUILD_VERBOSITY_LINUX: 1
+        CIBW_BUILD_VERBOSITY_WINDOWS: 1
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
         CIBW_SKIP: '*-manylinux_i686 *-win32 *-musllinux_*'
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
@@ -156,10 +156,10 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
-            linux_sha256='3d0cc6e62a7936966789349c4bc573882866a3f1a9f5e365e4961e7bea80831b'
+            linux_sha256='c34f492f5cc75d8f469cda9e214d1b303fe859632af99902d8c303eab40ef817'
             .github/actions/fetch_bladebit_harvester.sh linux x86-64
           else
-            linux_sha256='637c6b073c26d87be513d1e04a97f4e6cc6b27532dc716cc462ee7fbaae31470'
+            linux_sha256='27b96b0fe89bdf810baf553627fb3607978d4e055ab1bcd113dfb37cd92288e9'
             .github/actions/fetch_bladebit_harvester.sh linux arm64
           fi
 
@@ -172,10 +172,10 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
-            macos_sha256='a76d7da43c6e045f3d0a57a51924211283ba60880558dbbb636d9601c62f6390'
+            macos_sha256='797a2f481acb3aef6cb9dd3cb408127ef2d556a21240d14dd68fb7dd60023438'
             .github/actions/fetch_bladebit_harvester.sh macos x86-64
           else
-            macos_sha256='6894b1b3ebae13a3233b9bc31d2b2a179078ba67595b8be0ee9a69a2a75bec23'
+            macos_sha256='c46d232689adfc2da08bfdbdb3742ac607b96298b61d0f6b69d0a1f28fd853bc'
             .github/actions/fetch_bladebit_harvester.sh macos arm64
           fi
 
