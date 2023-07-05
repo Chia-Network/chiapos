@@ -21,29 +21,35 @@ if [[ "${host_arch}" != "arm64" ]] && [[ "${host_arch}" != "x86-64" ]]; then
   exit 1
 fi
 
-# Update these when pointing to different releases
+## Change this before releasing 2.0.0
 artifact_ver="v3.0.0-alpha4"
 artifact_base_url="https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes"
-
-linux_sha256=
-macos_sha256=
-windows_sha256=
+## End changes
 
 artifact_ext="tar.gz"
+artifact_name="green_reaper.${artifact_ext}"
+
+get-artifact-sha() {
+  curl -Ls "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}.sha256.txt" | cut -d' ' -f1
+}
+
 sha_bin="sha256sum"
 expected_sha256=
 
 case "${host_os}" in
 linux)
-  expected_sha256=$linux_sha256
+  linux_sha256="$(get-artifact-sha)"
+  expected_sha256="$linux_sha256"
   ;;
 macos)
-  expected_sha256=$macos_sha256
+  macos_sha256="$(get-artifact-sha)"
   sha_bin="shasum -a 256"
+  expected_sha256="$macos_sha256"
   ;;
 windows)
-  expected_sha256=$windows_sha256
   artifact_ext="zip"
+  windows_sha256="$(get-artifact-sha)"
+  expected_sha256="$windows_sha256"
   ;;
 *)
   echo >&2 "Unexpected OS '${host_os}'"
@@ -52,12 +58,11 @@ windows)
 esac
 
 # Download artifact
-artifact_name="green_reaper.${artifact_ext}"
 curl -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
 
 # Validate sha256, if one was given
 if [ -n "${expected_sha256}" ]; then
-  gr_sha256="$(${sha_bin} ${artifact_name})"
+  gr_sha256="$(${sha_bin} ${artifact_name} | cut -d' ' -f1)"
 
   if [[ "${gr_sha256}" != "${expected_sha256}" ]]; then
     echo >&2 "GreenReaper SHA256 mismatch!"
