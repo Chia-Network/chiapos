@@ -105,7 +105,7 @@ PYBIND11_MODULE(chiapos, m)
                 return py::bytes(reinterpret_cast<const char*>(id.data()), id.size());
             })
         .def("get_size", [](DiskProver &dp) { return dp.GetSize(); })
-        .def("get_compresion_level", [](DiskProver &dp) { return dp.GetCompressionLevel(); })
+        .def("get_compression_level", [](DiskProver &dp) { return dp.GetCompressionLevel(); })
         .def("get_filename", [](DiskProver &dp) { return dp.GetFilename(); })
         .def(
             "get_qualities_for_challenge",
