@@ -21,9 +21,10 @@ if [[ "${host_arch}" != "arm64" ]] && [[ "${host_arch}" != "x86-64" ]]; then
   exit 1
 fi
 
-# Update these when pointing to different releases
+## Change this before releasing 2.0.0
 artifact_ver="v3.0.0-alpha4"
 artifact_base_url="https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes"
+## End changes
 
 linux_sha256=
 macos_sha256=
