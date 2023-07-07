@@ -133,6 +133,7 @@ jobs:
       run: |
         set -eo pipefail
         set -x
+        windows_sha256='febea2317b7e858e296a30344a5382161cebc1a66678975151b117f17cda5181'
         .github/actions/fetch_bladebit_harvester.sh windows x86-64
 
     - name: Build and test
@@ -154,8 +155,10 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
+            linux_sha256='ef3f8f74b9c63166a735eb1f2cb855e88b36f50ad52c9d51cf32eb3e9e25428e'
             .github/actions/fetch_bladebit_harvester.sh linux x86-64
           else
+            linux_sha256='fcc8bf849733781c82c0b13b70bbba57aaf82abc9a0e2aee7b1ba3da6b0e58f2'
             .github/actions/fetch_bladebit_harvester.sh linux arm64
           fi
 
@@ -168,8 +171,10 @@ jobs:
           set -eo pipefail
           ARCH=$(uname -m)
           if [[ $ARCH == x86_64 ]]; then
+            macos_sha256='199720c9dff72e883edbd027c31cc03ed9f901e6a00e2be5a7e8ac2633ecb69c'
             .github/actions/fetch_bladebit_harvester.sh macos x86-64
           else
+            macos_sha256='932d73c6a70df59bbe7baf3702cc74cc8eb483f5e6a94551b3089779b1e7b010'
             .github/actions/fetch_bladebit_harvester.sh macos arm64
           fi
 
