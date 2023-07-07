@@ -46,7 +46,7 @@ if (${CP_BUILD_BLADEBIT_HARVESTER})
   FetchContent_Declare(
     bladebit
     GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
-    GIT_TAG        fix-cuda-compression-device-lost
+    GIT_TAG        cuda-compression
   )
 
   set(BB_HARVESTER_ONLY ON)
