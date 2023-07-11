@@ -278,7 +278,7 @@ public:
 };
 #endif // USE_GREEN_REAPER
 
-ContextQueue decompresser_context_queue;
+ContextQueue decompressor_context_queue;
 
 
 // The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
@@ -600,11 +600,11 @@ public:
                             req.xLinePoints[1].lo = (uint64_t)alt_line_point;
                         }
 
-                        GreenReaperContext* gr = decompresser_context_queue.pop();
+                        GreenReaperContext* gr = decompressor_context_queue.pop();
                         assert(gr);
 
                         auto res = grGetFetchQualitiesXPair(gr, &req);
-                        decompresser_context_queue.push(gr);
+                        decompressor_context_queue.push(gr);
 
                         if (res != GRResult_OK) {
                             // Expect this will result in failure in a later step.
@@ -684,7 +684,7 @@ public:
 
             #if USE_GREEN_REAPER
                 if (compression_level > 0) {
-                    auto gr = decompresser_context_queue.pop();
+                    auto gr = decompressor_context_queue.pop();
 
                     GRCompressedProofRequest req{};
                     req.compressionLevel = compression_level;
@@ -696,7 +696,7 @@ public:
                     }
 
                     GRResult res = grFetchProofForChallenge(gr, &req);
-                    decompresser_context_queue.push(gr);
+                    decompressor_context_queue.push(gr);
 
                     if (res != GRResult_OK) {
                         if (res == GRResult_NoProof) {
