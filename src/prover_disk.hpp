@@ -24,7 +24,6 @@
 #include <fstream>
 #include <future>
 #include <iostream>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -174,7 +173,6 @@ public:
     void push(GreenReaperContext* gr) {
         std::unique_lock<std::mutex> lock(mutex);
         queue.push(gr);
-        lock.unlock();
         condition.notify_one();
     }
 
@@ -183,10 +181,8 @@ public:
         while (queue.empty()) {
             condition.wait(lock);
         }
-        dequeue_lock.lock();
         GreenReaperContext* gr = queue.front();
         queue.pop();
-        dequeue_lock.unlock();
         return gr;
     }
 
@@ -194,7 +190,6 @@ private:
     std::queue<GreenReaperContext*> queue;
     std::mutex mutex;
     std::condition_variable condition;
-    std::mutex dequeue_lock;
 };
 
 class ProofCache {
