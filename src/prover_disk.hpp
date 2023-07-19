@@ -173,6 +173,7 @@ public:
     void push(GreenReaperContext* gr) {
         std::unique_lock<std::mutex> lock(mutex);
         queue.push(gr);
+        lock.unlock();
         condition.notify_one();
     }
 
