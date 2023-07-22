@@ -22,14 +22,14 @@ if [[ "${host_arch}" != "arm64" ]] && [[ "${host_arch}" != "x86-64" ]]; then
 fi
 
 ## Change this before releasing 2.0.0
-artifact_ver="v3.0.0-alpha4"
-artifact_base_url="https://github.com/harold-b/bladebit-test/releases/download/v3-alpha4-fixes"
+artifact_ver="v3.0.0-rc1"
+artifact_base_url="https://github.com/Chia-Network/bladebit/releases/download/v3.0.0-rc1"
 
-linux_arm_sha256="d6f4fc6014a0faa4a5735980a4c12753e205e6429a9d92ea1d32831e475df357"
-linux_x86_sha256="98c0efb464935455595d7a573027613c46a7921a95d3f9216b27814f84a1ac31"
-macos_arm_sha256="713849aa5d01df9ccfcec259920d86a4ddec83cc3bbc30860852dcf9ac793978"
-macos_x86_sha256="67885e4f95b11a115f37138309cc9fd92785229f76adefe6d23e15c45625c92f"
-windows_sha256="2a951daa19c65574808537007b874a29d9001bc4387c162633646b0f546676ca"
+linux_arm_sha256="d0af989049f077be726cf5cbc9b5e138defe7891214c23457bd6925fded68b3d"
+linux_x86_sha256="d7cb5525e11b27d386523730fcde4dfc099681ccddbd5861cf9c7ba7fbda9676"
+macos_arm_sha256="b63b8611791a02395ad3fa31f78f2983335301e8cf3352729026fb0aec9b8e3c"
+macos_x86_sha256="8b4ba2cb40a041ba64025f933eecb59942c5d85447d0fef7ded8e8e4527a0573"
+windows_sha256="bcfef83e1d9664308d8571b76af57f5a7e4b0fdc14a380deeb21b186b02b2356"
 ## End changes
 
 artifact_ext="tar.gz"
