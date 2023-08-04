@@ -64,7 +64,7 @@ void HelpAndQuit(cxxopts::Options options)
 }
 
 // Not thread safe
-inline void InitDecompresserQueueDefault(bool no_cuda = false)
+inline void InitDecompressorQueueDefault(bool no_cuda = false)
 {
     static bool initialized = false;
     if (initialized) {
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) try {
                 num_threads,
                 phases_flags);
     } else if (operation == "prove") {
-        InitDecompresserQueueDefault();
+        InitDecompressorQueueDefault();
 
         if (argc < 3) {
             HelpAndQuit(options);
@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) try {
         }
         delete[] proof_bytes;
     } else if (operation == "check") {
-        InitDecompresserQueueDefault();
+        InitDecompressorQueueDefault();
 
         uint32_t iterations = 1000;
         if (argc == 3) {
