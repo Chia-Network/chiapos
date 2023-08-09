@@ -4,8 +4,8 @@ on:
   push:
     branches:
     - main
-    tags:
-    - '**'
+  release:
+    types: [published]
   pull_request:
     branches:
     - '**'
@@ -19,6 +19,7 @@ jobs:
   build-wheels:
     name: Wheel - ${{ matrix.os.name }} ${{ matrix.python.major-dot-minor }} ${{ matrix.arch.name }}
     runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -45,19 +46,19 @@ jobs:
             cibw-build: 'cp38-*'
             manylinux:
               arm: manylinux2014
-              intel: manylinux2010
+              intel: manylinux2014
             matrix: '3.8'
           - major-dot-minor: '3.9'
             cibw-build: 'cp39-*'
             manylinux:
               arm: manylinux2014
-              intel: manylinux2010
+              intel: manylinux2014
             matrix: '3.9'
           - major-dot-minor: '3.10'
             cibw-build: 'cp310-*'
             manylinux:
               arm: manylinux2014
-              intel: manylinux2010
+              intel: manylinux2014
             matrix: '3.10'
           - major-dot-minor: '3.11'
             cibw-build: 'cp311-*'
@@ -90,9 +91,9 @@ jobs:
                 arm: [macOS, ARM64]
                 intel: [macos-latest]
             python:
-              major-dot-minor: '3.7'
-              cibw-build: 'cp37-*'
-              matrix: '3.7'
+              major-dot-minor: '3.8'
+              cibw-build: 'cp38-*'
+              matrix: '3.8'
             arch:
               name: ARM
               matrix: arm
@@ -106,6 +107,12 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      if: env.RUNNER_ARCH != 'ARM64'
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -114,36 +121,23 @@ jobs:
       run: |
         pip install pipx
 
+    - name: Get Windows Bladebit Harvester Artifact
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eo pipefail
+        set -x
+        .github/actions/fetch_bladebit_harvester.sh windows x86-64
+
     - name: Build and test
       env:
         CIBW_PRERELEASE_PYTHONS: True
-        CIBW_BUILD_VERBOSITY_MACOS: 0
-        CIBW_BUILD_VERBOSITY_LINUX: 0
-        CIBW_BUILD_VERBOSITY_WINDOWS: 0
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
-        CIBW_SKIP: '*-manylinux_i686 *-win32 *-musllinux_*'
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
-        CIBW_ENVIRONMENT_LINUX: "PATH=/project/cmake-3.17.3-Linux-`uname -m`/bin:$PATH"
-        CIBW_BEFORE_ALL_LINUX: >
-          curl -L https://github.com/Kitware/CMake/releases/download/v3.17.3/cmake-3.17.3-Linux-`uname -m`.sh > cmake.sh
-          && yes | sh cmake.sh | cat
-          && rm -f /usr/bin/cmake
-          && which cmake
-          && cmake --version
-          && uname -a
-        CIBW_BEFORE_BUILD_LINUX: >
-          python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
-        CIBW_BEFORE_ALL_MACOS: >
-          brew install gmp boost cmake
-        CIBW_BEFORE_BUILD_MACOS: >
-          python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "SYSTEM_VERSION_COMPAT=0 MACOSX_DEPLOYMENT_TARGET=11"
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
-        pipx run --spec='cibuildwheel==2.9.0' cibuildwheel --output-dir dist 2>&1
+        pipx run --spec='cibuildwheel==2.11.2' cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
@@ -268,6 +262,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Set Env
+      uses: Chia-Network/actions/setjobenv@main
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: Chia-Network/actions/setup-python@main
       with:
         python-version: ${{ matrix.python.major-dot-minor }}
@@ -292,7 +291,7 @@ jobs:
       run: pip install twine
 
     - name: Publish distribution to PyPI
-      if: startsWith(github.event.ref, 'refs/tags') && steps.check_secrets.outputs.HAS_SECRET
+      if: env.RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_USERNAME: __token__
         TWINE_NON_INTERACTIVE: 1
@@ -300,7 +299,7 @@ jobs:
       run: twine upload --non-interactive --skip-existing --verbose 'dist/*'
 
     - name: Publish distribution to Test PyPI
-      if: steps.check_secrets.outputs.HAS_SECRET
+      if: env.PRE_RELEASE == 'true' && steps.check_secrets.outputs.HAS_SECRET
       env:
         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
         TWINE_USERNAME: __token__

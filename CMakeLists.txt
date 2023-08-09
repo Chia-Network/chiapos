@@ -34,6 +34,26 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cxxopts)
 
+
+option(CP_LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
+option(CP_BUILD_BLADEBIT_HARVESTER "Pulls bladebit harvester target from git and builds it as a dependency.")
+
+if (${CP_BUILD_BLADEBIT_HARVESTER} AND NOT ${CP_LINK_BLADEBIT_HARVESTER})
+  set(CP_LINK_BLADEBIT_HARVESTER ON)
+endif()
+
+if (${CP_BUILD_BLADEBIT_HARVESTER})
+  FetchContent_Declare(
+    bladebit
+    GIT_REPOSITORY https://github.com/Chia-Network/bladebit.git
+    GIT_TAG        cuda-compression
+  )
+
+  set(BB_HARVESTER_ONLY ON)
+  set(BB_HARVESTER_STATIC ON)
+  FetchContent_MakeAvailable(bladebit)
+endif()
+
 FetchContent_Declare(
   gulrak
   GIT_REPOSITORY https://github.com/gulrak/filesystem.git
@@ -57,7 +77,11 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/FiniteStateEntropy/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/test
-  )
+)
+
+IF (${CP_LINK_BLADEBIT_HARVESTER})
+  message ("Bladebit Harvesting Enabled")
+ENDIF ()
 
 add_library(fse ${FSE_FILES})
 
@@ -161,13 +185,6 @@ add_executable(RunTests
     ${BLAKE3_SRC}
 )
 
-target_link_libraries(RunTests
-  PRIVATE
-    fse
-    Threads::Threads
-    Catch2::Catch2
-)
-
 find_package(Threads REQUIRED)
 
 add_library(uint128 STATIC uint128_t/uint128_t.cpp)
@@ -175,26 +192,60 @@ target_include_directories(uint128 PUBLIC uint128_t)
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
-target_compile_features(RunTests PUBLIC cxx_std_17)
+# target_compile_features(RunTests PUBLIC cxx_std_17)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads)
-  target_link_libraries(ProofOfSpace fse Threads::Threads)
-elseif (MSVC)
-  target_link_libraries(chiapos PRIVATE fse Threads::Threads uint128)
-  target_link_libraries(ProofOfSpace fse Threads::Threads uint128)
-  target_link_libraries(RunTests PRIVATE uint128)
-else()
-  target_link_libraries(chiapos PRIVATE fse stdc++fs Threads::Threads)
-  target_link_libraries(ProofOfSpace fse stdc++fs Threads::Threads)
-  target_link_libraries(RunTests PRIVATE stdc++fs)
+target_link_libraries(chiapos PRIVATE fse Threads::Threads
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+)
+target_link_libraries(ProofOfSpace PRIVATE fse Threads::Threads
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+)
+target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMain
+  $<$<CXX_COMPILER_ID:MSVC>:uint128>
+  $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+)
+
+if (${CP_LINK_BLADEBIT_HARVESTER})
+
+  set(bb_defs
+    USE_GREEN_REAPER=1
+    BLADEBIT_HARVESTER_LINKED=1
+    $<$<BOOL:${CP_BUILD_BLADEBIT_HARVESTER}>:BLADEBIT_IS_PROJECT_DEPENDENCY=1>
+  )
+  set(bb_libs
+    bladebit_harvester
+    $<$<NOT:$<PLATFORM_ID:Windows>>:dl>
+  )
+
+  include_directories(
+    ${INCLUDE_DIRECTORIES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/green_reaper/include
+  )
+
+  link_directories(
+    ${LINK_DIRECTORIES}
+    ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib
+  )
+
+  target_compile_definitions(chiapos PUBLIC ${bb_defs})
+  target_compile_definitions(ProofOfSpace PUBLIC ${bb_defs})
+  target_compile_definitions(RunTests PUBLIC ${bb_defs})
+
+  target_link_libraries(chiapos PUBLIC ${bb_libs})
+  target_link_libraries(ProofOfSpace PUBLIC ${bb_libs})
+  target_link_libraries(RunTests PUBLIC ${bb_libs})
+
+  target_link_directories(chiapos PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
+  target_link_directories(ProofOfSpace PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
+  target_link_directories(RunTests PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
+  
+  set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+  set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+  set_property(TARGET RunTests APPEND PROPERTY BUILD_RPATH "$ORIGIN")
 endif()
 
-enable_testing()
-add_test(NAME RunTests COMMAND RunTests)
+
+#enable_testing()
+#add_test(NAME RunTests COMMAND RunTests)
