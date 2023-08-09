@@ -7,7 +7,7 @@ local_scheme = "no-local-version"
 
 [tool.cibuildwheel]
 test-requires = "pytest"
-test-command = "py.test -v {project}/python-bindings/test.py"
+test-command = "pytest -v {project}/tests"
 skip = "*-manylinux_i686 *-win32 *-musllinux_*"
 
 [tool.cibuildwheel.linux]
