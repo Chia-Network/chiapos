@@ -132,46 +132,10 @@ jobs:
     - name: Build and test
       env:
         CIBW_PRERELEASE_PYTHONS: True
-        CIBW_BUILD_VERBOSITY_MACOS: 1
-        CIBW_BUILD_VERBOSITY_LINUX: 1
-        CIBW_BUILD_VERBOSITY_WINDOWS: 1
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
-        CIBW_SKIP: '*-manylinux_i686 *-win32 *-musllinux_*'
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux['arm'] }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux['intel'] }}
-        CIBW_ENVIRONMENT_WINDOWS: "CP_USE_GREEN_REAPER=1"
-        CIBW_ENVIRONMENT_LINUX: CP_USE_GREEN_REAPER="1"
-        CIBW_BEFORE_ALL_LINUX: |
-          set -eo pipefail
-          set -x
-          # Get bladebit harvester
-          set -eo pipefail
-          ARCH=$(uname -m)
-          if [[ $ARCH == x86_64 ]]; then
-            .github/actions/fetch_bladebit_harvester.sh linux x86-64
-          else
-            .github/actions/fetch_bladebit_harvester.sh linux arm64
-          fi
-
-        CIBW_BEFORE_BUILD_LINUX: >
-          python -m pip install --upgrade pip
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
-        CIBW_BEFORE_ALL_MACOS: |
-          brew install gmp boost cmake
-          # Get bladebit harvester
-          set -eo pipefail
-          ARCH=$(uname -m)
-          if [[ $ARCH == x86_64 ]]; then
-            .github/actions/fetch_bladebit_harvester.sh macos x86-64
-          else
-            .github/actions/fetch_bladebit_harvester.sh macos arm64
-          fi
-
-        CIBW_BEFORE_BUILD_MACOS: >
-          python -m pip install --upgrade pip
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.14 CP_USE_GREEN_REAPER=1"
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: py.test -v {project}/tests
       run:
         pipx run --spec='cibuildwheel==2.11.2' cibuildwheel --output-dir dist 2>&1
 
