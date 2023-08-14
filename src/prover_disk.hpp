@@ -270,7 +270,8 @@ public:
         const uint32_t max_compression_level,
         bool use_gpu_harvesting,
         uint32_t gpu_index,
-        bool enforce_gpu_index
+        bool enforce_gpu_index,
+        uint16_t context_queue_timeout
     ) 
     {
         return false;
