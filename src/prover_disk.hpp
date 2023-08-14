@@ -183,7 +183,9 @@ public:
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
         if (!condition.wait_for(lock, std::chrono::seconds(context_queue_timeout), [this] { return !queue.empty(); })) {
-            throw std::runtime_error("Timeout waiting for context queue.");
+            if (queue.empty()) {
+                throw std::runtime_error("Timeout waiting for context queue.");
+            }
         }
         GreenReaperContext* gr = queue.front();
         queue.pop();
