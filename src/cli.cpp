@@ -70,7 +70,7 @@ inline void InitDecompressorQueueDefault(bool no_cuda = false)
     if (initialized) {
         return;
     }
-    decompressor_context_queue.init(1, (uint32_t)std::thread::hardware_concurrency(), false, 9, !no_cuda, 0, false);
+    decompressor_context_queue.init(1, (uint32_t)std::thread::hardware_concurrency(), false, 9, !no_cuda, 0, false, 30);
     initialized = true;
 }
 
