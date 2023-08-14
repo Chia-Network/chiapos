@@ -29,6 +29,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
@@ -67,7 +68,8 @@ public:
         const uint32_t max_compression_level,
         bool use_gpu_harvesting,
         uint32_t gpu_index,
-        bool enforce_gpu_index
+        bool enforce_gpu_index,
+        uint16_t context_queue_timeout,
     ) {
         assert(!_dcompressor_queue_initialized);
         _dcompressor_queue_initialized = true;
@@ -167,6 +169,7 @@ public:
                 }
             }
         }
+        this->context_queue_timeout = context_queue_timeout;
         return false;
     }
 
@@ -179,8 +182,8 @@ public:
 
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
-        while (queue.empty()) {
-            condition.wait(lock);
+        if (!condition.wait_for(lock, std::chrono::seconds(context_queue_timeout), [this] { return !queue.empty(); })) {
+            throw std::runtime_error("Timeout waiting for context queue.");
         }
         GreenReaperContext* gr = queue.front();
         queue.pop();
@@ -191,6 +194,7 @@ private:
     std::queue<GreenReaperContext*> queue;
     std::mutex mutex;
     std::condition_variable condition;
+    uint16_t context_queue_timeout;
 };
 
 class ProofCache {
