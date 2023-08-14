@@ -69,7 +69,7 @@ public:
         bool use_gpu_harvesting,
         uint32_t gpu_index,
         bool enforce_gpu_index,
-        uint16_t context_queue_timeout,
+        uint16_t context_queue_timeout
     ) {
         assert(!_dcompressor_queue_initialized);
         _dcompressor_queue_initialized = true;
