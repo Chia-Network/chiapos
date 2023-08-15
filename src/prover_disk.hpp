@@ -182,15 +182,28 @@ public:
 
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
-        if (!condition.wait_for(lock, std::chrono::seconds(context_queue_timeout), [this] { return !queue.empty(); })) {
-            if (queue.empty()) {
+
+        std::chrono::duration<double> wait_time(context_queue_timeout);
+        auto start_time = std::chrono::steady_clock::now();
+
+        while (queue.empty() && wait_time.count() > 0) {
+            if (condition.wait_for(lock, wait_time) == std::cv_status::timeout && queue.empty()) {
                 throw std::runtime_error("Timeout waiting for context queue.");
             }
+
+            auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start_time);
+            wait_time = std::chrono::duration<double>(context_queue_timeout) - elapsed;
         }
+
+        if (queue.empty()) {
+            throw std::runtime_error("Timeout waiting for context queue.");
+        }
+
         GreenReaperContext* gr = queue.front();
         queue.pop();
         return gr;
     }
+}
 
 private:
     std::queue<GreenReaperContext*> queue;
