@@ -183,21 +183,21 @@ public:
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
 
-        if (queue.empty()) {
-            std::chrono::duration<double> wait_time = std::chrono::seconds(context_queue_timeout);
-            auto start_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> wait_time = std::chrono::seconds(context_queue_timeout);
 
-            while (queue.empty() && wait_time.count() > 0) {
-                if (condition.wait_for(lock, wait_time) == std::cv_status::timeout && queue.empty()) {
-                    throw std::runtime_error("Timeout waiting for context queue.");
-                }
+        while (queue.empty() && wait_time.count() > 0) {
+            auto before_wait = std::chrono::steady_clock::now();
 
-                auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start_time);
-                wait_time = std::chrono::seconds(context_queue_timeout) - elapsed;
-            }
-            if (queue.empty()) {
+            if (condition.wait_for(lock, wait_time) == std::cv_status::timeout && queue.empty()) {
                 throw std::runtime_error("Timeout waiting for context queue.");
             }
+
+            auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - before_wait);
+            wait_time -= elapsed;
+        }
+
+        if (queue.empty()) {
+            throw std::runtime_error("Timeout waiting for context queue.");
         }
 
         GreenReaperContext* gr = queue.front();
