@@ -188,8 +188,8 @@ public:
         while (queue.empty() && wait_time.count() > 0) {
             auto before_wait = std::chrono::steady_clock::now();
 
-            if (condition.wait_for(lock, wait_time) == std::cv_status::timeout && queue.empty()) {
-                throw std::runtime_error("Timeout waiting for context queue.");
+            if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
+                break;
             }
 
             auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - before_wait);
