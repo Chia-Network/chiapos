@@ -203,7 +203,6 @@ public:
         queue.pop();
         return gr;
     }
-}
 
 private:
     std::queue<GreenReaperContext*> queue;
