@@ -16,9 +16,9 @@ environment = {CP_USE_GREEN_REAPER=1}
 before-all = '''
 set -eo pipefail && set -x && set -eo pipefail && ARCH=$(uname -m)
 if [[ $ARCH == x86_64 ]]; then
-.github/actions/fetch_bladebit_harvester.sh linux x86-64
+  .github/actions/fetch_bladebit_harvester.sh linux x86-64
 else
-.github/actions/fetch_bladebit_harvester.sh linux arm64
+  .github/actions/fetch_bladebit_harvester.sh linux arm64
 fi
 '''
 before-build = "python -m pip install --upgrade pip"
@@ -30,9 +30,9 @@ brew install gmp boost cmake
 set -eo pipefail
 ARCH=$(uname -m)
 if [[ $ARCH == x86_64 ]]; then
-.github/actions/fetch_bladebit_harvester.sh macos x86-64
+  .github/actions/fetch_bladebit_harvester.sh macos x86-64
 else
-.github/actions/fetch_bladebit_harvester.sh macos arm64
+  .github/actions/fetch_bladebit_harvester.sh macos arm64
 fi
 '''
 before-build = "python -m pip install --upgrade pip"
