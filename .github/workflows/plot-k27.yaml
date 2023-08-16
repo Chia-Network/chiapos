@@ -1,6 +1,14 @@
 name: Plot k=27
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - main
+  release:
+    types: [published]
+  pull_request:
+    branches:
+    - '**'
 
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}--${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/long_lived/')) && github.sha || '' }}
