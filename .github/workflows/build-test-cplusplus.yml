@@ -27,8 +27,8 @@ jobs:
           valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all ctest -j 6 --output-on-failure
 
   asan:
-    name: ${{ matrix.mode.name }} ubuntu
-    runs-on: ubuntu-20.04
+    name: Ubuntu ${{ matrix.os.name }} ${{ matrix.mode.name }}
+    runs-on: ${{ matrix.os.runs-on }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,6 +39,11 @@ jobs:
           - name: TSAN
             matrix: tsan
             cmake: TSAN
+        os:
+          - name: 20.04
+            runs-on: ubuntu-20.04
+          - name: 22.04
+            runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
