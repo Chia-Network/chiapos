@@ -184,10 +184,12 @@ public:
         std::unique_lock<std::mutex> lock(mutex);
 
         auto wait_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(context_queue_timeout));
-        cout << "[ContextQueue] timeout is configured as " << context_queue_timeout << endl;
-        cout << "[ContextQueue] pop() Will wait for nanoseconds: " << wait_for.count() << " ("
-             << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)" << endl;
-        cout << std::flush;
+        std::cout << "[ContextQueue] timeout is configured as " << context_queue_timeout
+                  << std::endl;
+        std::cout << "[ContextQueue] pop() Will wait for nanoseconds: " << wait_for.count() << " ("
+                  << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)"
+                  << std::endl
+                  << std::flush;
 
         while (queue.empty() && wait_time.count() > 0) {
             const auto before_wait = std::chrono::steady_clock::now();
@@ -195,25 +197,27 @@ public:
             if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
                 const auto e = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - before_wait);
 
-                cout << "[ContextQueue] wait_for() Waited for " << e.count << " nanoseconds ("
-                     << std::chrono::duration_cast<std::chrono::seconds>(e).count() << "s)" << endl;
-                cout << std::flush;
+                std::cout << "[ContextQueue] wait_for() Waited for " << e.count << " nanoseconds ("
+                          << std::chrono::duration_cast<std::chrono::seconds>(e).count() << "s)"
+                          << std::endl
+                          << std::flush;
                 break;
             }
 
             const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - before_wait);
             wait_time -= std::min(elapsed, wait_time);
-            cout << "[ContextQueue] Woke up before wait time and waited for " << elapsed.count()
-                 << " nanoseconds ("
-                 << std::chrono::duration_cast<std::chrono::seconds>(elapsed).count()
-                 << "s) . Remaining: " << wait_time.count() << " ("
-                 << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)"
-                 << endl;
-            cout << std::flush;
+            std::cout << "[ContextQueue] Woke up before wait time and waited for "
+                      << elapsed.count() << " nanoseconds ("
+                      << std::chrono::duration_cast<std::chrono::seconds>(elapsed).count()
+                      << "s) . Remaining: " << wait_time.count() << " ("
+                      << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)"
+                      << std::endl
+                      << std::flush;
         }
 
         if (queue.empty()) {
-            cout << "[ContextQueue] - timeout waitinf for context queue" << endl << std::flush;
+            std::cout << "[ContextQueue] - timeout waiting for context queue" << std::endl
+                      << std::flush;
             throw std::runtime_error("Timeout waiting for context queue.");
         }
 
