@@ -143,19 +143,23 @@ public:
                 assert(gr);
                 queue.push(gr);
 
+                std::cout << "Preallocating memory for context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                 // Preallocate memory required fot the maximum compression level we are supporting initially
                 result = grPreallocateForCompressionLevel(gr, 32, max_compression_level);
+                std::cout << "Preallocated memory for context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                 if (result != GRResult_OK) {
                     std::stringstream err; err << "Failed to preallocate memory for contexts with result " << result;
                     error_msg = err.str();
                 }
             }
             if (result != GRResult_OK) {
+                std::cout << "Destroying contexts: context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                 // Destroy contexts that were already created
                 while (!queue.empty()) {
                     grDestroyContext( queue.front() );
                     queue.pop();
                 }
+                std::cout << "Contexts destroyed. Current context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                 if (error_msg.length() < 1) {
                     std::stringstream err; err << "Failed to create GRContext with result " << result;
                     error_msg = err.str();
@@ -166,7 +170,9 @@ public:
             if (i == 0 && use_gpu_harvesting) {
                 if (grHasGpuDecompressor(gr) == GR_TRUE) {
                     return true;
+                    std::cout << "Use GPU context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                 } else {
+                    std::cout << "Use CPU context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
                     // default to CPU
                     cfg.gpuRequest = GRGpuRequestKind_None;
                 }
@@ -185,7 +191,7 @@ public:
 
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
-
+        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         std::chrono::duration<double> wait_time = std::chrono::seconds(context_queue_timeout);
 
         while (queue.empty() && wait_time.count() > 0) {
@@ -194,12 +200,13 @@ public:
             if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
                 break;
             }
-
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
             auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - before_wait);
             wait_time -= elapsed;
         }
 
         if (queue.empty()) {
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
             throw std::runtime_error("Timeout waiting for context queue.");
         }
 
@@ -239,10 +246,11 @@ public:
     }
 
     inline ProofCache(ProofCache const& other) = delete;
+    std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
 
     inline bool FoundCachedProof(const uint32_t index, const uint8_t* challenge, LargeBits& out_full_proof) {
         std::lock_guard<std::mutex> l(lock);
-
+        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         Entry entry;
         memcpy(entry.challenge, challenge, sizeof(entry.challenge));
         entry.index = index;
@@ -251,14 +259,16 @@ public:
             if (memcmp(&challenges[i], &entry, sizeof(Entry)) == 0) {
                 out_full_proof = full_proofs[i];
                 return true;
+                std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
             }
         }
         return false;
+        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
     }
 
     inline void CacheProof(const uint32_t index, const uint8_t* challenge, const LargeBits& full_proof) {
         std::lock_guard<std::mutex> l(lock);
-
+        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         Entry entry;
         memcpy(entry.challenge, challenge, sizeof(entry.challenge));
         entry.index = index;
@@ -392,8 +402,10 @@ public:
             }
         }
         #if !defined( USE_GREEN_REAPER )
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
             if (this->compression_level > 0)
                 throw std::logic_error("Harvester does not support compressed plots.");
+                std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         #endif
 
         this->table_begin_pointers = std::vector<uint64_t>(11, 0);
@@ -451,8 +463,10 @@ public:
         deserializer >> C2;
         if (version == 2) {
             deserializer >> compression_level;
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         } else {
             compression_level = 0;
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         }
 
         #if !defined( USE_GREEN_REAPER )
@@ -466,6 +480,7 @@ public:
     DiskProver(DiskProver&& other) noexcept
         #if USE_GREEN_REAPER
             : cached_proofs(std::move(other.cached_proofs))
+            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
         #endif
     {
         filename = std::move(other.filename);
