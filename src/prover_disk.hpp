@@ -183,7 +183,7 @@ public:
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
 
-        std::chrono::seconds wait_time = std::chrono::seconds(context_queue_timeout);
+        std::chrono::nanoseconds wait_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(context_queue_timeout));
 
         while (queue.empty() && wait_time.count() > 0) {
             const auto before_wait = std::chrono::steady_clock::now();
@@ -192,7 +192,7 @@ public:
                 break;
             }
 
-            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - before_wait);
+            const std::chrono::nanoseconds elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - before_wait);
             wait_time -= std::min(elapsed, wait_time);
         }
 
