@@ -186,7 +186,7 @@ public:
         auto wait_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(context_queue_timeout));
         std::cout << "[ContextQueue] timeout is configured as " << context_queue_timeout
                   << std::endl;
-        std::cout << "[ContextQueue] pop() Will wait for nanoseconds: " << wait_for.count() << " ("
+        std::cout << "[ContextQueue] pop() Will wait for nanoseconds: " << wait_time.count() << " ("
                   << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)"
                   << std::endl
                   << std::flush;
