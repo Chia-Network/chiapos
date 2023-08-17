@@ -71,8 +71,10 @@ public:
         bool enforce_gpu_index,
         uint16_t context_queue_timeout
     ) {
+        std::cout << "Initializing with context_count: " << context_count << ", thread_count: " << thread_count << std::endl;
         assert(!_dcompressor_queue_initialized);
         _dcompressor_queue_initialized = true;
+        std::cout << "Initialized with context_count: " << context_count << ", thread_count: " << thread_count << std::endl;
 
         // Populate the API
         #if _WIN32
@@ -130,7 +132,8 @@ public:
         this->context_queue_timeout = context_queue_timeout;
 
         for (uint32_t i = 0; i < context_count; i++) {
-            
+            std::cout << "Iteration " << i << ": context_count = " << context_count << ", thread_count = " << thread_count << std::endl;
+    cfg.cpuOffset = i * thread_count;
             cfg.cpuOffset = i * thread_count;
             GreenReaperContext* gr = nullptr;
             auto result = grCreateContext(&gr, &cfg, sizeof(cfg));
