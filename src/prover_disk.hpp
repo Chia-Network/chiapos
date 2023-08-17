@@ -112,7 +112,8 @@ public:
         //         throw std::runtime_error(err.str());
         //     }
         // }
-    printf( "[ContextQueue] Timeout time: %d\n", (int)context_queue_timeout); fflush( stdout );
+        printf("[ContextQueue] Timeout time: %d\n", (int)context_queue_timeout);
+        fflush(stdout);
         GreenReaperConfig cfg = {};
         cfg.apiVersion = GR_API_VERSION;
         cfg.threadCount = thread_count;
@@ -127,6 +128,12 @@ public:
             }
         }
         cfg.gpuDeviceIndex = gpu_index;
+
+        std::cout << " [ContextQueue] Setting this->context_queue_timeout to: "
+                  << context_queue_timeout << std::endl
+                  << std::flush;
+
+        this->context_queue_timeout = context_queue_timeout;
 
         for (uint32_t i = 0; i < context_count; i++) {
             
@@ -151,6 +158,7 @@ public:
                 // Destroy contexts that were already created
                 while (!queue.empty()) {
                     grDestroyContext( queue.front() );
+                    // does it matter that the timeout is active at this time?
                     queue.pop();
                 }
                 if (error_msg.length() < 1) {
@@ -169,15 +177,6 @@ public:
                 }
             }
         }
-        std::cout << " Setting this->context_queue_timeout to: " << context_queue_timeout
-                  << std::endl
-                  << std::flush;
-
-        this->context_queue_timeout = context_queue_timeout;
-
-        std::cout << " this->context_queue_timeout is now: " << this->context_queue_timeout
-                  << std::endl
-                  << std::flush;
 
         return false;
     }
