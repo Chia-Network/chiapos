@@ -197,7 +197,8 @@ public:
             if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
                 const auto e = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - before_wait);
 
-                std::cout << "[ContextQueue] wait_for() Waited for " << e.count << " nanoseconds ("
+                std::cout << "[ContextQueue] wait_for() Waited for " << e.count()
+                          << " nanoseconds ("
                           << std::chrono::duration_cast<std::chrono::seconds>(e).count() << "s)"
                           << std::endl
                           << std::flush;
