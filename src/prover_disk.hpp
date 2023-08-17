@@ -127,6 +127,7 @@ public:
             }
         }
         cfg.gpuDeviceIndex = gpu_index;
+        this->context_queue_timeout = context_queue_timeout;
 
         for (uint32_t i = 0; i < context_count; i++) {
             
@@ -169,7 +170,7 @@ public:
                 }
             }
         }
-        this->context_queue_timeout = context_queue_timeout;
+
         return false;
     }
 
