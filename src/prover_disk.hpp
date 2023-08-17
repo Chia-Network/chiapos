@@ -169,7 +169,16 @@ public:
                 }
             }
         }
+        std::cout << " Setting this->context_queue_timeout to: " << context_queue_timeout
+                  << std::endl
+                  << std::flush;
+
         this->context_queue_timeout = context_queue_timeout;
+
+        std::cout << " this->context_queue_timeout is now: " << this->context_queue_timeout
+                  << std::endl
+                  << std::flush;
+
         return false;
     }
 
@@ -182,10 +191,15 @@ public:
 
     GreenReaperContext* pop() {
         std::unique_lock<std::mutex> lock(mutex);
-
-        auto wait_time = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(context_queue_timeout));
         std::cout << "[ContextQueue] timeout is configured as " << context_queue_timeout
                   << std::endl;
+        if (context_queue_timeout == 0) {
+            std::cout << "[ContextQueue] timeout is zero?? Hard-coding to 20 " << std::endl;
+            context_queue_timeout = 20;
+        }
+
+        auto wait_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::seconds(context_queue_timeout));
         std::cout << "[ContextQueue] pop() Will wait for nanoseconds: " << wait_time.count() << " ("
                   << std::chrono::duration_cast<std::chrono::seconds>(wait_time).count() << "s)"
                   << std::endl
