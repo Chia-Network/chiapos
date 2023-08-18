@@ -21,15 +21,15 @@
 #include <stdio.h>
 
 #include <algorithm>  // std::min
+#include <chrono>
+#include <condition_variable>
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
-#include <chrono>
 
 #include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
@@ -39,1259 +39,1338 @@
 #include "util.hpp"
 
 #if USE_GREEN_REAPER
-    #include "GreenReaperPortable.h"
+#include "GreenReaperPortable.h"
 #endif
 
-#define CHIA_PLOT_V2_MAGIC       0x544F4C50ul   // "PLOT"
-#define CHIA_PLOT_VERSION_2_0_0  2
-
+#define CHIA_PLOT_V2_MAGIC 0x544F4C50ul  // "PLOT"
+#define CHIA_PLOT_VERSION_2_0_0 2
 
 struct plot_header {
-    uint8_t magic[19];
-    uint8_t id[32];
-    uint8_t k;
-    uint8_t fmt_desc_len[2];
-    uint8_t fmt_desc[50];
+  uint8_t magic[19];
+  uint8_t id[32];
+  uint8_t k;
+  uint8_t fmt_desc_len[2];
+  uint8_t fmt_desc[50];
 };
 
 #if USE_GREEN_REAPER
 static GRApi _grApi{};
 static bool _dcompressor_queue_initialized = false;
 class ContextQueue {
-public:
-    ContextQueue() {}
+ public:
+  ContextQueue() {}
 
-    bool init(
-        uint32_t context_count,
-        uint32_t thread_count,
-        bool no_cpu_affinity,
-        const uint32_t max_compression_level,
-        bool use_gpu_harvesting,
-        uint32_t gpu_index,
-        bool enforce_gpu_index,
-        uint16_t context_queue_timeout
-    ) {
-        std::cout << "Initializing with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        assert(!_dcompressor_queue_initialized);
-        _dcompressor_queue_initialized = true;
-        std::cout << "Initialized with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
+  bool init(uint32_t context_count, uint32_t thread_count, bool no_cpu_affinity,
+            const uint32_t max_compression_level, bool use_gpu_harvesting,
+            uint32_t gpu_index, bool enforce_gpu_index,
+            uint16_t context_queue_timeout) {
+    std::cout << "Initializing with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+    assert(!_dcompressor_queue_initialized);
+    _dcompressor_queue_initialized = true;
+    std::cout << "Initialized with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
 
-        // Populate the API
-        #if _WIN32
-            #define GR_LIB_PREFIX ""
-            #define GR_LIB_EXT ".dll"
-        #else
-            #define GR_LIB_PREFIX "lib"
+// Populate the API
+#if _WIN32
+#define GR_LIB_PREFIX ""
+#define GR_LIB_EXT ".dll"
+#else
+#define GR_LIB_PREFIX "lib"
 
-            #if __APPLE__
-                #define GR_LIB_EXT ".dylib"
-            #else
-                #define GR_LIB_EXT ".so"
-            #endif
-        #endif
+#if __APPLE__
+#define GR_LIB_EXT ".dylib"
+#else
+#define GR_LIB_EXT ".so"
+#endif
+#endif
 
-        // void* lib = grLoadModule(GR_LIB_PREFIX "bladebit_harvester" GR_LIB_EXT);
+    // void* lib = grLoadModule(GR_LIB_PREFIX "bladebit_harvester" GR_LIB_EXT);
 
-        // if (lib == nullptr) {
-        //     int code;
-        //     #if _WIN32
-        //         code = (int)::GetLastError();
-        //     #else
-        //         code = (int)dlerror();
-        //     #endif
+    // if (lib == nullptr) {
+    //     int code;
+    //     #if _WIN32
+    //         code = (int)::GetLastError();
+    //     #else
+    //         code = (int)dlerror();
+    //     #endif
 
-        //     std::stringstream err; err << "Failed to load bladebit_harvester with error: '" << code << "'";
-        //     throw std::runtime_error(err.str());
-        // }
-        // #undef GR_LIB_PREFIX
-        // #undef GR_LIB_EXT
+    //     std::stringstream err; err << "Failed to load bladebit_harvester with
+    //     error: '" << code << "'"; throw std::runtime_error(err.str());
+    // }
+    // #undef GR_LIB_PREFIX
+    // #undef GR_LIB_EXT
 
-        // // Init GR API
-        // {
-        //     const auto r = grPopulateApiFromModule(lib, &_grApi, sizeof(GRApi), GR_API_VERSION);
-        //     if (r != GRResult_OK) {
-        //         std::stringstream err; err << "Failed to initialize GR API with error " << r;
-        //         throw std::runtime_error(err.str());
-        //     }
-        // }
+    // // Init GR API
+    // {
+    //     const auto r = grPopulateApiFromModule(lib, &_grApi, sizeof(GRApi),
+    //     GR_API_VERSION); if (r != GRResult_OK) {
+    //         std::stringstream err; err << "Failed to initialize GR API with
+    //         error " << r; throw std::runtime_error(err.str());
+    //     }
+    // }
 
-        GreenReaperConfig cfg = {};
-        cfg.apiVersion = GR_API_VERSION;
-        cfg.threadCount = thread_count;
-        cfg.disableCpuAffinity = no_cpu_affinity;
-        if (!use_gpu_harvesting) {
-            cfg.gpuRequest = GRGpuRequestKind_None;
-        } else {
-            if (enforce_gpu_index) {
-                cfg.gpuRequest = GRGpuRequestKind_ExactDevice;
-            } else {
-                cfg.gpuRequest = GRGpuRequestKind_FirstAvailable;
-            }
-        }
-        cfg.gpuDeviceIndex = gpu_index;
-        this->context_queue_timeout = context_queue_timeout;
-
-        for (uint32_t i = 0; i < context_count; i++) {
-            std::cout << "Iteration " << i << ": context_count = " << context_count << ",  = " << thread_count << std::endl << std::flush;
-            cfg.cpuOffset = i * thread_count;
-            GreenReaperContext* gr = nullptr;
-            auto result = grCreateContext(&gr, &cfg, sizeof(cfg));
-
-            std::string error_msg;
-
-            if (result == GRResult_OK) {
-                assert(gr);
-                queue.push(gr);
-
-                std::cout << "Preallocating memory for context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                // Preallocate memory required fot the maximum compression level we are supporting initially
-                result = grPreallocateForCompressionLevel(gr, 32, max_compression_level);
-                std::cout << "Preallocated memory for context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                if (result != GRResult_OK) {
-                    std::stringstream err; err << "Failed to preallocate memory for contexts with result " << result;
-                    error_msg = err.str();
-                }
-            }
-            if (result != GRResult_OK) {
-                std::cout << "Destroying contexts: context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                // Destroy contexts that were already created
-                while (!queue.empty()) {
-                    grDestroyContext( queue.front() );
-                    queue.pop();
-                }
-                std::cout << "Contexts destroyed. Current context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                if (error_msg.length() < 1) {
-                    std::stringstream err; err << "Failed to create GRContext with result " << result;
-                    error_msg = err.str();
-                }
-                throw std::runtime_error(error_msg);
-            }
-
-            if (i == 0 && use_gpu_harvesting) {
-                if (grHasGpuDecompressor(gr) == GR_TRUE) {
-                    return true;
-                    std::cout << "Use GPU context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                } else {
-                    std::cout << "Use CPU context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-                    // default to CPU
-                    cfg.gpuRequest = GRGpuRequestKind_None;
-                }
-            }
-        }
-
-        return false;
+    GreenReaperConfig cfg = {};
+    cfg.apiVersion = GR_API_VERSION;
+    cfg.threadCount = thread_count;
+    cfg.disableCpuAffinity = no_cpu_affinity;
+    if (!use_gpu_harvesting) {
+      cfg.gpuRequest = GRGpuRequestKind_None;
+    } else {
+      if (enforce_gpu_index) {
+        cfg.gpuRequest = GRGpuRequestKind_ExactDevice;
+      } else {
+        cfg.gpuRequest = GRGpuRequestKind_FirstAvailable;
+      }
     }
+    cfg.gpuDeviceIndex = gpu_index;
+    this->context_queue_timeout = context_queue_timeout;
 
-    void push(GreenReaperContext* gr) {
-        std::unique_lock<std::mutex> lock(mutex);
+    for (uint32_t i = 0; i < context_count; i++) {
+      std::cout << "Iteration " << i << ": context_count = " << context_count
+                << ",  = " << thread_count << std::flush;
+      cfg.cpuOffset = i * thread_count;
+      GreenReaperContext *gr = nullptr;
+      auto result = grCreateContext(&gr, &cfg, sizeof(cfg));
+
+      std::string error_msg;
+
+      if (result == GRResult_OK) {
+        assert(gr);
         queue.push(gr);
-        lock.unlock();
-        condition.notify_one();
+
+        std::cout << "Preallocating memory for context_count: " << context_count
+                  << ", thread_count: " << thread_count << std::flush;
+        // Preallocate memory required fot the maximum compression level we are
+        // supporting initially
+        result =
+            grPreallocateForCompressionLevel(gr, 32, max_compression_level);
+        std::cout << "Preallocated memory for context_count: " << context_count
+                  << ", thread_count: " << thread_count << std::flush;
+        if (result != GRResult_OK) {
+          std::stringstream err;
+          err << "Failed to preallocate memory for contexts with result "
+              << result;
+          error_msg = err.str();
+        }
+      }
+      if (result != GRResult_OK) {
+        std::cout << "Destroying contexts: context_count: " << context_count
+                  << ", thread_count: " << thread_count << std::flush;
+        // Destroy contexts that were already created
+        while (!queue.empty()) {
+          grDestroyContext(queue.front());
+          queue.pop();
+        }
+        std::cout << "Contexts destroyed. Current context_count: "
+                  << context_count << ", thread_count: " << thread_count
+                  << std::flush;
+        if (error_msg.length() < 1) {
+          std::stringstream err;
+          err << "Failed to create GRContext with result " << result;
+          error_msg = err.str();
+        }
+        throw std::runtime_error(error_msg);
+      }
+
+      if (i == 0 && use_gpu_harvesting) {
+        if (grHasGpuDecompressor(gr) == GR_TRUE) {
+          return true;
+          std::cout << "Use GPU context_count: " << context_count
+                    << ", thread_count: " << thread_count << std::flush;
+        } else {
+          std::cout << "Use CPU context_count: " << context_count
+                    << ", thread_count: " << thread_count << std::flush;
+          // default to CPU
+          cfg.gpuRequest = GRGpuRequestKind_None;
+        }
+      }
     }
 
-    GreenReaperContext* pop() {
-        std::unique_lock<std::mutex> lock(mutex);
-        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        std::chrono::duration<double> wait_time = std::chrono::seconds(context_queue_timeout);
+    return false;
+  }
 
-        while (queue.empty() && wait_time.count() > 0) {
-            auto before_wait = std::chrono::steady_clock::now();
+  void push(GreenReaperContext *gr) {
+    std::unique_lock<std::mutex> lock(mutex);
+    queue.push(gr);
+    lock.unlock();
+    condition.notify_one();
+  }
 
-            if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
-                break;
-            }
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-            auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - before_wait);
-            wait_time -= elapsed;
-        }
+  GreenReaperContext *pop() {
+    std::unique_lock<std::mutex> lock(mutex);
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+    std::chrono::duration<double> wait_time =
+        std::chrono::seconds(context_queue_timeout);
 
-        if (queue.empty()) {
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-            throw std::runtime_error("Timeout waiting for context queue.");
-        }
+    while (queue.empty() && wait_time.count() > 0) {
+      auto before_wait = std::chrono::steady_clock::now();
 
-        GreenReaperContext* gr = queue.front();
-        queue.pop();
-        return gr;
+      if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
+        break;
+      }
+      std::cout << "Configured with context_count: " << context_count
+                << ", thread_count: " << thread_count << std::flush;
+      auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
+          std::chrono::steady_clock::now() - before_wait);
+      wait_time -= elapsed;
     }
 
-private:
-    std::queue<GreenReaperContext*> queue;
-    std::mutex mutex;
-    std::condition_variable condition;
-    uint16_t context_queue_timeout;
+    if (queue.empty()) {
+      std::cout << "Configured with context_count: " << context_count
+                << ", thread_count: " << thread_count << std::flush;
+      throw std::runtime_error("Timeout waiting for context queue.");
+    }
+
+    GreenReaperContext *gr = queue.front();
+    queue.pop();
+    return gr;
+  }
+
+ private:
+  std::queue<GreenReaperContext *> queue;
+  std::mutex mutex;
+  std::condition_variable condition;
+  uint16_t context_queue_timeout;
 };
 
 class ProofCache {
-    static constexpr uint32_t MAX_ENTRIES = 64;
+  static constexpr uint32_t MAX_ENTRIES = 64;
 
-    struct Entry {
-        alignas(16) uint8_t challenge[32];
-        uint32_t index;
-    };
+  struct Entry {
+    alignas(16) uint8_t challenge[32];
+    uint32_t index;
+  };
 
-    uint32_t cache_entry_proof_position = 0;
-    std::vector<Entry> challenges;
-    std::vector<LargeBits> full_proofs;
-    mutable std::mutex lock;
+  uint32_t cache_entry_proof_position = 0;
+  std::vector<Entry> challenges;
+  std::vector<LargeBits> full_proofs;
+  mutable std::mutex lock;
 
-public:
-    inline ProofCache() = default;
-    inline ProofCache(ProofCache&& other)
-        : cache_entry_proof_position(other.cache_entry_proof_position)
-        , challenges(std::move(other.challenges))
-        , full_proofs(std::move(other.full_proofs))
-    {
-        other.cache_entry_proof_position = 0;
+ public:
+  inline ProofCache() = default;
+  inline ProofCache(ProofCache &&other)
+      : cache_entry_proof_position(other.cache_entry_proof_position),
+        challenges(std::move(other.challenges)),
+        full_proofs(std::move(other.full_proofs)) {
+    other.cache_entry_proof_position = 0;
+  }
+
+  inline ProofCache(ProofCache const &other) = delete;
+  std::cout << "Configured with context_count: " << context_count
+            << ", thread_count: " << thread_count << std::flush;
+
+  inline bool FoundCachedProof(const uint32_t index, const uint8_t *challenge,
+                               LargeBits &out_full_proof) {
+    std::lock_guard<std::mutex> l(lock);
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+    Entry entry;
+    memcpy(entry.challenge, challenge, sizeof(entry.challenge));
+    entry.index = index;
+
+    for (uint32_t i = 0; i < challenges.size(); i++) {
+      if (memcmp(&challenges[i], &entry, sizeof(Entry)) == 0) {
+        out_full_proof = full_proofs[i];
+        return true;
+        std::cout << "Configured with context_count: " << context_count
+                  << ", thread_count: " << thread_count << std::flush;
+      }
     }
+    return false;
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+  }
 
-    inline ProofCache(ProofCache const& other) = delete;
-    std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
+  inline void CacheProof(const uint32_t index, const uint8_t *challenge,
+                         const LargeBits &full_proof) {
+    std::lock_guard<std::mutex> l(lock);
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+    Entry entry;
+    memcpy(entry.challenge, challenge, sizeof(entry.challenge));
+    entry.index = index;
 
-    inline bool FoundCachedProof(const uint32_t index, const uint8_t* challenge, LargeBits& out_full_proof) {
-        std::lock_guard<std::mutex> l(lock);
-        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        Entry entry;
-        memcpy(entry.challenge, challenge, sizeof(entry.challenge));
-        entry.index = index;
-
-        for (uint32_t i = 0; i < challenges.size(); i++) {
-            if (memcmp(&challenges[i], &entry, sizeof(Entry)) == 0) {
-                out_full_proof = full_proofs[i];
-                return true;
-                std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-            }
-        }
-        return false;
-        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
+    if (challenges.size() < MAX_ENTRIES) {
+      challenges.emplace_back(entry);
+      full_proofs.emplace_back(full_proof);
+    } else {
+      challenges[cache_entry_proof_position] = entry;
+      full_proofs[cache_entry_proof_position] = full_proof;
     }
+    cache_entry_proof_position = (cache_entry_proof_position + 1) % MAX_ENTRIES;
+  }
 
-    inline void CacheProof(const uint32_t index, const uint8_t* challenge, const LargeBits& full_proof) {
-        std::lock_guard<std::mutex> l(lock);
-        std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        Entry entry;
-        memcpy(entry.challenge, challenge, sizeof(entry.challenge));
-        entry.index = index;
-
-        if (challenges.size() < MAX_ENTRIES) {
-            challenges.emplace_back(entry);
-            full_proofs.emplace_back(full_proof);
-        } else {
-            challenges[cache_entry_proof_position] = entry;
-            full_proofs[cache_entry_proof_position] = full_proof;
-        }
-        cache_entry_proof_position = (cache_entry_proof_position + 1) % MAX_ENTRIES;
-    }
-
-    static_assert(alignof(ProofCache::Entry) == 16);
+  static_assert(alignof(ProofCache::Entry) == 16);
 };
 #else
 // Dummy one for python
 class ContextQueue {
-public:
-    inline ContextQueue() {}
+ public:
+  inline ContextQueue() {}
 
-    inline bool init(
-        uint32_t context_count,
-        uint32_t thread_count,
-        bool no_cpu_affinity,
-        const uint32_t max_compression_level,
-        bool use_gpu_harvesting,
-        uint32_t gpu_index,
-        bool enforce_gpu_index,
-        uint16_t context_queue_timeout
-    ) 
-    {
-        return false;
-    }
+  inline bool init(uint32_t context_count, uint32_t thread_count,
+                   bool no_cpu_affinity, const uint32_t max_compression_level,
+                   bool use_gpu_harvesting, uint32_t gpu_index,
+                   bool enforce_gpu_index, uint16_t context_queue_timeout) {
+    return false;
+  }
 };
-#endif // USE_GREEN_REAPER
+#endif  // USE_GREEN_REAPER
 
 ContextQueue decompressor_context_queue;
 
-
-// The DiskProver, given a correctly formatted plot file, can efficiently generate valid proofs
-// of space, for a given challenge.
+// The DiskProver, given a correctly formatted plot file, can efficiently
+// generate valid proofs of space, for a given challenge.
 class DiskProver {
-public:
-    static const uint16_t VERSION{1};
-    // The constructor opens the file, and reads the contents of the file header. The table pointers
-    // will be used to find and seek to all seven tables, at the time of proving.
-    explicit DiskProver(const std::string& filename) : id(kIdLen)
-    {
-        struct plot_header header{};
-        this->compression_level = 0;
-        this->filename = filename;
+ public:
+  static const uint16_t VERSION{1};
+  // The constructor opens the file, and reads the contents of the file header.
+  // The table pointers will be used to find and seek to all seven tables, at
+  // the time of proving.
+  explicit DiskProver(const std::string &filename) : id(kIdLen) {
+    struct plot_header header {};
+    this->compression_level = 0;
+    this->filename = filename;
 
-        std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
+    std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
-        if (!disk_file.is_open()) {
-            throw std::invalid_argument("Invalid file " + filename);
-        }
-        // 19 bytes  - "Proof of Space Plot" (utf-8)
-        // 32 bytes  - unique plot id
-        // 1 byte    - k
-        // 2 bytes   - format description length
-        // x bytes   - format description
-        // 2 bytes   - memo length
-        // x bytes   - memo
+    if (!disk_file.is_open()) {
+      throw std::invalid_argument("Invalid file " + filename);
+    }
+    // 19 bytes  - "Proof of Space Plot" (utf-8)
+    // 32 bytes  - unique plot id
+    // 1 byte    - k
+    // 2 bytes   - format description length
+    // x bytes   - format description
+    // 2 bytes   - memo length
+    // x bytes   - memo
 
-        // Check for V2 Magic.
-        uint8_t magic_2_bytes[4];
-        SafeRead(disk_file, magic_2_bytes, 4);
-        uint32_t magic_2_result;
-        memcpy(&magic_2_result, magic_2_bytes, sizeof(magic_2_result));
-        if (magic_2_result == CHIA_PLOT_V2_MAGIC) {
-            uint8_t version_bytes[4];
-            SafeRead(disk_file, version_bytes, 4);
-            uint32_t version_result;
-            memcpy(&version_result, version_bytes, sizeof(version_result));
-            if (version_result == CHIA_PLOT_VERSION_2_0_0) {
-                version = 2;
-            }
-            else {
-                throw std::invalid_argument("Unsupported version.");
-            }
-        } else {
-            // V1
-            version = 1;
-            memcpy(header.magic, magic_2_bytes, sizeof(magic_2_bytes));
-            uint8_t tmp_magic_buff[15];
-            SafeRead(disk_file, tmp_magic_buff, sizeof(header.magic) - 4);
-            memcpy(header.magic + 4, tmp_magic_buff, sizeof(tmp_magic_buff));
-            if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)) != 0) {
-                throw std::invalid_argument("Invalid plot header magic: " + Util::HexStr(header.magic, 19));
-            }
-        }
-
-        SafeRead(disk_file, (uint8_t*)&header.id, sizeof(header.id));
-        SafeRead(disk_file, (uint8_t*)&header.k, sizeof(header.k));
-
-        if (version == 1) {
-            SafeRead(disk_file, (uint8_t*)&header.fmt_desc_len, sizeof(header.fmt_desc_len));
-            SafeRead(disk_file, (uint8_t*)&header.fmt_desc, sizeof(header.fmt_desc));
-
-            uint16_t fmt_desc_len = Util::TwoBytesToInt(header.fmt_desc_len);
-
-            if (fmt_desc_len == kFormatDescription.size() &&
-                !memcmp(header.fmt_desc, kFormatDescription.c_str(), fmt_desc_len)) {
-                // OK
-            } else {
-                throw std::invalid_argument("Invalid plot file format");
-            }
-            SafeSeek(disk_file, offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
-        }
-
-        memcpy(id.data(), header.id, sizeof(header.id));
-        this->k = header.k;
-
-        uint8_t size_buf[2];
-        SafeRead(disk_file, size_buf, 2);
-        memo.resize(Util::TwoBytesToInt(size_buf));
-        SafeRead(disk_file, memo.data(), memo.size());
-
-        if (version == 2) {
-            uint8_t flags_bytes[4];
-            SafeRead(disk_file, flags_bytes, sizeof(flags_bytes));
-            uint32_t flags;
-            memcpy(&flags, flags_bytes, sizeof(flags));
-            if (flags & 1) {
-                uint8_t compression_level;
-                SafeRead(disk_file, &compression_level, sizeof(compression_level));
-                this->compression_level = compression_level;
-            }
-        }
-        #if !defined( USE_GREEN_REAPER )
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-            if (this->compression_level > 0)
-                throw std::logic_error("Harvester does not support compressed plots.");
-                std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        #endif
-
-        this->table_begin_pointers = std::vector<uint64_t>(11, 0);
-        this->C2 = std::vector<uint64_t>();
-
-        uint8_t pointer_buf[8];
-        for (uint8_t i = 1; i < 11; i++) {
-            SafeRead(disk_file, pointer_buf, 8);
-            this->table_begin_pointers[i] = Util::EightBytesToInt(pointer_buf);
-        }
-
-        SafeSeek(disk_file, table_begin_pointers[9]);
-
-        uint8_t c2_size = (Util::ByteAlign(k) / 8);
-        uint32_t c2_entries = (table_begin_pointers[10] - table_begin_pointers[9]) / c2_size;
-        if (c2_entries == 0 || c2_entries == 1) {
-            throw std::invalid_argument("Invalid C2 table size");
-        }
-
-        // The list of C2 entries is small enough to keep in memory. When proving, we can
-        // read from disk the C1 and C3 entries.
-        uint64_t prev_c2_f7 = 0;
-        auto* c2_buf = new uint8_t[c2_size];
-        for (uint32_t i = 0; i < c2_entries - 1; i++) {
-            SafeRead(disk_file, c2_buf, c2_size);
-
-            const uint64_t f7 = Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue();
-
-            // Short-circuit reading of the C2 table as soon as we encounter an f7 entry whose
-            // value is lesser than the previous f7 read. This ensures that we don't read
-            // empty space from C2 tables that are written with file system block-alignment (like bladebit v1 does).
-            if (f7 < prev_c2_f7)
-                break;
-
-            this->C2.push_back(f7);
-            prev_c2_f7 = f7;
-        }
-
-        delete[] c2_buf;
+    // Check for V2 Magic.
+    uint8_t magic_2_bytes[4];
+    SafeRead(disk_file, magic_2_bytes, 4);
+    uint32_t magic_2_result;
+    memcpy(&magic_2_result, magic_2_bytes, sizeof(magic_2_result));
+    if (magic_2_result == CHIA_PLOT_V2_MAGIC) {
+      uint8_t version_bytes[4];
+      SafeRead(disk_file, version_bytes, 4);
+      uint32_t version_result;
+      memcpy(&version_result, version_bytes, sizeof(version_result));
+      if (version_result == CHIA_PLOT_VERSION_2_0_0) {
+        version = 2;
+      } else {
+        throw std::invalid_argument("Unsupported version.");
+      }
+    } else {
+      // V1
+      version = 1;
+      memcpy(header.magic, magic_2_bytes, sizeof(magic_2_bytes));
+      uint8_t tmp_magic_buff[15];
+      SafeRead(disk_file, tmp_magic_buff, sizeof(header.magic) - 4);
+      memcpy(header.magic + 4, tmp_magic_buff, sizeof(tmp_magic_buff));
+      if (memcmp(header.magic, "Proof of Space Plot", sizeof(header.magic)) !=
+          0) {
+        throw std::invalid_argument("Invalid plot header magic: " +
+                                    Util::HexStr(header.magic, 19));
+      }
     }
 
-    explicit DiskProver(const std::vector<uint8_t>& vecBytes)
-    {
-        Deserializer deserializer(vecBytes);
-        deserializer >> version;
-        if (version != 1 && version != 2) {
-            // TODO: Migrate to new version if we change something related to the data structure
-            throw std::invalid_argument("DiskProver: Invalid version.");
-        }
-        deserializer >> filename;
-        deserializer >> memo;
-        deserializer >> id;
-        deserializer >> k;
-        deserializer >> table_begin_pointers;
-        deserializer >> C2;
-        if (version == 2) {
-            deserializer >> compression_level;
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        } else {
-            compression_level = 0;
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        }
+    SafeRead(disk_file, (uint8_t *)&header.id, sizeof(header.id));
+    SafeRead(disk_file, (uint8_t *)&header.k, sizeof(header.k));
 
-        #if !defined( USE_GREEN_REAPER )
-            if (compression_level > 0)
-                throw std::runtime_error("Harvester does not support compressed plots.");
-        #endif
+    if (version == 1) {
+      SafeRead(disk_file, (uint8_t *)&header.fmt_desc_len,
+               sizeof(header.fmt_desc_len));
+      SafeRead(disk_file, (uint8_t *)&header.fmt_desc, sizeof(header.fmt_desc));
+
+      uint16_t fmt_desc_len = Util::TwoBytesToInt(header.fmt_desc_len);
+
+      if (fmt_desc_len == kFormatDescription.size() &&
+          !memcmp(header.fmt_desc, kFormatDescription.c_str(), fmt_desc_len)) {
+        // OK
+      } else {
+        throw std::invalid_argument("Invalid plot file format");
+      }
+      SafeSeek(disk_file,
+               offsetof(struct plot_header, fmt_desc) + fmt_desc_len);
     }
 
-    DiskProver(DiskProver const&) = delete;
+    memcpy(id.data(), header.id, sizeof(header.id));
+    this->k = header.k;
 
-    DiskProver(DiskProver&& other) noexcept
-        #if USE_GREEN_REAPER
-            : cached_proofs(std::move(other.cached_proofs))
-            std::cout << "Configured with context_count: " << context_count << ", thread_count: " << thread_count << std::endl << std::flush;
-        #endif
-    {
-        filename = std::move(other.filename);
-        memo = std::move(other.memo);
-        id = std::move(other.id);
-        k = other.k;
-        compression_level = other.compression_level;
-        table_begin_pointers = std::move(other.table_begin_pointers);
-        C2 = std::move(other.C2);
-        version = std::move(other.version);
+    uint8_t size_buf[2];
+    SafeRead(disk_file, size_buf, 2);
+    memo.resize(Util::TwoBytesToInt(size_buf));
+    SafeRead(disk_file, memo.data(), memo.size());
+
+    if (version == 2) {
+      uint8_t flags_bytes[4];
+      SafeRead(disk_file, flags_bytes, sizeof(flags_bytes));
+      uint32_t flags;
+      memcpy(&flags, flags_bytes, sizeof(flags));
+      if (flags & 1) {
+        uint8_t compression_level;
+        SafeRead(disk_file, &compression_level, sizeof(compression_level));
+        this->compression_level = compression_level;
+      }
+    }
+#if !defined(USE_GREEN_REAPER)
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+    if (this->compression_level > 0)
+      throw std::logic_error("Harvester does not support compressed plots.");
+    std::cout << "Configured with context_count: " << context_count
+              << ", thread_count: " << thread_count << std::flush;
+#endif
+
+    this->table_begin_pointers = std::vector<uint64_t>(11, 0);
+    this->C2 = std::vector<uint64_t>();
+
+    uint8_t pointer_buf[8];
+    for (uint8_t i = 1; i < 11; i++) {
+      SafeRead(disk_file, pointer_buf, 8);
+      this->table_begin_pointers[i] = Util::EightBytesToInt(pointer_buf);
     }
 
-    ~DiskProver()
-    {
-        std::lock_guard<std::mutex> l(_mtx);
-        for (int i = 0; i < 6; i++) {
-            Encoding::ANSFree(kRValues[i]);
-        }
-        Encoding::ANSFree(kC3R);
+    SafeSeek(disk_file, table_begin_pointers[9]);
+
+    uint8_t c2_size = (Util::ByteAlign(k) / 8);
+    uint32_t c2_entries =
+        (table_begin_pointers[10] - table_begin_pointers[9]) / c2_size;
+    if (c2_entries == 0 || c2_entries == 1) {
+      throw std::invalid_argument("Invalid C2 table size");
     }
 
-    const std::vector<uint8_t>& GetMemo() { return memo; }
+    // The list of C2 entries is small enough to keep in memory. When proving,
+    // we can read from disk the C1 and C3 entries.
+    uint64_t prev_c2_f7 = 0;
+    auto *c2_buf = new uint8_t[c2_size];
+    for (uint32_t i = 0; i < c2_entries - 1; i++) {
+      SafeRead(disk_file, c2_buf, c2_size);
 
-    const std::vector<uint8_t>& GetId() { return id; }
+      const uint64_t f7 =
+          Bits(c2_buf, c2_size, c2_size * 8).Slice(0, k).GetValue();
 
-    const std::vector<uint64_t>& GetTableBeginPointers() const noexcept { return table_begin_pointers; }
+      // Short-circuit reading of the C2 table as soon as we encounter an f7
+      // entry whose value is lesser than the previous f7 read. This ensures
+      // that we don't read empty space from C2 tables that are written with
+      // file system block-alignment (like bladebit v1 does).
+      if (f7 < prev_c2_f7) break;
 
-    const std::vector<uint64_t>& GetC2() const noexcept { return C2; }
+      this->C2.push_back(f7);
+      prev_c2_f7 = f7;
+    }
 
-    const std::string& GetFilename() const noexcept { return filename; }
+    delete[] c2_buf;
+  }
 
-    uint8_t GetSize() const noexcept { return k; }
+  explicit DiskProver(const std::vector<uint8_t> &vecBytes) {
+    Deserializer deserializer(vecBytes);
+    deserializer >> version;
+    if (version != 1 && version != 2) {
+      // TODO: Migrate to new version if we change something related to the data
+      // structure
+      throw std::invalid_argument("DiskProver: Invalid version.");
+    }
+    deserializer >> filename;
+    deserializer >> memo;
+    deserializer >> id;
+    deserializer >> k;
+    deserializer >> table_begin_pointers;
+    deserializer >> C2;
+    if (version == 2) {
+      deserializer >> compression_level;
+      std::cout << "Configured with context_count: " << context_count
+                << ", thread_count: " << thread_count << std::flush;
+    } else {
+      compression_level = 0;
+      std::cout << "Configured with context_count: " << context_count
+                << ", thread_count: " << thread_count << std::flush;
+    }
 
-    uint8_t GetCompressionLevel() const noexcept { return compression_level; }
+#if !defined(USE_GREEN_REAPER)
+    if (compression_level > 0)
+      throw std::runtime_error("Harvester does not support compressed plots.");
+#endif
+  }
 
-    bool CompareProofBits(const LargeBits& left, const LargeBits& right, uint8_t k)
-    {
-        uint16_t size = left.GetSize() / k;
-        assert(left.GetSize() == right.GetSize());
-        for (int16_t i = size - 1; i >= 0; i--) {
-            LargeBits left_val = left.Slice(k * i, k * (i + 1));
-            LargeBits right_val = right.Slice(k * i, k * (i + 1));
-            if (left_val < right_val) {
-                return true;
-            }
-            if (left_val > right_val) {
-                return false;
-            }
-        }
+  DiskProver(DiskProver const &) = delete;
+
+  DiskProver(DiskProver &&other) noexcept
+#if USE_GREEN_REAPER
+      : cached_proofs(std::move(other.cached_proofs)) std::cout
+        << "Configured with context_count: "
+        << context_count
+        << ", thread_count: "
+        << thread_count
+        << std::flush;
+#endif
+  {
+    filename = std::move(other.filename);
+    memo = std::move(other.memo);
+    id = std::move(other.id);
+    k = other.k;
+    compression_level = other.compression_level;
+    table_begin_pointers = std::move(other.table_begin_pointers);
+    C2 = std::move(other.C2);
+    version = std::move(other.version);
+  }
+
+  ~DiskProver() {
+    std::lock_guard<std::mutex> l(_mtx);
+    for (int i = 0; i < 6; i++) {
+      Encoding::ANSFree(kRValues[i]);
+    }
+    Encoding::ANSFree(kC3R);
+  }
+
+  const std::vector<uint8_t> &GetMemo() { return memo; }
+
+  const std::vector<uint8_t> &GetId() { return id; }
+
+  const std::vector<uint64_t> &GetTableBeginPointers() const noexcept {
+    return table_begin_pointers;
+  }
+
+  const std::vector<uint64_t> &GetC2() const noexcept { return C2; }
+
+  const std::string &GetFilename() const noexcept { return filename; }
+
+  uint8_t GetSize() const noexcept { return k; }
+
+  uint8_t GetCompressionLevel() const noexcept { return compression_level; }
+
+  bool CompareProofBits(const LargeBits &left, const LargeBits &right,
+                        uint8_t k) {
+    uint16_t size = left.GetSize() / k;
+    assert(left.GetSize() == right.GetSize());
+    for (int16_t i = size - 1; i >= 0; i--) {
+      LargeBits left_val = left.Slice(k * i, k * (i + 1));
+      LargeBits right_val = right.Slice(k * i, k * (i + 1));
+      if (left_val < right_val) {
+        return true;
+      }
+      if (left_val > right_val) {
         return false;
+      }
     }
+    return false;
+  }
 
-    LargeBits GetQualityStringFromProof(
-        LargeBits proof,
-        const uint8_t* challenge)
-    {
-        Bits challenge_bits = Bits(challenge, 256 / 8, 256);
-        uint16_t quality_index = challenge_bits.Slice(256 - 5).GetValue() << 1;
+  LargeBits GetQualityStringFromProof(LargeBits proof,
+                                      const uint8_t *challenge) {
+    Bits challenge_bits = Bits(challenge, 256 / 8, 256);
+    uint16_t quality_index = challenge_bits.Slice(256 - 5).GetValue() << 1;
 
-        // Converts the proof from proof ordering to plot ordering
-        for (uint8_t table_index = 1; table_index < 7; table_index++) {
-            LargeBits new_proof;
-            uint16_t size = k * (1 << (table_index - 1));
-            for (int j = 0; j < (1 << (7 - table_index)); j += 2) {
-                LargeBits L = proof.Slice(j * size, (j + 1) * size);
-                LargeBits R = proof.Slice((j + 1) * size, (j + 2) * size);
-                if (CompareProofBits(L, R, k)) {
-                    new_proof += (L + R);
-                } else {
-                    new_proof += (R + L);
-                }
-            }
-            proof = new_proof;
+    // Converts the proof from proof ordering to plot ordering
+    for (uint8_t table_index = 1; table_index < 7; table_index++) {
+      LargeBits new_proof;
+      uint16_t size = k * (1 << (table_index - 1));
+      for (int j = 0; j < (1 << (7 - table_index)); j += 2) {
+        LargeBits L = proof.Slice(j * size, (j + 1) * size);
+        LargeBits R = proof.Slice((j + 1) * size, (j + 2) * size);
+        if (CompareProofBits(L, R, k)) {
+          new_proof += (L + R);
+        } else {
+          new_proof += (R + L);
         }
-        // Hashes two of the x values, based on the quality index
-        std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+      }
+      proof = new_proof;
+    }
+    // Hashes two of the x values, based on the quality index
+    std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
+    memcpy(hash_input.data(), challenge, 32);
+    proof.Slice(k * quality_index, k * (quality_index + 2))
+        .ToBytes(hash_input.data() + 32);
+    std::vector<unsigned char> hash(picosha2::k_digest_size);
+    picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(),
+                      hash.end());
+    return LargeBits(hash.data(), 32, 256);
+  }
+
+  // Given a challenge, returns a quality string, which is sha256(challenge + 2
+  // adjecent x values), from the 64 value proof. Note that this is more
+  // efficient than fetching all 64 x values, which are in different parts of
+  // the disk.
+  std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t *challenge) {
+    std::vector<LargeBits> qualities;
+
+    uint32_t p7_entries_size = 0;
+
+    {
+      std::lock_guard<std::mutex> l(_mtx);
+      std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
+
+      if (!disk_file.is_open()) {
+        throw std::invalid_argument("Invalid file " + filename);
+      }
+
+      // This tells us how many f7 outputs (and therefore proofs) we have for
+      // this challenge. The expected value is one proof.
+      std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
+
+      if (p7_entries.empty()) {
+        return std::vector<LargeBits>();
+      }
+      p7_entries_size = p7_entries.size();
+
+      // The last 5 bits of the challenge determine which route we take to get
+      // to our two x values in the leaves.
+      uint8_t last_5_bits = challenge[31] & 0x1f;
+
+      for (uint64_t position : p7_entries) {
+#if USE_GREEN_REAPER
+        if (compression_level >= 9) {
+          break;
+        }
+#endif
+        // This inner loop goes from table 6 to table 1, getting the two
+        // backpointers, and following one of them.
+        uint64_t alt_position;
+        for (uint8_t table_index = 6; table_index > GetEndTable();
+             table_index--) {
+          uint128_t line_point =
+              ReadLinePoint(disk_file, table_index, position);
+
+          auto xy = Encoding::LinePointToSquare(line_point);
+          assert(xy.first >= xy.second);
+
+          if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
+            position = xy.second;
+            alt_position = xy.first;
+          } else {
+            position = xy.first;
+            alt_position = xy.second;
+          }
+        }
+        uint128_t new_line_point =
+            ReadLinePoint(disk_file, GetEndTable(), position);
+        std::pair<uint64_t, uint64_t> x1x2;
+
+#if USE_GREEN_REAPER
+        if (compression_level > 0) {
+          GRCompressedQualitiesRequest req;
+          req.compressionLevel = compression_level;
+          req.plotId = id.data();
+          req.challenge = challenge;
+          req.xLinePoints[0].hi = (uint64_t)(new_line_point >> 64);
+          req.xLinePoints[0].lo = (uint64_t)new_line_point;
+          if (compression_level >= 6) {
+            uint128_t alt_line_point =
+                ReadLinePoint(disk_file, GetEndTable(), alt_position);
+            req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
+            req.xLinePoints[1].lo = (uint64_t)alt_line_point;
+          }
+
+          GreenReaperContext *gr = decompressor_context_queue.pop();
+          assert(gr);
+
+          auto res = grGetFetchQualitiesXPair(gr, &req);
+          decompressor_context_queue.push(gr);
+
+          if (res != GRResult_OK) {
+            // Expect this will result in failure in a later step.
+            x1x2.first = x1x2.second = 0;
+          } else {
+            x1x2.first = req.x1;
+            x1x2.second = req.x2;
+          }
+        } else
+#endif  // #if USE_GREEN_REAPER
+        {
+          x1x2 = Encoding::LinePointToSquare(new_line_point);
+        }
+        // The final two x values (which are stored in the same location) are
+        // hashed
+        std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8,
+                                              0);
         memcpy(hash_input.data(), challenge, 32);
-        proof.Slice(k * quality_index, k * (quality_index + 2)).ToBytes(hash_input.data() + 32);
+        (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
+            .ToBytes(hash_input.data() + 32);
         std::vector<unsigned char> hash(picosha2::k_digest_size);
-        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-        return LargeBits(hash.data(), 32, 256);
-    }
+        picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(),
+                          hash.end());
+        qualities.emplace_back(hash.data(), 32, 256);
+      }
+    }  // Scope for disk_file
 
-    // Given a challenge, returns a quality string, which is sha256(challenge + 2 adjecent x
-    // values), from the 64 value proof. Note that this is more efficient than fetching all 64 x
-    // values, which are in different parts of the disk.
-    std::vector<LargeBits> GetQualitiesForChallenge(const uint8_t* challenge)
+#if USE_GREEN_REAPER
+    if (compression_level >= 9) {
+      uint8_t failure_bytes[32];
+      for (int i = 0; i < 32; i++) {
+        failure_bytes[i] = 255;
+      }
+      for (uint32_t i = 0; i < p7_entries_size; i++) {
+        try {
+          auto proof = GetFullProof(challenge, i);
+          qualities.push_back(GetQualityStringFromProof(proof, challenge));
+        } catch (const std::exception &error) {
+          qualities.emplace_back(failure_bytes, 32, 256);
+        }
+      }
+    }
+#endif
+    return qualities;
+  }
+
+  // Given a challenge, and an index, returns a proof of space. This assumes
+  // GetQualities was called, and there are actually proofs present. The index
+  // represents which proof to fetch, if there are multiple.
+  LargeBits GetFullProof(const uint8_t *challenge, uint32_t index,
+                         bool parallel_read = true) {
+    LargeBits full_proof;
+
+#if USE_GREEN_REAPER
+    if (compression_level >= 9 &&
+        cached_proofs.FoundCachedProof(index, challenge, full_proof)) {
+      return full_proof;
+    }
+#endif
+
+    std::lock_guard<std::mutex> l(_mtx);
     {
-        std::vector<LargeBits> qualities;
+      std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
 
-        uint32_t p7_entries_size = 0;
+      if (!disk_file.is_open()) {
+        throw std::invalid_argument("Invalid file " + filename);
+      }
 
-        {
-            std::lock_guard<std::mutex> l(_mtx);
-            std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
+      std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
+      if (p7_entries.empty() || index >= p7_entries.size()) {
+        throw std::logic_error("No proof of space for this challenge");
+      }
 
-            if (!disk_file.is_open()) {
-                throw std::invalid_argument("Invalid file " + filename);
-            }
+      // Gets the 64 leaf x values, concatenated together into a k*64 bit
+      // string.
+      std::vector<Bits> xs;
+      if (parallel_read) {
+        xs = GetInputs(p7_entries[index], 6, nullptr);
+      } else {
+        xs = GetInputs(
+            p7_entries[index], 6,
+            &disk_file);  // Passing in a disk_file disabled the parallel reads
+      }
 
-            // This tells us how many f7 outputs (and therefore proofs) we have for this
-            // challenge. The expected value is one proof.
-            std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
+#if USE_GREEN_REAPER
+      if (compression_level > 0) {
+        auto gr = decompressor_context_queue.pop();
 
-            if (p7_entries.empty()) {
-                return std::vector<LargeBits>();
-            }
-            p7_entries_size = p7_entries.size();
+        GRCompressedProofRequest req{};
+        req.compressionLevel = compression_level;
+        req.plotId = id.data();
 
-            // The last 5 bits of the challenge determine which route we take to get to
-            // our two x values in the leaves.
-            uint8_t last_5_bits = challenge[31] & 0x1f;
+        uint8_t compressed_proof_size =
+            (compression_level <= 8 ? GR_POST_PROOF_CMP_X_COUNT
+                                    : (GR_POST_PROOF_CMP_X_COUNT / 2));
+        for (int i = 0; i < compressed_proof_size; i++) {
+          req.compressedProof[i] = xs[i].GetValue();
+        }
 
-            for (uint64_t position : p7_entries) {
-                #if USE_GREEN_REAPER
-                    if (compression_level >= 9) {
-                        break;
-                    }
-                #endif
-                // This inner loop goes from table 6 to table 1, getting the two backpointers,
-                // and following one of them.
-                uint64_t alt_position;
-                for (uint8_t table_index = 6; table_index > GetEndTable(); table_index--) {
-                    uint128_t line_point = ReadLinePoint(disk_file, table_index, position);
+        GRResult res = grFetchProofForChallenge(gr, &req);
+        decompressor_context_queue.push(gr);
 
-                    auto xy = Encoding::LinePointToSquare(line_point);
-                    assert(xy.first >= xy.second);
+        if (res != GRResult_OK) {
+          if (res == GRResult_NoProof) {
+            throw std::runtime_error("GRResult_NoProof received");
+          }
+          if (res == GRResult_Failed) {
+            throw std::runtime_error(
+                "GRResult is not GRResult_OK, received GRResult_Failed");
+          }
+          if (res == GRResult_OutOfMemory) {
+            throw std::runtime_error(
+                "GRResult is not GRResult_OK, received GRResult_OutOfMemory");
+          }
+          if (res == GRResult_WrongVersion) {
+            throw std::runtime_error(
+                "GRResult is not GRResult_OK, received GRResult_WrongVersion");
+          }
+          if (res == GRResult_InvalidGPU) {
+            throw std::runtime_error(
+                "GRResult is not GRResult_OK, received GRResult_InvalidGPU");
+          }
+          if (res == GRResult_InvalidArg) {
+            throw std::runtime_error(
+                "GRResult is not GRResult_OK, received GRResult_InvalidArg");
+          }
+        }
+        std::vector<Bits> uncompressed_xs;
+        for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
+          uncompressed_xs.push_back(Bits(req.fullProof[i], k));
+        }
+        xs = uncompressed_xs;
+      }
+#endif
 
-                    if (((last_5_bits >> (table_index - 2)) & 1) == 0) {
-                        position = xy.second;
-                        alt_position = xy.first;
-                    } else {
-                        position = xy.first;
-                        alt_position = xy.second;
-                    }
-                }
-                uint128_t new_line_point = ReadLinePoint(disk_file, GetEndTable(), position);
-                std::pair<uint64_t, uint64_t> x1x2;
-                
-                #if USE_GREEN_REAPER
-                    if (compression_level > 0) {
-                        GRCompressedQualitiesRequest req;
-                        req.compressionLevel = compression_level;
-                        req.plotId = id.data();
-                        req.challenge = challenge;
-                        req.xLinePoints[0].hi = (uint64_t)(new_line_point >> 64);
-                        req.xLinePoints[0].lo = (uint64_t)new_line_point;
-                        if (compression_level >= 6) {
-                            uint128_t alt_line_point = ReadLinePoint(disk_file, GetEndTable(), alt_position);
-                            req.xLinePoints[1].hi = (uint64_t)(alt_line_point >> 64);
-                            req.xLinePoints[1].lo = (uint64_t)alt_line_point;
-                        }
+      // Sorts them according to proof ordering, where
+      // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not
+      // stored in proof ordering, they're stored in plot ordering, due to the
+      // sorting in the Compress phase.
+      std::vector<LargeBits> xs_sorted = ReorderProof(xs);
+      for (const auto &x : xs_sorted) {
+        full_proof += x;
+      }
+    }  // Scope for disk_file
 
-                        GreenReaperContext* gr = decompressor_context_queue.pop();
-                        assert(gr);
+#if USE_GREEN_REAPER
+    if (compression_level >= 9) {
+      cached_proofs.CacheProof(index, challenge, full_proof);
+    }
+#endif
+    return full_proof;
+  }
 
-                        auto res = grGetFetchQualitiesXPair(gr, &req);
-                        decompressor_context_queue.push(gr);
+  std::vector<uint8_t> ToBytes() const {
+    Serializer serializer;
+    serializer << version << filename << memo << id << k << table_begin_pointers
+               << C2;
+    if (version == 2) {
+      serializer << compression_level;
+    }
+    return serializer.Data();
+  }
 
-                        if (res != GRResult_OK) {
-                            // Expect this will result in failure in a later step.
-                            x1x2.first = x1x2.second = 0;
-                        } else {
-                            x1x2.first = req.x1;
-                            x1x2.second = req.x2;
-                        }
-                    } else 
-                #endif // #if USE_GREEN_REAPER
-                {
-                    x1x2 = Encoding::LinePointToSquare(new_line_point);
-                }
-                // The final two x values (which are stored in the same location) are hashed
-                std::vector<unsigned char> hash_input(32 + Util::ByteAlign(2 * k) / 8, 0);
-                memcpy(hash_input.data(), challenge, 32);
-                (LargeBits(x1x2.second, k) + LargeBits(x1x2.first, k))
-                    .ToBytes(hash_input.data() + 32);
-                std::vector<unsigned char> hash(picosha2::k_digest_size);
-                picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
-                qualities.emplace_back(hash.data(), 32, 256);
-            }
-        }  // Scope for disk_file
+ private:
+  uint16_t version{VERSION};
+  mutable std::mutex _mtx;
+  std::string filename;
+  std::vector<uint8_t> memo;
+  std::vector<uint8_t> id;  // Unique plot id
+  uint8_t k;
+  uint8_t compression_level;
+  std::vector<uint64_t> table_begin_pointers;
+  std::vector<uint64_t> C2;
+#if USE_GREEN_REAPER
+  ProofCache cached_proofs;
+#endif
 
-        #if USE_GREEN_REAPER
-            if (compression_level >= 9) {
-                uint8_t failure_bytes[32];
-                for (int i = 0; i < 32; i++) {
-                    failure_bytes[i] = 255;
-                }
-                for (uint32_t i = 0; i < p7_entries_size; i++) {
-                    try {
-                        auto proof = GetFullProof(challenge, i);
-                        qualities.push_back(GetQualityStringFromProof(proof, challenge));
-                    } catch (const std::exception& error) {
-                        qualities.emplace_back(failure_bytes, 32, 256);
-                    }
-                }
-            }
-        #endif
-        return qualities;
+  // Using this method instead of simply seeking will prevent segfaults that
+  // would arise when continuing the process of looking up qualities.
+  static void SafeSeek(std::ifstream &disk_file, uint64_t seek_location) {
+    disk_file.seekg(seek_location);
+
+    if (disk_file.fail()) {
+      std::cout << "goodbit, failbit, badbit, eofbit: "
+                << (disk_file.rdstate() & std::ifstream::goodbit)
+                << (disk_file.rdstate() & std::ifstream::failbit)
+                << (disk_file.rdstate() & std::ifstream::badbit)
+                << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
+      throw std::runtime_error("badbit or failbit after seeking to " +
+                               std::to_string(seek_location));
+    }
+  }
+
+  static void SafeRead(std::ifstream &disk_file, uint8_t *target,
+                       uint64_t size) {
+    int64_t pos = disk_file.tellg();
+    disk_file.read(reinterpret_cast<char *>(target), size);
+
+    if (disk_file.fail()) {
+      std::cout << "goodbit, failbit, badbit, eofbit: "
+                << (disk_file.rdstate() & std::ifstream::goodbit)
+                << (disk_file.rdstate() & std::ifstream::failbit)
+                << (disk_file.rdstate() & std::ifstream::badbit)
+                << (disk_file.rdstate() & std::ifstream::eofbit) << std::endl;
+      throw std::runtime_error("badbit or failbit after reading size " +
+                               std::to_string(size) + " at position " +
+                               std::to_string(pos));
+    }
+  }
+
+  uint8_t GetEndTable() {
+    if (compression_level == 0) {
+      return 1;
+    }
+    if (compression_level <= 8) {
+      return 2;
+    }
+    return 3;
+  }
+
+  // Reads exactly one line point (pair of two k bit back-pointers) from the
+  // given table. The entry at index "position" is read. First, the park index
+  // is calculated, then the park is read, and finally, entry deltas are added
+  // up to the position that we are looking for.
+  uint128_t ReadLinePoint(std::ifstream &disk_file, uint8_t table_index,
+                          uint64_t position) {
+    size_t compressed_park_size = 0;
+    uint32_t compressed_stub_size_bits = 0;
+    double compressed_ans_r_value = 0;
+
+    const bool is_compressed =
+        compression_level > 0 && table_index == GetEndTable();
+    (void)is_compressed;
+
+#if USE_GREEN_REAPER
+    if (is_compressed) {
+      GRCompressionInfo info{};
+      const auto r =
+          grGetCompressionInfo(&info, sizeof(info), k, compression_level);
+      if (r != GRResult_OK) {
+        std::stringstream err;
+        err << "Failed to obtain compression info with error " << r;
+        throw std::runtime_error(err.str());
+      }
+
+      compressed_park_size = info.tableParkSize;
+      ;
+      compressed_stub_size_bits = info.subtSizeBits;
+      compressed_ans_r_value = info.ansRValue;
+    }
+#else
+    (void)compressed_stub_size_bits;
+    (void)compressed_ans_r_value;
+    (void)compressed_park_size;
+#endif
+
+    uint64_t park_index = position / kEntriesPerPark;
+    uint32_t park_size_bits =
+        (is_compressed ? compressed_park_size
+                       : EntrySizes::CalculateParkSize(k, table_index)) *
+        8;
+
+    SafeSeek(disk_file, table_begin_pointers[table_index] +
+                            (park_size_bits / 8) * park_index);
+
+    // This is the checkpoint at the beginning of the park
+    uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
+    auto *line_point_bin = new uint8_t[line_point_size + 7];
+    SafeRead(disk_file, line_point_bin, line_point_size);
+    uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
+
+    // Reads EPP stubs
+    uint32_t stubs_size_bits =
+        (is_compressed ? (Util::ByteAlign((kEntriesPerPark - 1) *
+                                          compressed_stub_size_bits) /
+                          8)
+                       : EntrySizes::CalculateStubsSize(k)) *
+        8;
+    auto *stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
+    SafeRead(disk_file, stubs_bin, stubs_size_bits / 8);
+
+    // Reads EPP deltas
+    uint32_t max_deltas_size_bits =
+        (is_compressed
+             ? compressed_park_size - (line_point_size + stubs_size_bits)
+             : EntrySizes::CalculateMaxDeltasSize(k, table_index)) *
+        8;
+    auto *deltas_bin = new uint8_t[max_deltas_size_bits / 8];
+
+    // Reads the size of the encoded deltas object
+    uint16_t encoded_deltas_size = 0;
+    SafeRead(disk_file, (uint8_t *)&encoded_deltas_size, sizeof(uint16_t));
+
+    if (encoded_deltas_size * 8 > max_deltas_size_bits) {
+      throw std::invalid_argument("Invalid size for deltas: " +
+                                  std::to_string(encoded_deltas_size));
     }
 
-    // Given a challenge, and an index, returns a proof of space. This assumes GetQualities was
-    // called, and there are actually proofs present. The index represents which proof to fetch,
-    // if there are multiple.
-    LargeBits GetFullProof(const uint8_t* challenge, uint32_t index, bool parallel_read = true)
-    {
-        LargeBits full_proof;
-        
-        #if USE_GREEN_REAPER
-            if (compression_level >= 9 && cached_proofs.FoundCachedProof(index, challenge, full_proof)) {
-                return full_proof;
-            }
-        #endif
+    std::vector<uint8_t> deltas;
 
-        std::lock_guard<std::mutex> l(_mtx);
-        {
-            std::ifstream disk_file(filename, std::ios::in | std::ios::binary);
+    if (0x8000 & encoded_deltas_size) {
+      // Uncompressed
+      encoded_deltas_size &= 0x7fff;
+      deltas.resize(encoded_deltas_size);
+      SafeRead(disk_file, deltas.data(), encoded_deltas_size);
+    } else {
+      // Compressed
+      SafeRead(disk_file, deltas_bin, encoded_deltas_size);
 
-            if (!disk_file.is_open()) {
-                throw std::invalid_argument("Invalid file " + filename);
-            }
-
-            std::vector<uint64_t> p7_entries = GetP7Entries(disk_file, challenge);
-            if (p7_entries.empty() || index >= p7_entries.size()) {
-                throw std::logic_error("No proof of space for this challenge");
-            }
-
-            // Gets the 64 leaf x values, concatenated together into a k*64 bit string.
-            std::vector<Bits> xs;
-            if (parallel_read) {
-                xs = GetInputs(p7_entries[index], 6, nullptr);
-            } else {
-                xs = GetInputs(p7_entries[index], 6, &disk_file); // Passing in a disk_file disabled the parallel reads
-            }
-
-            #if USE_GREEN_REAPER
-                if (compression_level > 0) {
-                    auto gr = decompressor_context_queue.pop();
-
-                    GRCompressedProofRequest req{};
-                    req.compressionLevel = compression_level;
-                    req.plotId = id.data();
-
-                    uint8_t compressed_proof_size = (compression_level <= 8 ? GR_POST_PROOF_CMP_X_COUNT : (GR_POST_PROOF_CMP_X_COUNT / 2));
-                    for (int i = 0; i < compressed_proof_size; i++) {
-                        req.compressedProof[i] = xs[i].GetValue();
-                    }
-
-                    GRResult res = grFetchProofForChallenge(gr, &req);
-                    decompressor_context_queue.push(gr);
-
-                    if (res != GRResult_OK) {
-                        if (res == GRResult_NoProof) {
-                            throw std::runtime_error("GRResult_NoProof received");
-                        }
-                        if (res == GRResult_Failed) {
-                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_Failed");
-                        }
-                        if (res == GRResult_OutOfMemory) {
-                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_OutOfMemory");
-                        }
-                        if (res == GRResult_WrongVersion) {
-                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_WrongVersion");
-                        }
-                        if (res == GRResult_InvalidGPU) {
-                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_InvalidGPU");
-                        }
-                        if (res == GRResult_InvalidArg) {
-                            throw std::runtime_error("GRResult is not GRResult_OK, received GRResult_InvalidArg");
-                        }
-                    }
-                    std::vector<Bits> uncompressed_xs;
-                    for (int i = 0; i < GR_POST_PROOF_X_COUNT; i++) {
-                        uncompressed_xs.push_back(Bits(req.fullProof[i], k));
-                    }
-                    xs = uncompressed_xs;
-                }
-            #endif
-
-            // Sorts them according to proof ordering, where
-            // f1(x0) m= f1(x1), f2(x0, x1) m= f2(x2, x3), etc. On disk, they are not stored in
-            // proof ordering, they're stored in plot ordering, due to the sorting in the Compress
-            // phase.
-            std::vector<LargeBits> xs_sorted = ReorderProof(xs);
-            for (const auto& x : xs_sorted) {
-                full_proof += x;
-            }
-        }  // Scope for disk_file
-
-        #if USE_GREEN_REAPER
-            if (compression_level >= 9) {
-                cached_proofs.CacheProof(index, challenge, full_proof);
-            }
-        #endif
-        return full_proof;
+      // Decodes the deltas
+      double R =
+          (is_compressed ? compressed_ans_r_value : kRValues[table_index - 1]);
+      deltas = Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size,
+                                         kEntriesPerPark - 1, R);
     }
 
-    std::vector<uint8_t> ToBytes() const
-    {
-        Serializer serializer;
-        serializer << version << filename << memo << id << k << table_begin_pointers << C2;
-        if (version == 2) {
-            serializer << compression_level;
-        }
-        return serializer.Data();
+    uint32_t start_bit = 0;
+    uint8_t stub_size = (uint8_t)(is_compressed ? compressed_stub_size_bits
+                                                : k - kStubMinusBits);
+    uint64_t sum_deltas = 0;
+    uint64_t sum_stubs = 0;
+    for (uint32_t i = 0; i < std::min((uint32_t)(position % kEntriesPerPark),
+                                      (uint32_t)deltas.size());
+         i++) {
+      uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
+      stub <<= start_bit % 8;
+      stub >>= 64 - stub_size;
+
+      sum_stubs += stub;
+      start_bit += stub_size;
+      sum_deltas += deltas[i];
     }
 
-private:
-    uint16_t version{VERSION};
-    mutable std::mutex _mtx;
-    std::string filename;
-    std::vector<uint8_t> memo;
-    std::vector<uint8_t> id;  // Unique plot id
-    uint8_t k;
-    uint8_t compression_level;
-    std::vector<uint64_t> table_begin_pointers;
-    std::vector<uint64_t> C2;
-    #if USE_GREEN_REAPER
-        ProofCache cached_proofs;
-    #endif
+    uint128_t big_delta = ((uint128_t)sum_deltas << stub_size) + sum_stubs;
+    uint128_t final_line_point = line_point + big_delta;
 
-    // Using this method instead of simply seeking will prevent segfaults that would arise when
-    // continuing the process of looking up qualities.
-    static void SafeSeek(std::ifstream& disk_file, uint64_t seek_location) {
-        disk_file.seekg(seek_location);
+    delete[] line_point_bin;
+    delete[] stubs_bin;
+    delete[] deltas_bin;
 
-        if (disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: "
-                      << (disk_file.rdstate() & std::ifstream::goodbit)
-                      << (disk_file.rdstate() & std::ifstream::failbit)
-                      << (disk_file.rdstate() & std::ifstream::badbit)
-                      << (disk_file.rdstate() & std::ifstream::eofbit)
-                      << std::endl;
-            throw std::runtime_error("badbit or failbit after seeking to " + std::to_string(seek_location));
-        }
+    return final_line_point;
+  }
+
+  // Gets the P7 positions of the target f7 entries. Uses the C3 encoded bitmask
+  // read from disk. A C3 park is a list of deltas between p7 entries, ANS
+  // encoded.
+  std::vector<uint64_t> GetP7Positions(uint64_t curr_f7, uint64_t f7,
+                                       uint64_t curr_p7_pos, uint8_t *bit_mask,
+                                       uint16_t encoded_size,
+                                       uint64_t c1_index) const {
+    std::vector<uint8_t> deltas = Encoding::ANSDecodeDeltas(
+        bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
+    std::vector<uint64_t> p7_positions;
+    bool surpassed_f7 = false;
+    for (uint8_t delta : deltas) {
+      if (curr_f7 > f7) {
+        surpassed_f7 = true;
+        break;
+      }
+      curr_f7 += delta;
+      curr_p7_pos += 1;
+
+      if (curr_f7 == f7) {
+        p7_positions.push_back(curr_p7_pos);
+      }
+
+      // In the last park, we don't know how many entries we have, and there is
+      // no stop marker for the deltas. The rest of the park bytes will be set
+      // to 0, and at this point curr_f7 stops incrementing. If we get stuck in
+      // this loop where curr_f7 == f7, we will not return any positions, since
+      // we do not know if we have an actual solution for f7.
+      if ((int64_t)curr_p7_pos >=
+              (int64_t)((c1_index + 1) * kCheckpoint1Interval) - 1 ||
+          curr_f7 >= (((uint64_t)1) << k) - 1) {
+        break;
+      }
+    }
+    if (!surpassed_f7) {
+      return std::vector<uint64_t>();
+    }
+    return p7_positions;
+  }
+
+  // Returns P7 table entries (which are positions into table P6), for a given
+  // challenge
+  std::vector<uint64_t> GetP7Entries(std::ifstream &disk_file,
+                                     const uint8_t *challenge) {
+    if (C2.empty()) {
+      return std::vector<uint64_t>();
+    }
+    Bits challenge_bits = Bits(challenge, 256 / 8, 256);
+
+    // The first k bits determine which f7 matches with the challenge.
+    const uint64_t f7 = challenge_bits.Slice(0, k).GetValue();
+
+    int64_t c1_index = 0;
+    bool broke = false;
+    uint64_t c2_entry_f = 0;
+    // Goes through C2 entries until we find the correct C2 checkpoint. We read
+    // each entry, comparing it to our target (f7).
+    for (uint64_t c2_entry : C2) {
+      c2_entry_f = c2_entry;
+      if (f7 < c2_entry) {
+        // If we passed our target, go back by one.
+        c1_index -= kCheckpoint2Interval;
+        broke = true;
+        break;
+      }
+      c1_index += kCheckpoint2Interval;
     }
 
-    static void SafeRead(std::ifstream& disk_file, uint8_t* target, uint64_t size) {
-        int64_t pos = disk_file.tellg();
-        disk_file.read(reinterpret_cast<char*>(target), size);
-
-        if (disk_file.fail()) {
-            std::cout << "goodbit, failbit, badbit, eofbit: "
-                      << (disk_file.rdstate() & std::ifstream::goodbit)
-                      << (disk_file.rdstate() & std::ifstream::failbit)
-                      << (disk_file.rdstate() & std::ifstream::badbit)
-                      << (disk_file.rdstate() & std::ifstream::eofbit)
-                      << std::endl;
-            throw std::runtime_error("badbit or failbit after reading size " +
-                    std::to_string(size) + " at position " + std::to_string(pos));
-        }
+    if (c1_index < 0) {
+      return std::vector<uint64_t>();
     }
 
-    uint8_t GetEndTable() {
-        if (compression_level == 0) {
-            return 1;
-        }
-        if (compression_level <= 8) {
-            return 2;
-        }
-        return 3;
+    if (!broke) {
+      // If we didn't break, go back by one, to get the final checkpoint.
+      c1_index -= kCheckpoint2Interval;
     }
 
-    // Reads exactly one line point (pair of two k bit back-pointers) from the given table.
-    // The entry at index "position" is read. First, the park index is calculated, then
-    // the park is read, and finally, entry deltas are added up to the position that we
-    // are looking for.
-    uint128_t ReadLinePoint(
-        std::ifstream& disk_file,
-        uint8_t table_index,
-        uint64_t position
-    ) {
-        size_t compressed_park_size = 0;
-        uint32_t compressed_stub_size_bits = 0;
-        double compressed_ans_r_value = 0;
+    uint32_t c1_entry_size = Util::ByteAlign(k) / 8;
 
-        const bool is_compressed = compression_level > 0 && table_index == GetEndTable();
-        (void)is_compressed;
+    auto *c1_entry_bytes = new uint8_t[c1_entry_size];
+    SafeSeek(disk_file,
+             table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
 
-        #if USE_GREEN_REAPER
-            if (is_compressed) {
-                GRCompressionInfo info{};
-                const auto r = grGetCompressionInfo(&info, sizeof(info), k, compression_level);
-                if (r != GRResult_OK) {
-                    std::stringstream err; err << "Failed to obtain compression info with error " << r;
-                    throw std::runtime_error(err.str());
-                }
-                
-                compressed_park_size = info.tableParkSize;;
-                compressed_stub_size_bits = info.subtSizeBits;
-                compressed_ans_r_value = info.ansRValue;
-            }
-        #else
-            (void)compressed_stub_size_bits;
-            (void)compressed_ans_r_value;
-            (void)compressed_park_size;
-        #endif
+    uint64_t curr_f7 = c2_entry_f;
+    uint64_t prev_f7 = c2_entry_f;
+    broke = false;
+    // Goes through C2 entries until we find the correct C1 checkpoint.
+    for (uint64_t start = 0; start < kCheckpoint1Interval; start++) {
+      SafeRead(disk_file, c1_entry_bytes, c1_entry_size);
+      Bits c1_entry =
+          Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
+      uint64_t read_f7 = c1_entry.Slice(0, k).GetValue();
 
-        uint64_t park_index = position / kEntriesPerPark;
-        uint32_t park_size_bits = (is_compressed ? compressed_park_size : EntrySizes::CalculateParkSize(k, table_index)) * 8;
+      if (start != 0 && read_f7 == 0) {
+        // We have hit the end of the checkpoint list
+        break;
+      }
+      curr_f7 = read_f7;
 
-        SafeSeek(disk_file, table_begin_pointers[table_index] + (park_size_bits / 8) * park_index);
+      if (f7 < curr_f7) {
+        // We have passed the number we are looking for, so go back by one
+        curr_f7 = prev_f7;
+        c1_index -= 1;
+        broke = true;
+        break;
+      }
 
-        // This is the checkpoint at the beginning of the park
-        uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
-        auto* line_point_bin = new uint8_t[line_point_size + 7];
-        SafeRead(disk_file, line_point_bin, line_point_size);
-        uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin, 0, k * 2);
-
-        // Reads EPP stubs
-        uint32_t stubs_size_bits = (is_compressed ? (Util::ByteAlign((kEntriesPerPark - 1) * compressed_stub_size_bits) / 8) : EntrySizes::CalculateStubsSize(k)) * 8;
-        auto* stubs_bin = new uint8_t[stubs_size_bits / 8 + 7];
-        SafeRead(disk_file, stubs_bin, stubs_size_bits / 8);
-
-        // Reads EPP deltas        
-        uint32_t max_deltas_size_bits = (is_compressed ? compressed_park_size - (line_point_size + stubs_size_bits) : EntrySizes::CalculateMaxDeltasSize(k, table_index)) * 8;
-        auto* deltas_bin = new uint8_t[max_deltas_size_bits / 8];
-
-        // Reads the size of the encoded deltas object
-        uint16_t encoded_deltas_size = 0;
-        SafeRead(disk_file, (uint8_t*)&encoded_deltas_size, sizeof(uint16_t));
-
-        if (encoded_deltas_size * 8 > max_deltas_size_bits) {
-            throw std::invalid_argument("Invalid size for deltas: " + std::to_string(encoded_deltas_size));
-        }
-
-        std::vector<uint8_t> deltas;
-
-        if (0x8000 & encoded_deltas_size) {
-            // Uncompressed
-            encoded_deltas_size &= 0x7fff;
-            deltas.resize(encoded_deltas_size);
-            SafeRead(disk_file, deltas.data(), encoded_deltas_size);
-        } else {
-            // Compressed
-            SafeRead(disk_file, deltas_bin, encoded_deltas_size);
-
-            // Decodes the deltas
-            double R = (is_compressed ? compressed_ans_r_value : kRValues[table_index - 1]);
-            deltas =
-                Encoding::ANSDecodeDeltas(deltas_bin, encoded_deltas_size, kEntriesPerPark - 1, R);
-        }
-
-        uint32_t start_bit = 0;
-        uint8_t stub_size = (uint8_t)(is_compressed ? compressed_stub_size_bits : k - kStubMinusBits);
-        uint64_t sum_deltas = 0;
-        uint64_t sum_stubs = 0;
-        for (uint32_t i = 0;
-             i < std::min((uint32_t)(position % kEntriesPerPark), (uint32_t)deltas.size());
-             i++) {
-            uint64_t stub = Util::EightBytesToInt(stubs_bin + start_bit / 8);
-            stub <<= start_bit % 8;
-            stub >>= 64 - stub_size;
-
-            sum_stubs += stub;
-            start_bit += stub_size;
-            sum_deltas += deltas[i];
-        }
-
-        uint128_t big_delta = ((uint128_t)sum_deltas << stub_size) + sum_stubs;
-        uint128_t final_line_point = line_point + big_delta;
-
-        delete[] line_point_bin;
-        delete[] stubs_bin;
-        delete[] deltas_bin;
-
-        return final_line_point;
+      c1_index += 1;
+      prev_f7 = curr_f7;
+    }
+    if (!broke) {
+      // We never broke, so go back by one.
+      c1_index -= 1;
     }
 
-    // Gets the P7 positions of the target f7 entries. Uses the C3 encoded bitmask read from disk.
-    // A C3 park is a list of deltas between p7 entries, ANS encoded.
-    std::vector<uint64_t> GetP7Positions(
-        uint64_t curr_f7,
-        uint64_t f7,
-        uint64_t curr_p7_pos,
-        uint8_t* bit_mask,
-        uint16_t encoded_size,
-        uint64_t c1_index) const
-    {
-        std::vector<uint8_t> deltas =
-            Encoding::ANSDecodeDeltas(bit_mask, encoded_size, kCheckpoint1Interval, kC3R);
-        std::vector<uint64_t> p7_positions;
-        bool surpassed_f7 = false;
-        for (uint8_t delta : deltas) {
-            if (curr_f7 > f7) {
-                surpassed_f7 = true;
-                break;
-            }
-            curr_f7 += delta;
-            curr_p7_pos += 1;
+    uint32_t c3_entry_size = EntrySizes::CalculateC3Size(k);
+    auto *bit_mask = new uint8_t[c3_entry_size];
 
-            if (curr_f7 == f7) {
-                p7_positions.push_back(curr_p7_pos);
-            }
+    // Double entry means that our entries are in more than one checkpoint park.
+    bool double_entry = f7 == curr_f7 && c1_index > 0;
 
-            // In the last park, we don't know how many entries we have, and there is no stop marker
-            // for the deltas. The rest of the park bytes will be set to 0, and
-            // at this point curr_f7 stops incrementing. If we get stuck in this loop
-            // where curr_f7 == f7, we will not return any positions, since we do not know if
-            // we have an actual solution for f7.
-            if ((int64_t)curr_p7_pos >= (int64_t)((c1_index + 1) * kCheckpoint1Interval) - 1 ||
-                curr_f7 >= (((uint64_t)1) << k) - 1) {
-                break;
-            }
-        }
-        if (!surpassed_f7) {
-            return std::vector<uint64_t>();
-        }
-        return p7_positions;
+    uint64_t next_f7;
+    uint8_t encoded_size_buf[2];
+    uint16_t encoded_size;
+    std::vector<uint64_t> p7_positions;
+    int64_t curr_p7_pos = c1_index * kCheckpoint1Interval;
+
+    if (double_entry) {
+      // In this case, we read the previous park as well as the current one
+      c1_index -= 1;
+      SafeSeek(disk_file,
+               table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
+      SafeRead(disk_file, c1_entry_bytes, Util::ByteAlign(k) / 8);
+      Bits c1_entry_bits =
+          Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
+      next_f7 = curr_f7;
+      curr_f7 = c1_entry_bits.Slice(0, k).GetValue();
+
+      SafeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
+
+      SafeRead(disk_file, encoded_size_buf, 2);
+      encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+      // Avoid telling GetP7Positions and functions it uses that we have more
+      // bytes than we allocated for bit_mask above.
+      if (encoded_size > c3_entry_size - 2) {
+        return std::vector<uint64_t>();
+      }
+
+      SafeRead(disk_file, bit_mask, c3_entry_size - 2);
+
+      p7_positions = GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask,
+                                    encoded_size, c1_index);
+
+      SafeRead(disk_file, encoded_size_buf, 2);
+      encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+      // Avoid telling GetP7Positions and functions it uses that we have more
+      // bytes than we allocated for bit_mask above.
+      if (encoded_size > c3_entry_size - 2) {
+        return std::vector<uint64_t>();
+      }
+
+      SafeRead(disk_file, bit_mask, c3_entry_size - 2);
+
+      c1_index++;
+      curr_p7_pos = c1_index * kCheckpoint1Interval;
+      auto second_positions = GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask,
+                                             encoded_size, c1_index);
+
+      p7_positions.insert(p7_positions.end(), second_positions.begin(),
+                          second_positions.end());
+
+    } else {
+      SafeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
+      SafeRead(disk_file, encoded_size_buf, 2);
+      encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
+
+      // Avoid telling GetP7Positions and functions it uses that we have more
+      // bytes than we allocated for bit_mask above.
+      if (encoded_size > c3_entry_size - 2) {
+        return std::vector<uint64_t>();
+      }
+
+      SafeRead(disk_file, bit_mask, c3_entry_size - 2);
+
+      p7_positions = GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask,
+                                    encoded_size, c1_index);
     }
 
-    // Returns P7 table entries (which are positions into table P6), for a given challenge
-    std::vector<uint64_t> GetP7Entries(std::ifstream& disk_file, const uint8_t* challenge)
-    {
-        if (C2.empty()) {
-            return std::vector<uint64_t>();
-        }
-        Bits challenge_bits = Bits(challenge, 256 / 8, 256);
+    // p7_positions is a list of all the positions into table P7, where the
+    // output is equal to f7. If it's empty, no proofs are present for this f7.
+    if (p7_positions.empty()) {
+      delete[] bit_mask;
+      delete[] c1_entry_bytes;
+      return std::vector<uint64_t>();
+    }
 
-        // The first k bits determine which f7 matches with the challenge.
-        const uint64_t f7 = challenge_bits.Slice(0, k).GetValue();
+    uint64_t p7_park_size_bytes =
+        Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
 
-        int64_t c1_index = 0;
-        bool broke = false;
-        uint64_t c2_entry_f = 0;
-        // Goes through C2 entries until we find the correct C2 checkpoint. We read each entry,
-        // comparing it to our target (f7).
-        for (uint64_t c2_entry : C2) {
-            c2_entry_f = c2_entry;
-            if (f7 < c2_entry) {
-                // If we passed our target, go back by one.
-                c1_index -= kCheckpoint2Interval;
-                broke = true;
-                break;
-            }
-            c1_index += kCheckpoint2Interval;
-        }
+    std::vector<uint64_t> p7_entries;
 
-        if (c1_index < 0) {
-            return std::vector<uint64_t>();
-        }
-
-        if (!broke) {
-            // If we didn't break, go back by one, to get the final checkpoint.
-            c1_index -= kCheckpoint2Interval;
-        }
-
-        uint32_t c1_entry_size = Util::ByteAlign(k) / 8;
-
-        auto* c1_entry_bytes = new uint8_t[c1_entry_size];
-        SafeSeek(disk_file, table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
-
-        uint64_t curr_f7 = c2_entry_f;
-        uint64_t prev_f7 = c2_entry_f;
-        broke = false;
-        // Goes through C2 entries until we find the correct C1 checkpoint.
-        for (uint64_t start = 0; start < kCheckpoint1Interval; start++) {
-            SafeRead(disk_file, c1_entry_bytes, c1_entry_size);
-            Bits c1_entry = Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
-            uint64_t read_f7 = c1_entry.Slice(0, k).GetValue();
-
-            if (start != 0 && read_f7 == 0) {
-                // We have hit the end of the checkpoint list
-                break;
-            }
-            curr_f7 = read_f7;
-
-            if (f7 < curr_f7) {
-                // We have passed the number we are looking for, so go back by one
-                curr_f7 = prev_f7;
-                c1_index -= 1;
-                broke = true;
-                break;
-            }
-
-            c1_index += 1;
-            prev_f7 = curr_f7;
-        }
-        if (!broke) {
-            // We never broke, so go back by one.
-            c1_index -= 1;
-        }
-
-        uint32_t c3_entry_size = EntrySizes::CalculateC3Size(k);
-        auto* bit_mask = new uint8_t[c3_entry_size];
-
-        // Double entry means that our entries are in more than one checkpoint park.
-        bool double_entry = f7 == curr_f7 && c1_index > 0;
-
-        uint64_t next_f7;
-        uint8_t encoded_size_buf[2];
-        uint16_t encoded_size;
-        std::vector<uint64_t> p7_positions;
-        int64_t curr_p7_pos = c1_index * kCheckpoint1Interval;
-
-        if (double_entry) {
-            // In this case, we read the previous park as well as the current one
-            c1_index -= 1;
-            SafeSeek(disk_file, table_begin_pointers[8] + c1_index * Util::ByteAlign(k) / 8);
-            SafeRead(disk_file, c1_entry_bytes, Util::ByteAlign(k) / 8);
-            Bits c1_entry_bits = Bits(c1_entry_bytes, Util::ByteAlign(k) / 8, Util::ByteAlign(k));
-            next_f7 = curr_f7;
-            curr_f7 = c1_entry_bits.Slice(0, k).GetValue();
-
-            SafeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
-
-            SafeRead(disk_file, encoded_size_buf, 2);
-            encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-
-            // Avoid telling GetP7Positions and functions it uses that we have more
-            // bytes than we allocated for bit_mask above.
-            if (encoded_size > c3_entry_size - 2) {
-                return std::vector<uint64_t>();
-            }
-
-            SafeRead(disk_file, bit_mask, c3_entry_size - 2);
-
-            p7_positions =
-                GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
-
-            SafeRead(disk_file, encoded_size_buf, 2);
-            encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-
-            // Avoid telling GetP7Positions and functions it uses that we have more
-            // bytes than we allocated for bit_mask above.
-            if (encoded_size > c3_entry_size - 2) {
-                return std::vector<uint64_t>();
-            }
-
-            SafeRead(disk_file, bit_mask, c3_entry_size - 2);
-
-            c1_index++;
-            curr_p7_pos = c1_index * kCheckpoint1Interval;
-            auto second_positions =
-                GetP7Positions(next_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
-
-            p7_positions.insert(
-                p7_positions.end(), second_positions.begin(), second_positions.end());
-
-        } else {
-            SafeSeek(disk_file, table_begin_pointers[10] + c1_index * c3_entry_size);
-            SafeRead(disk_file, encoded_size_buf, 2);
-            encoded_size = Bits(encoded_size_buf, 2, 16).GetValue();
-
-            // Avoid telling GetP7Positions and functions it uses that we have more
-            // bytes than we allocated for bit_mask above.
-            if (encoded_size > c3_entry_size - 2) {
-                return std::vector<uint64_t>();
-            }
-
-            SafeRead(disk_file, bit_mask, c3_entry_size - 2);
-
-            p7_positions =
-                GetP7Positions(curr_f7, f7, curr_p7_pos, bit_mask, encoded_size, c1_index);
-        }
-
-        // p7_positions is a list of all the positions into table P7, where the output is equal to
-        // f7. If it's empty, no proofs are present for this f7.
-        if (p7_positions.empty()) {
-            delete[] bit_mask;
-            delete[] c1_entry_bytes;
-            return std::vector<uint64_t>();
-        }
-
-        uint64_t p7_park_size_bytes = Util::ByteAlign((k + 1) * kEntriesPerPark) / 8;
-
-        std::vector<uint64_t> p7_entries;
-
-        // Given the p7 positions, which are all adjacent, we can read the pos6 values from table
-        // P7.
-        auto* p7_park_buf = new uint8_t[p7_park_size_bytes];
-        uint64_t park_index = (p7_positions[0] == 0 ? 0 : p7_positions[0]) / kEntriesPerPark;
-        SafeSeek(disk_file, table_begin_pointers[7] + park_index * p7_park_size_bytes);
+    // Given the p7 positions, which are all adjacent, we can read the pos6
+    // values from table P7.
+    auto *p7_park_buf = new uint8_t[p7_park_size_bytes];
+    uint64_t park_index =
+        (p7_positions[0] == 0 ? 0 : p7_positions[0]) / kEntriesPerPark;
+    SafeSeek(disk_file,
+             table_begin_pointers[7] + park_index * p7_park_size_bytes);
+    SafeRead(disk_file, p7_park_buf, p7_park_size_bytes);
+    ParkBits p7_park =
+        ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
+    for (uint64_t i = 0;
+         i < p7_positions[p7_positions.size() - 1] - p7_positions[0] + 1; i++) {
+      uint64_t new_park_index = (p7_positions[i]) / kEntriesPerPark;
+      if (new_park_index > park_index) {
+        SafeSeek(disk_file,
+                 table_begin_pointers[7] + new_park_index * p7_park_size_bytes);
         SafeRead(disk_file, p7_park_buf, p7_park_size_bytes);
-        ParkBits p7_park = ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
-        for (uint64_t i = 0; i < p7_positions[p7_positions.size() - 1] - p7_positions[0] + 1; i++) {
-            uint64_t new_park_index = (p7_positions[i]) / kEntriesPerPark;
-            if (new_park_index > park_index) {
-                SafeSeek(disk_file, table_begin_pointers[7] + new_park_index * p7_park_size_bytes);
-                SafeRead(disk_file, p7_park_buf, p7_park_size_bytes);
-                p7_park = ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
-            }
-            uint32_t start_bit_index = (p7_positions[i] % kEntriesPerPark) * (k + 1);
+        p7_park =
+            ParkBits(p7_park_buf, p7_park_size_bytes, p7_park_size_bytes * 8);
+      }
+      uint32_t start_bit_index = (p7_positions[i] % kEntriesPerPark) * (k + 1);
 
-            uint64_t p7_int = p7_park.Slice(start_bit_index, start_bit_index + k + 1).GetValue();
-            p7_entries.push_back(p7_int);
-        }
-
-        delete[] bit_mask;
-        delete[] c1_entry_bytes;
-        delete[] p7_park_buf;
-
-        return p7_entries;
+      uint64_t p7_int =
+          p7_park.Slice(start_bit_index, start_bit_index + k + 1).GetValue();
+      p7_entries.push_back(p7_int);
     }
 
-    // Changes a proof of space (64 k bit x values) from plot ordering to proof ordering.
-    // Proof ordering: x1..x64 s.t.
-    //  f1(x1) m= f1(x2) ... f1(x63) m= f1(x64)
-    //  f2(C(x1, x2)) m= f2(C(x3, x4)) ... f2(C(x61, x62)) m= f2(C(x63, x64))
-    //  ...
-    //  f7(C(....)) == challenge
-    //
-    // Plot ordering: x1..x64 s.t.
-    //  f1(x1) m= f1(x2) || f1(x2) m= f1(x1) .....
-    //  For all the levels up to f7
-    //  AND x1 < x2, x3 < x4
-    //     C(x1, x2) < C(x3, x4)
-    //     For all comparisons up to f7
-    //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of k bit elements
-    std::vector<LargeBits> ReorderProof(const std::vector<Bits>& xs_input) const
-    {
-        F1Calculator f1(k, id.data());
-        std::vector<std::pair<Bits, Bits> > results;
-        LargeBits xs;
+    delete[] bit_mask;
+    delete[] c1_entry_bytes;
+    delete[] p7_park_buf;
 
-        // Calculates f1 for each of the inputs
-        for (uint8_t i = 0; i < 64; i++) {
-            results.push_back(f1.CalculateBucket(xs_input[i]));
-            xs += std::get<1>(results[i]);
-        }
+    return p7_entries;
+  }
 
-        // The plotter calculates f1..f7, and at each level, decides to swap or not swap. Here, we
-        // are doing a similar thing, we swap left and right, such that we end up with proof
-        // ordering.
-        for (uint8_t table_index = 2; table_index < 8; table_index++) {
-            LargeBits new_xs;
-            // New results will be a list of pairs of (y, metadata), it will decrease in size by 2x
-            // at each iteration of the outer loop.
-            std::vector<std::pair<Bits, Bits> > new_results;
-            FxCalculator f(k, table_index);
-            // Iterates through pairs of things, starts with 64 things, then 32, etc, up to 2.
-            for (size_t i = 0; i < results.size(); i += 2) {
-                std::pair<Bits, Bits> new_output;
-                // Compares the buckets of both ys, to see which one goes on the left, and which
-                // one goes on the right
-                if (std::get<0>(results[i]).GetValue() < std::get<0>(results[i + 1]).GetValue()) {
-                    new_output = f.CalculateBucket(
-                        std::get<0>(results[i]),
-                        std::get<1>(results[i]),
-                        std::get<1>(results[i + 1]));
-                    uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
-                    uint64_t end = (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
-                    new_xs += xs.Slice(start, end);
-                } else {
-                    // Here we switch the left and the right
-                    new_output = f.CalculateBucket(
-                        std::get<0>(results[i + 1]),
-                        std::get<1>(results[i + 1]),
-                        std::get<1>(results[i]));
-                    uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
-                    uint64_t start2 = (uint64_t)k * (i + 1) * ((uint64_t)1 << (table_index - 2));
-                    uint64_t end = (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
-                    new_xs += (xs.Slice(start2, end) + xs.Slice(start, start2));
-                }
-                assert(std::get<0>(new_output).GetSize() != 0);
-                new_results.push_back(new_output);
-            }
-            // Advances to the next table
-            // xs is a concatenation of all 64 x values, in the current order. Note that at each
-            // iteration, we can swap several parts of xs
-            results = new_results;
-            xs = new_xs;
-        }
-        std::vector<LargeBits> ordered_proof;
-        for (uint8_t i = 0; i < 64; i++) {
-            ordered_proof.push_back(xs.Slice(i * k, (i + 1) * k));
-        }
-        return ordered_proof;
+  // Changes a proof of space (64 k bit x values) from plot ordering to proof
+  // ordering. Proof ordering: x1..x64 s.t.
+  //  f1(x1) m= f1(x2) ... f1(x63) m= f1(x64)
+  //  f2(C(x1, x2)) m= f2(C(x3, x4)) ... f2(C(x61, x62)) m= f2(C(x63, x64))
+  //  ...
+  //  f7(C(....)) == challenge
+  //
+  // Plot ordering: x1..x64 s.t.
+  //  f1(x1) m= f1(x2) || f1(x2) m= f1(x1) .....
+  //  For all the levels up to f7
+  //  AND x1 < x2, x3 < x4
+  //     C(x1, x2) < C(x3, x4)
+  //     For all comparisons up to f7
+  //     Where a < b is defined as:  max(b) > max(a) where a and b are lists of
+  //     k bit elements
+  std::vector<LargeBits> ReorderProof(const std::vector<Bits> &xs_input) const {
+    F1Calculator f1(k, id.data());
+    std::vector<std::pair<Bits, Bits>> results;
+    LargeBits xs;
+
+    // Calculates f1 for each of the inputs
+    for (uint8_t i = 0; i < 64; i++) {
+      results.push_back(f1.CalculateBucket(xs_input[i]));
+      xs += std::get<1>(results[i]);
     }
 
-    // Recursive function to go through the tables on disk, backpropagating and fetching
-    // all of the leaves (x values). For example, for depth=5, it fetches the position-th
-    // entry in table 5, reading the two back pointers from the line point, and then
-    // recursively calling GetInputs for table 4.
-    std::vector<Bits> GetInputs(uint64_t position, uint8_t depth, std::ifstream* disk_file = nullptr)
-    {
-        uint128_t line_point;
-
-        if (!disk_file) {
-            // No disk file passed in, so we assume here we are doing parallel reads
-            // Create individual file handles to allow parallel processing
-            std::ifstream disk_file_parallel(filename, std::ios::in | std::ios::binary);
-            line_point = ReadLinePoint(disk_file_parallel, depth, position);
+    // The plotter calculates f1..f7, and at each level, decides to swap or not
+    // swap. Here, we are doing a similar thing, we swap left and right, such
+    // that we end up with proof ordering.
+    for (uint8_t table_index = 2; table_index < 8; table_index++) {
+      LargeBits new_xs;
+      // New results will be a list of pairs of (y, metadata), it will decrease
+      // in size by 2x at each iteration of the outer loop.
+      std::vector<std::pair<Bits, Bits>> new_results;
+      FxCalculator f(k, table_index);
+      // Iterates through pairs of things, starts with 64 things, then 32, etc,
+      // up to 2.
+      for (size_t i = 0; i < results.size(); i += 2) {
+        std::pair<Bits, Bits> new_output;
+        // Compares the buckets of both ys, to see which one goes on the left,
+        // and which one goes on the right
+        if (std::get<0>(results[i]).GetValue() <
+            std::get<0>(results[i + 1]).GetValue()) {
+          new_output = f.CalculateBucket(std::get<0>(results[i]),
+                                         std::get<1>(results[i]),
+                                         std::get<1>(results[i + 1]));
+          uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
+          uint64_t end =
+              (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
+          new_xs += xs.Slice(start, end);
         } else {
-            line_point = ReadLinePoint(*disk_file, depth, position);
+          // Here we switch the left and the right
+          new_output = f.CalculateBucket(std::get<0>(results[i + 1]),
+                                         std::get<1>(results[i + 1]),
+                                         std::get<1>(results[i]));
+          uint64_t start = (uint64_t)k * i * ((uint64_t)1 << (table_index - 2));
+          uint64_t start2 =
+              (uint64_t)k * (i + 1) * ((uint64_t)1 << (table_index - 2));
+          uint64_t end =
+              (uint64_t)k * (i + 2) * ((uint64_t)1 << (table_index - 2));
+          new_xs += (xs.Slice(start2, end) + xs.Slice(start, start2));
         }
-        std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
-
-        if (depth == GetEndTable()) {
-            // For table P1, the line point represents two concatenated x values.
-            std::vector<Bits> ret;
-            ret.emplace_back(xy.second, k);  // y
-            ret.emplace_back(xy.first, k);   // x
-            return ret;
-        } else {
-            std::vector<Bits> left, right;
-            if (!disk_file) {
-                // no disk_file, so we do parallel reads here
-                auto left_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.second, (uint8_t)(depth - 1), nullptr);
-                auto right_fut=std::async(std::launch::async, &DiskProver::GetInputs,this, (uint64_t)xy.first, (uint8_t)(depth - 1), nullptr);
-                left = left_fut.get();  // y
-                right = right_fut.get();  // x
-            } else {
-                left = GetInputs(xy.second, depth - 1, disk_file);  // y
-                right = GetInputs(xy.first, depth - 1, disk_file);  // x  
-            }
-            left.insert(left.end(), right.begin(), right.end());
-            return left;
-        }
+        assert(std::get<0>(new_output).GetSize() != 0);
+        new_results.push_back(new_output);
+      }
+      // Advances to the next table
+      // xs is a concatenation of all 64 x values, in the current order. Note
+      // that at each iteration, we can swap several parts of xs
+      results = new_results;
+      xs = new_xs;
     }
+    std::vector<LargeBits> ordered_proof;
+    for (uint8_t i = 0; i < 64; i++) {
+      ordered_proof.push_back(xs.Slice(i * k, (i + 1) * k));
+    }
+    return ordered_proof;
+  }
 
+  // Recursive function to go through the tables on disk, backpropagating and
+  // fetching all of the leaves (x values). For example, for depth=5, it fetches
+  // the position-th entry in table 5, reading the two back pointers from the
+  // line point, and then recursively calling GetInputs for table 4.
+  std::vector<Bits> GetInputs(uint64_t position, uint8_t depth,
+                              std::ifstream *disk_file = nullptr) {
+    uint128_t line_point;
+
+    if (!disk_file) {
+      // No disk file passed in, so we assume here we are doing parallel reads
+      // Create individual file handles to allow parallel processing
+      std::ifstream disk_file_parallel(filename,
+                                       std::ios::in | std::ios::binary);
+      line_point = ReadLinePoint(disk_file_parallel, depth, position);
+    } else {
+      line_point = ReadLinePoint(*disk_file, depth, position);
+    }
+    std::pair<uint64_t, uint64_t> xy = Encoding::LinePointToSquare(line_point);
+
+    if (depth == GetEndTable()) {
+      // For table P1, the line point represents two concatenated x values.
+      std::vector<Bits> ret;
+      ret.emplace_back(xy.second, k);  // y
+      ret.emplace_back(xy.first, k);   // x
+      return ret;
+    } else {
+      std::vector<Bits> left, right;
+      if (!disk_file) {
+        // no disk_file, so we do parallel reads here
+        auto left_fut =
+            std::async(std::launch::async, &DiskProver::GetInputs, this,
+                       (uint64_t)xy.second, (uint8_t)(depth - 1), nullptr);
+        auto right_fut =
+            std::async(std::launch::async, &DiskProver::GetInputs, this,
+                       (uint64_t)xy.first, (uint8_t)(depth - 1), nullptr);
+        left = left_fut.get();    // y
+        right = right_fut.get();  // x
+      } else {
+        left = GetInputs(xy.second, depth - 1, disk_file);  // y
+        right = GetInputs(xy.first, depth - 1, disk_file);  // x
+      }
+      left.insert(left.end(), right.begin(), right.end());
+      return left;
+    }
+  }
 };
 
 #endif  // SRC_CPP_PROVER_DISK_HPP_
