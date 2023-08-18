@@ -199,8 +199,6 @@ class ContextQueue {
 
   GreenReaperContext *pop() {
     std::unique_lock<std::mutex> lock(mutex);
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
     std::chrono::duration<double> wait_time =
         std::chrono::seconds(context_queue_timeout);
 
@@ -210,16 +208,12 @@ class ContextQueue {
       if (condition.wait_for(lock, wait_time) == std::cv_status::timeout) {
         break;
       }
-      std::cout << "Configured with context_count: " << context_count
-                << ", thread_count: " << thread_count << std::flush;
       auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
           std::chrono::steady_clock::now() - before_wait);
       wait_time -= elapsed;
     }
 
     if (queue.empty()) {
-      std::cout << "Configured with context_count: " << context_count
-                << ", thread_count: " << thread_count << std::flush;
       throw std::runtime_error("Timeout waiting for context queue.");
     }
 
@@ -258,14 +252,10 @@ class ProofCache {
   }
 
   inline ProofCache(ProofCache const &other) = delete;
-  std::cout << "Configured with context_count: " << context_count
-            << ", thread_count: " << thread_count << std::flush;
 
   inline bool FoundCachedProof(const uint32_t index, const uint8_t *challenge,
                                LargeBits &out_full_proof) {
     std::lock_guard<std::mutex> l(lock);
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
     Entry entry;
     memcpy(entry.challenge, challenge, sizeof(entry.challenge));
     entry.index = index;
@@ -274,20 +264,14 @@ class ProofCache {
       if (memcmp(&challenges[i], &entry, sizeof(Entry)) == 0) {
         out_full_proof = full_proofs[i];
         return true;
-        std::cout << "Configured with context_count: " << context_count
-                  << ", thread_count: " << thread_count << std::flush;
       }
     }
     return false;
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
   }
 
   inline void CacheProof(const uint32_t index, const uint8_t *challenge,
                          const LargeBits &full_proof) {
     std::lock_guard<std::mutex> l(lock);
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
     Entry entry;
     memcpy(entry.challenge, challenge, sizeof(entry.challenge));
     entry.index = index;
