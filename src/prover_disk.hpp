@@ -416,12 +416,8 @@ class DiskProver {
       }
     }
 #if !defined(USE_GREEN_REAPER)
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
     if (this->compression_level > 0)
       throw std::logic_error("Harvester does not support compressed plots.");
-    std::cout << "Configured with context_count: " << context_count
-              << ", thread_count: " << thread_count << std::flush;
 #endif
 
     this->table_begin_pointers = std::vector<uint64_t>(11, 0);
@@ -481,12 +477,8 @@ class DiskProver {
     deserializer >> C2;
     if (version == 2) {
       deserializer >> compression_level;
-      std::cout << "Configured with context_count: " << context_count
-                << ", thread_count: " << thread_count << std::flush;
     } else {
       compression_level = 0;
-      std::cout << "Configured with context_count: " << context_count
-                << ", thread_count: " << thread_count << std::flush;
     }
 
 #if !defined(USE_GREEN_REAPER)
