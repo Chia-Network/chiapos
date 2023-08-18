@@ -117,7 +117,7 @@ public:
 
         GreenReaperConfig cfg = {};
         cfg.apiVersion = GR_API_VERSION;
-        cfg.threadCount = ;
+        cfg.threadCount = thread_count;
         cfg.disableCpuAffinity = no_cpu_affinity;
         if (!use_gpu_harvesting) {
             cfg.gpuRequest = GRGpuRequestKind_None;
