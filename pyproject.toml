@@ -36,7 +36,7 @@ else
 fi
 '''
 before-build = "python -m pip install --upgrade pip"
-environment = {MACOSX_DEPLOYMENT_TARGET="10.14", SYSTEM_VERSION_COMPAT=0, CP_USE_GREEN_REAPER=1}
+environment = {MACOSX_DEPLOYMENT_TARGET="11", SYSTEM_VERSION_COMPAT=0, CP_USE_GREEN_REAPER=1}
 
 [tool.cibuildwheel.windows]
 build-verbosity = 1
