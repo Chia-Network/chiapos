@@ -48,5 +48,5 @@ jobs:
             cmake ../ && \
             cmake --build . -- -j 6 && \
             echo "Running ctest -C Release -j 6" && \
-            ctest -C Release -j 6
+            ./RunTests
           '
