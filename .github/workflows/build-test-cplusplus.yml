@@ -82,4 +82,4 @@ jobs:
         cd build-win
         cmake ..
         cmake --build . --config Release -j 6
-        ./RunTests
+        ./RunTests.exe
