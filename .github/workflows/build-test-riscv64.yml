@@ -12,7 +12,8 @@ on:
       - '**'
 
 jobs:
-  build_wheels:
+  build:
+    timeout-minutes: 60
     name: QEMU riscv64 via Debian on ubuntu-latest
     runs-on: ${{ matrix.os }}
     strategy:
@@ -46,7 +47,7 @@ jobs:
             mkdir -p build && \
             cd build && \
             cmake ../ && \
-            cmake --build . -- -j 6 && \
-            echo "Running ctest -C Release -j 6" && \
+            cmake --build . -- -j 2 && \
+            echo "Running RunTests" && \
             ./RunTests
           '
