@@ -36,6 +36,11 @@ jobs:
 
     - name: Build and Test
       run: |
+        sudo fallocate -l 16G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        swapon -s
         docker run --rm \
           -v ${{ github.workspace }}:/ws --workdir=/ws \
           riscv64/debian:rc-buggy \
