@@ -123,15 +123,6 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -fno-omit-frame-pointer -fsanitize=thre
 set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=thread")
 ENDIF()
 
-IF (APPLE)
-# on macOS "uname -m" returns the architecture (x86_64 or arm64)
-execute_process(
-    COMMAND uname -m
-    RESULT_VARIABLE result
-    OUTPUT_VARIABLE OSX_NATIVE_ARCHITECTURE
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-ENDIF()
-
 IF (WIN32)
 set(BLAKE3_SRC
     src/b3/blake3.c
@@ -141,7 +132,7 @@ set(BLAKE3_SRC
     src/b3/blake3_avx512.c
     src/b3/blake3_sse41.c
 )
-ELSEIF(OSX_NATIVE_ARCHITECTURE STREQUAL "arm64")
+ELSEIF(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64|arm64")
 set(BLAKE3_SRC
     src/b3/blake3.c
     src/b3/blake3_portable.c
