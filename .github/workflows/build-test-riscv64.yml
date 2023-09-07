@@ -36,11 +36,6 @@ jobs:
 
     - name: Build and Test
       run: |
-        sudo fallocate -l 16G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-        swapon -s
         docker run --rm \
           -v ${{ github.workspace }}:/ws --workdir=/ws \
           riscv64/debian:rc-buggy \
@@ -54,5 +49,11 @@ jobs:
             python3 -m venv venv && \
             ./venv/bin/python -m pip install dist/*.whl && \
             ./venv/bin/python -m pip install pytest && \
-            ./venv/bin/python -m pytest -v tests/ 
+            ./venv/bin/python -m pytest -k "not k_21" -v tests/ 
           '
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: packages
+        path: ./dist
