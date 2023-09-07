@@ -36,7 +36,7 @@ jobs:
 
     - name: Build and Test
       run: |
-        docker run --rm \
+        docker run --rm --platform linux/riscv64 \
           -v ${{ github.workspace }}:/ws --workdir=/ws \
           riscv64/debian:rc-buggy \
           bash -exc '\
