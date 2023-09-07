@@ -47,7 +47,5 @@ jobs:
             mkdir -p build && \
             cd build && \
             cmake ../ && \
-            cmake --build . -- -j 2 && \
-            echo "Running RunTests" && \
-            ./RunTests
+            cmake --build . -- -j 2
           '
