@@ -6,7 +6,7 @@ import sys
 import platform
 import subprocess
 
-from setuptools import setup, setuptools, Extension
+from setuptools import setup, errors, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
@@ -134,7 +134,7 @@ def has_flag(compiler, flagname):
         f.write("int main (int argc, char **argv) { return 0; }")
         try:
             compiler.compile([f.name], extra_postargs=[flagname])
-        except setuptools.distutils.errors.CompileError:
+        except errors.CompileError:
             return False
     return True
 
