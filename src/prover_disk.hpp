@@ -853,7 +853,7 @@ private:
                 }
                 
                 compressed_park_size = info.tableParkSize;;
-                compressed_stub_size_bits = info.subtSizeBits;
+                compressed_stub_size_bits = info.stubSizeBits;
                 compressed_ans_r_value = info.ansRValue;
             }
         #else
