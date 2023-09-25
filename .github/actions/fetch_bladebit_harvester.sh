@@ -22,14 +22,14 @@ if [[ "${host_arch}" != "arm64" ]] && [[ "${host_arch}" != "x86-64" ]]; then
 fi
 
 ## Change this if including a new bladebit release
-artifact_ver="v3.0.0"
-artifact_base_url="https://github.com/Chia-Network/bladebit/releases/download/v3.0.0"
+artifact_ver="v3.1.0-rc2"
+artifact_base_url="https://github.com/Chia-Network/bladebit/releases/download/v3.1.0-rc2"
 
-linux_arm_sha256="5a53d82c2cc22172bfa2267ea9fb53126a527eba7bafd03ddf5503913a61f70c"
-linux_x86_sha256="3cdbcf127126d7c61f6da715b25ef73a8420778dd34d56e82ed1865d7a1ebfeb"
-macos_arm_sha256="325150951e83be4ee8690be996e6fde0776ff4cca89e39111c97f0aae3f93bf3"
-macos_x86_sha256="718ab50a19ea3a8f064f2d09df38720cbb7d89667b599f57f2bca3cdf41c18e9"
-windows_sha256="f3e14d02daafaa8e3666ab4666220d3b2859b1c10254bddb38a69da83cc899c5"
+linux_arm_sha256="9377126d1bf3e820dd3a4de3a28b3ed1309854b1e808c450ec0414b9b1193990"
+linux_x86_sha256="e3fce120863ef8a01e664723d7675770058db0be1d1a389965cc856d2c18277f"
+macos_arm_sha256="59eefcbe88c29c83363fb1f16167c921b512aa3ddac8f7eff32d28da3ff3cba1"
+macos_x86_sha256="8b41cbbbb30c9bb3e5e718fd578291a244eb3582d82a496e0c8049896c2599d8"
+windows_sha256="e591e54993b35a371bd46c93c51c08e5d290494e30dd724e65fffd31d98d32ed"
 ## End changes
 
 artifact_ext="tar.gz"
