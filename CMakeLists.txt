@@ -34,7 +34,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cxxopts)
 
-
 option(CP_LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
 option(CP_BUILD_BLADEBIT_HARVESTER "Pulls bladebit harvester target from git and builds it as a dependency.")
 
@@ -123,38 +122,34 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -fno-omit-frame-pointer -fsanitize=thre
 set (CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=thread")
 ENDIF()
 
-IF (WIN32)
-set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
-    src/b3/blake3_avx2.c
-    src/b3/blake3_avx512.c
-    src/b3/blake3_sse41.c
-)
-ELSEIF(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64|arm64")
-set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
-)
-ELSE()
-set(BLAKE3_SRC
-    src/b3/blake3.c
-    src/b3/blake3_portable.c
-    src/b3/blake3_dispatch.c
-    src/b3/blake3_avx2_x86-64_unix.S
-    src/b3/blake3_avx512_x86-64_unix.S
-    src/b3/blake3_sse41_x86-64_unix.S
-)
-ENDIF()
-
-pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c ${BLAKE3_SRC})
-
+pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c)
 add_executable(ProofOfSpace
     src/cli.cpp
     src/chacha8.c
-    ${BLAKE3_SRC}
+)
+
+FetchContent_Declare(
+  blake3
+  GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
+  GIT_TAG        1.5.0
+)
+
+FetchContent_GetProperties(blake3)
+if(NOT blake3_POPULATED)
+  FetchContent_Populate(blake3)
+
+  # Set BLAKE3 to build as a shared library
+  set(BUILD_SHARED_LIBS TRUE CACHE BOOL "Build shared libraries" FORCE)
+
+  add_subdirectory(${blake3_SOURCE_DIR}/c ${blake3_BINARY_DIR})
+endif()
+
+set(BLAKE3_SRC ${blake3_SOURCE_DIR}/c)
+set(BLAKE3_INCLUDE_DIR ${blake3_SOURCE_DIR}/c)
+target_link_libraries(ProofOfSpace PRIVATE blake3)
+include_directories(
+  ${INCLUDE_DIRECTORIES}
+  ${BLAKE3_INCLUDE_DIR}
 )
 
 option(BUILD_PROOF_OF_SPACE_STATICALLY "Build ProofOfSpace target statically" OFF)
@@ -173,8 +168,8 @@ FetchContent_MakeAvailable(Catch2)
 add_executable(RunTests
     tests/test.cpp
     src/chacha8.c
-    ${BLAKE3_SRC}
 )
+target_link_libraries(RunTests PRIVATE blake3)
 
 find_package(Threads REQUIRED)
 
@@ -231,7 +226,7 @@ if (${CP_LINK_BLADEBIT_HARVESTER})
   target_link_directories(chiapos PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
   target_link_directories(ProofOfSpace PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
   target_link_directories(RunTests PUBLIC ${CMAKE_SOURCE_DIR}/libs/green_reaper/lib)
-  
+
   set_property(TARGET chiapos APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET ProofOfSpace APPEND PROPERTY BUILD_RPATH "$ORIGIN")
   set_property(TARGET RunTests APPEND PROPERTY BUILD_RPATH "$ORIGIN")
