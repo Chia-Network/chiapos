@@ -621,7 +621,7 @@ void TestProofOfSpace(
         picosha2::hash256(hash_input.begin(), hash_input.end(), hash.begin(), hash.end());
         vector<LargeBits> qualities = prover.GetQualitiesForChallenge(hash.data());
         Verifier verifier = Verifier();
-            
+
         for (uint32_t index = 0; index < qualities.size(); index++) {
             LargeBits proof = prover.GetFullProof(hash.data(), index);
             proof.ToBytes(proof_data);
@@ -1082,7 +1082,7 @@ TEST_CASE("DiskProver")
 {
     SECTION("Move constructor")
     {
-        std::string filename = "prover_test.plot";
+        std::string filename = "prover_test_with_a_long_name_to_avoid_sso.plot";
         DiskPlotter plotter = DiskPlotter();
         std::vector<uint8_t> memo{1, 2, 3};
         plotter.CreatePlotDisk(
