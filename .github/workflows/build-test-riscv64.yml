@@ -38,10 +38,8 @@ jobs:
       run: |
         docker run --rm --platform linux/riscv64 \
           -v ${{ github.workspace }}:/ws --workdir=/ws \
-          riscv64/debian:rc-buggy \
+          chianetwork/ubuntu-22.04-risc-builder:latest \
           bash -exc '\
-            apt-get update && \
-            apt-get install -y cmake build-essential git python3-full python3-pip python3-dev && \
             cmake --version && \
             uname -a && \
             export CP_USE_GREEN_REAPER=0 && \
