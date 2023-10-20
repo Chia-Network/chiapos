@@ -76,154 +76,18 @@ class CMakeBuild(build_ext):
         )
 
 
-class get_pybind_include(object):
-    """Helper class to determine the pybind11 include path
-
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked."""
-
-    def __init__(self, user=False):
-        self.user = user
-
-    def __str__(self):
-        import pybind11
-
-        return pybind11.get_include(self.user)
-
-
-ext_modules = [
-    Extension(
-        "chiapos",
-        [
-            "lib/FiniteStateEntropy/lib/entropy_common.c",
-            "lib/FiniteStateEntropy/lib/fse_compress.c",
-            "lib/FiniteStateEntropy/lib/fse_decompress.c",
-            "lib/FiniteStateEntropy/lib/hist.c",
-            "python-bindings/chiapos.cpp",
-            "uint128_t/uint128_t.cpp",
-            "src/chacha8.c",
-        ],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True),
-            "src",
-            "uint128_t",
-            ".",
-        ],
-    ),
-]
-
-
-# As of Python 3.6, CCompiler has a `has_flag` method.
-# cf http://bugs.python.org/issue26689
-def has_flag(compiler, flagname):
-    """Return a boolean indicating whether a flag name is supported on
-    the specified compiler.
-    """
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".cpp") as f:
-        f.write("int main (int argc, char **argv) { return 0; }")
-        try:
-            compiler.compile([f.name], extra_postargs=[flagname])
-        except errors.CompileError:
-            return False
-    return True
-
-
-def cpp_flag(compiler):
-    """Return the -std=c++[11/14/17] compiler flag.
-
-    The newer version is prefered over c++11 (when it is available).
-    """
-    flags = ["-std=c++17", "-std=c++14", "-std=c++11"]
-
-    for flag in flags:
-        if has_flag(compiler, flag):
-            return flag
-
-    raise RuntimeError("Unsupported compiler -- at least C++11 support " "is needed!")
-
-
-class BuildExt(build_ext):
-    """A custom build extension for adding compiler-specific options."""
-
-    c_opts = {
-        "msvc": ["/EHsc", "/std:c++17", "/O2"],
-        "unix": [""],
-    }
-    l_opts = {
-        "msvc": [],
-        "unix": [""],
-    }
-
-    if sys.platform == "darwin":
-        darwin_opts = ["-stdlib=libc++", "-mmacosx-version-min=10.14"]
-        c_opts["unix"] += darwin_opts
-        l_opts["unix"] += darwin_opts  # type: ignore
-
-    def build_extensions(self):
-        ct = self.compiler.compiler_type
-        opts = self.c_opts.get(ct, [])
-        link_opts = self.l_opts.get(ct, [])
-        if ct == "unix":
-            opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
-            opts.append(cpp_flag(self.compiler))
-            if has_flag(self.compiler, "-fvisibility=hidden"):
-                opts.append("-fvisibility=hidden")
-        elif ct == "msvc":
-            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
-
-            # Link bladebit_harvester
-            if os.getenv("CP_USE_GREEN_REAPER") == "1":
-                opts.append("/DUSE_GREEN_REAPER=1")
-                opts.append("/DBLADEBIT_HARVESTER_LINKED=1")
-                opts.append("/Ilibs/green_reaper/include")
-                link_opts.append("libs/green_reaper/lib/bladebit_harvester.lib")
-
-        for ext in self.extensions:
-            ext.extra_compile_args = opts
-            ext.extra_link_args = link_opts
-        build_ext.build_extensions(self)
-
-        # Copy bladebit_harvester.dll on windows to the target build directory
-        # in order to package it into the root directory of the wheel
-        if os.getenv("CP_USE_GREEN_REAPER") == "1" and sys.platform == "win32":
-            shutil.copy2("libs/green_reaper/lib/bladebit_harvester.dll", self.build_lib + "/bladebit_harvester.dll")
-
-
-if platform.system() == "Windows":
-    setup(
-        name="chiapos",
-        author="Mariano Sorgente",
-        author_email="mariano@chia.net",
-        description="Chia proof of space plotting, proving, and verifying (wraps C++)",
-        license="Apache License",
-        python_requires=">=3.7",
-        long_description=open("README.md").read(),
-        long_description_content_type="text/markdown",
-        url="https://github.com/Chia-Network/chiapos",
-        setup_requires=["pybind11>=2.10.0"],
-        tests_require=["pytest"],
-        ext_modules=ext_modules,
-        cmdclass={"build_ext": BuildExt},
-        zip_safe=False,
-    )
-else:
-    setup(
-        name="chiapos",
-        author="Mariano Sorgente",
-        author_email="mariano@chia.net",
-        description="Chia proof of space plotting, proving, and verifying (wraps C++)",
-        license="Apache License",
-        python_requires=">=3.7",
-        long_description=open("README.md").read(),
-        long_description_content_type="text/markdown",
-        url="https://github.com/Chia-Network/chiapos",
-        tests_require=["pytest"],
-        ext_modules=[CMakeExtension("chiapos", ".")],
-        cmdclass=dict(build_ext=CMakeBuild),
-        zip_safe=False,
-    )
+setup(
+    name="chiapos",
+    author="Mariano Sorgente",
+    author_email="mariano@chia.net",
+    description="Chia proof of space plotting, proving, and verifying (wraps C++)",
+    license="Apache License",
+    python_requires=">=3.7",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/Chia-Network/chiapos",
+    tests_require=["pytest"],
+    ext_modules=[CMakeExtension("chiapos", ".")],
+    cmdclass=dict(build_ext=CMakeBuild),
+    zip_safe=False,
+)
