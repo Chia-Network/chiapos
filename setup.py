@@ -1,12 +1,11 @@
 #!/usr/bin/python3
 import os
 import re
-import shutil
 import sys
 import platform
 import subprocess
 
-from setuptools import setup, errors, Extension
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
