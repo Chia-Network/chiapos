@@ -138,14 +138,15 @@ FetchContent_GetProperties(blake3)
 if(NOT blake3_POPULATED)
   FetchContent_Populate(blake3)
 
-  # Set BLAKE3 to build as a shared library
-  set(BUILD_SHARED_LIBS TRUE CACHE BOOL "Build shared libraries" FORCE)
+  # Set BLAKE3 to build as a static library
+  set(BUILD_SHARED_LIBS FALSE CACHE BOOL "Build static libraries" FORCE)
 
   add_subdirectory(${blake3_SOURCE_DIR}/c ${blake3_BINARY_DIR})
 endif()
 
 set(BLAKE3_SRC ${blake3_SOURCE_DIR}/c)
 set(BLAKE3_INCLUDE_DIR ${blake3_SOURCE_DIR}/c)
+target_link_libraries(chiapos PRIVATE blake3)
 target_link_libraries(ProofOfSpace PRIVATE blake3)
 include_directories(
   ${INCLUDE_DIRECTORIES}
@@ -169,7 +170,14 @@ add_executable(RunTests
     tests/test.cpp
     src/chacha8.c
 )
-target_link_libraries(RunTests PRIVATE blake3)
+
+target_link_libraries(RunTests
+    PRIVATE
+    fse
+    Threads::Threads
+    Catch2::Catch2
+    blake3
+)
 
 find_package(Threads REQUIRED)
 
@@ -233,5 +241,5 @@ if (${CP_LINK_BLADEBIT_HARVESTER})
 endif()
 
 
-#enable_testing()
-#add_test(NAME RunTests COMMAND RunTests)
+enable_testing()
+add_test(NAME RunTests COMMAND RunTests)
