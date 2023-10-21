@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 local_scheme = "no-local-version"
 
 [tool.cibuildwheel]
-#test-requires = "pytest"
-#test-command = "pytest -v {project}/tests"
+test-requires = "pytest"
+test-command = "pytest -v {project}/tests"
 skip = "*-manylinux_i686 *-win32 *-musllinux_*"
 
 [tool.cibuildwheel.linux]
