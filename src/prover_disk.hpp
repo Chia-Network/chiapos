@@ -867,20 +867,20 @@ private:
 
         // This is the checkpoint at the beginning of the park
         uint16_t line_point_size = EntrySizes::CalculateLinePointSize(k);
-	// Using unique_ptr here allows this object to be automatically destructed at the throw below.
+        // Using unique_ptr here allows this object to be automatically destructed at the throw below.
         auto line_point_bin = std::make_unique<uint8_t[]>(line_point_size + 7);
         SafeRead(disk_file, line_point_bin.get(), line_point_size);
         uint128_t line_point = Util::SliceInt128FromBytes(line_point_bin.get(), 0, k * 2);
 
         // Reads EPP stubs
         uint32_t stubs_size_bits = (is_compressed ? (Util::ByteAlign((kEntriesPerPark - 1) * compressed_stub_size_bits) / 8) : EntrySizes::CalculateStubsSize(k)) * 8;
-	// As above: avoid leak via throw.
+        // As above: avoid leak via throw.
         auto stubs_bin = std::make_unique<uint8_t[]>(stubs_size_bits / 8 + 7);
         SafeRead(disk_file, stubs_bin.get(), stubs_size_bits / 8);
 
         // Reads EPP deltas        
         uint32_t max_deltas_size_bits = (is_compressed ? compressed_park_size - (line_point_size + stubs_size_bits) : EntrySizes::CalculateMaxDeltasSize(k, table_index)) * 8;
-	// Avoid leak via throw.
+        // Avoid leak via throw.
         auto deltas_bin = std::make_unique<uint8_t[]>(max_deltas_size_bits / 8);
 
         // Reads the size of the encoded deltas object
