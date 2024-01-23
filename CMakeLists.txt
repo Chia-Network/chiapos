@@ -179,6 +179,11 @@ target_link_libraries(RunTests
     blake3
 )
 
+if(WITH_COVERAGE)
+target_compile_options(RunTests PRIVATE --coverage)
+target_link_options(RunTests PRIVATE --coverage)
+endif()
+
 find_package(Threads REQUIRED)
 
 add_library(uint128 STATIC uint128_t/uint128_t.cpp)
