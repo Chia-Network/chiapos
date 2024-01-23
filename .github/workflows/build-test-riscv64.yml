@@ -123,4 +123,4 @@ jobs:
         if: env.RELEASE == 'true'
         shell: sh
         run: |
-          cat upload_wheel_list | xargs -I % sh -c 'aws s3 cp dist/% s3://download.chia.net/simple/chiavdf/'
+          cat upload_wheel_list | xargs -I % sh -c 'aws s3 cp dist/% s3://download.chia.net/simple/chiapos/'
