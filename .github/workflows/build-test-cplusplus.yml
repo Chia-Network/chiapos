@@ -42,16 +42,10 @@ jobs:
 
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
-          sudo fallocate -l 16G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          swapon -s
           mkdir build-asan
           cd build-asan
           cmake -DCMAKE_BUILD_TYPE=ASAN ../
           cmake --build . -- -j 6
-          swapon -s
           ./RunTests
 
   tsan:
@@ -67,7 +61,7 @@ jobs:
           cd build-tsan
           cmake -DCMAKE_BUILD_TYPE=TSAN ../
           cmake --build . -- -j 6
-          TSAN_OPTIONS="memory_limit_mb=6000" ./RunTests
+          ./RunTests
 
   mac:
     name: MacOS
