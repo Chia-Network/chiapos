@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) try {
         cout << "Invalid operation '" << operation << "'. Use create/prove/verify/check" << endl;
     }
     return 0;
-} catch (const cxxopts::OptionException &e) {
+} catch (const cxxopts::exceptions::exception &e) {
     cout << "error parsing options: " << e.what() << endl;
     return 1;
 } catch (const std::exception &e) {
