@@ -1,5 +1,6 @@
 # Chia Proof of Space
-![Build](https://github.com/Chia-Network/chiapos/workflows/build-wheels/badge.svg)
+![Build](https://github.com/Chia-Network/chiapos/actions/workflows/build-test-cplusplus.yml/badge.svg)
+![Wheels](https://github.com/Chia-Network/chiapos/actions/workflows/build-wheels.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/chiapos?logo=pypi)
 ![PyPI - Format](https://img.shields.io/pypi/format/chiapos?logo=pypi)
 ![GitHub](https://img.shields.io/github/license/Chia-Network/chiapos?logo=Github)
