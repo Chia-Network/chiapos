@@ -1,12 +1,10 @@
 # Chia Proof of Space
-![Build](https://github.com/Chia-Network/chiapos/workflows/Build/badge.svg)
+![Build](https://github.com/Chia-Network/chiapos/actions/workflows/build-test-cplusplus.yml/badge.svg)
+![Wheels](https://github.com/Chia-Network/chiapos/actions/workflows/build-wheels.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/chiapos?logo=pypi)
 ![PyPI - Format](https://img.shields.io/pypi/format/chiapos?logo=pypi)
 ![GitHub](https://img.shields.io/github/license/Chia-Network/chiapos?logo=Github)
 
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/alerts/)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:python)
-[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/Chia-Network/chiapos.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Chia-Network/chiapos/context:cpp)
 
 Chia's proof of space is written in C++. Includes a plotter, prover, and
 verifier. It exclusively runs on 64 bit architectures. Read the
