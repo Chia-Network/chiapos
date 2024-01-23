@@ -56,7 +56,7 @@ endif()
 FetchContent_Declare(
   gulrak
   GIT_REPOSITORY https://github.com/gulrak/filesystem.git
-  GIT_TAG        v1.5.6
+  GIT_TAG        v1.5.14
 )
 FetchContent_MakeAvailable(gulrak)
 
