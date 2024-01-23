@@ -4,3 +4,40 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
+
+[tool.cibuildwheel]
+test-requires = "pytest"
+test-command = "pytest -v {project}/tests"
+skip = "*-manylinux_i686 *-win32 *-musllinux_*"
+
+[tool.cibuildwheel.linux]
+build-verbosity = 1
+environment = {CP_USE_GREEN_REAPER=1}
+before-all = '''
+set -eo pipefail && set -x && set -eo pipefail && ARCH=$(uname -m)
+if [[ $ARCH == x86_64 ]]; then
+  .github/actions/fetch_bladebit_harvester.sh linux x86-64
+else
+  .github/actions/fetch_bladebit_harvester.sh linux arm64
+fi
+'''
+before-build = "python -m pip install --upgrade pip"
+
+[tool.cibuildwheel.macos]
+build-verbosity = 1
+before-all = '''
+brew install gmp boost cmake
+set -eo pipefail
+ARCH=$(uname -m)
+if [[ $ARCH == x86_64 ]]; then
+  .github/actions/fetch_bladebit_harvester.sh macos x86-64
+else
+  .github/actions/fetch_bladebit_harvester.sh macos arm64
+fi
+'''
+before-build = "python -m pip install --upgrade pip"
+environment = {MACOSX_DEPLOYMENT_TARGET="11", SYSTEM_VERSION_COMPAT=0, CP_USE_GREEN_REAPER=1}
+
+[tool.cibuildwheel.windows]
+build-verbosity = 1
+environment = "CP_USE_GREEN_REAPER=1"

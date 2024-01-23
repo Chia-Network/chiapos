@@ -1,3 +1,4 @@
+.idea/
 ProofOfSpace
 RunTests
 HellmanAttacks
@@ -25,3 +26,9 @@ build
 .mypy_cache
 *.whl
 venv
+build-tsan
+build-*
+cmake-build*
+*.zip
+*.tar.gz
+libs/

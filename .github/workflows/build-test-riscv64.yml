@@ -1,0 +1,126 @@
+name: Build and test riscv64 on ubuntu-latest
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  build_wheels:
+    timeout-minutes: 60
+    name: ${{ matrix.os }} 📦 Build ${{ matrix.python.major-dot-minor }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python:
+          - major-dot-minor: "3.8"
+            matrix: "3.8"
+          - major-dot-minor: "3.9"
+            matrix: "3.9"
+          - major-dot-minor: "3.10"
+            matrix: "3.10"
+          - major-dot-minor: "3.11"
+            matrix: "3.11"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Set up QEMU on x86_64
+        if: startsWith(matrix.os, 'ubuntu-latest')
+        id: qemu
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: riscv64
+      #        image: tonistiigi/binfmt:latest
+
+      - name: Build and Test
+        run: |
+          docker run --rm --platform linux/riscv64 \
+            -v ${{ github.workspace }}:/ws --workdir=/ws \
+            chianetwork/ubuntu-22.04-risc-builder:latest \
+            bash -exc '\
+              pyenv global ${{ matrix.python.matrix }} && \
+              cmake --version && \
+              uname -a && \
+              export CP_USE_GREEN_REAPER=0 && \
+              pip wheel -w dist . && \
+              python3 -m venv venv && \
+              ./venv/bin/python -m pip install dist/*.whl && \
+              ./venv/bin/python -m pip install pytest && \
+              ./venv/bin/python -m pytest -k "not k_21" -v tests/ 
+            '
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages
+          path: ./dist
+          if-no-files-found: error
+  upload:
+    name: Upload to Chia PyPI
+    runs-on: ubuntu-latest
+    needs:
+      - build_wheels
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set Env
+        uses: Chia-Network/actions/setjobenv@main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts
+        if: env.RELEASE == 'true'
+        uses: actions/download-artifact@v3
+        with:
+          name: packages
+          path: ./dist
+
+      - name: Configure AWS credentials
+        if: env.RELEASE == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.CHIA_AWS_ACCOUNT_ID }}:role/installer-upload
+          aws-region: us-west-2
+
+      - name: List existing wheels
+        if: env.RELEASE == 'true'
+        shell: sh
+        run: |
+          aws s3 ls s3://download.chia.net/simple/chiavdf/ > existing_wheel_list_raw
+          cat existing_wheel_list_raw
+          cat existing_wheel_list_raw | tr -s ' ' | cut -d ' ' -f 4 > existing_wheel_list
+
+      - name: List new wheels
+        if: env.RELEASE == 'true'
+        shell: sh
+        run: |
+          (cd dist/; ls ${{ inputs.package_name }}-*.whl) > new_wheel_list
+          cat new_wheel_list | xargs -I % sh -c 'ls -l dist/%'
+
+      - name: Choose wheels to upload
+        if: env.RELEASE == 'true'
+        shell: sh
+        run: |
+          grep -F -x -v -f existing_wheel_list new_wheel_list > upload_wheel_list
+          cat upload_wheel_list
+
+      - name: Upload wheels
+        if: env.RELEASE == 'true'
+        shell: sh
+        run: |
+          cat upload_wheel_list | xargs -I % sh -c 'aws s3 cp dist/% s3://download.chia.net/simple/chiapos/'
