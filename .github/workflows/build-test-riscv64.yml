@@ -14,7 +14,7 @@ on:
 jobs:
   build_wheels:
     timeout-minutes: 60
-    name: ${{ matrix.os.emoji }} 📦 Build ${{ matrix.python.major-dot-minor }}
+    name: ${{ matrix.os }} 📦 Build ${{ matrix.python.major-dot-minor }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
