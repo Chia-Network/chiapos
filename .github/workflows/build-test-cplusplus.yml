@@ -3,18 +3,39 @@ name: Build and Test C++
 on:
   push:
     branches:
-    - main
+      - main
   release:
     types: [published]
   pull_request:
     branches:
-    - '**'
+      - "**"
 
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}--${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/long_lived/')) && github.sha || '' }}
   cancel-in-progress: true
 
 jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Collect coverage data
+        run: |
+          sudo apt-get update
+          sudo apt-get install lcov -y
+          cmake -B ../build -DCMAKE_BUILD_TYPE=Debug -DWITH_COVERAGE=1
+          cmake --build ../build -- -j 6
+          ../build/RunTests
+          lcov --directory ../build --capture --output-file lcov.info
+          lcov --remove lcov.info '*_deps/*' '/usr/*' --output-file lcov.info
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        if: always()
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        with:
+          path-to-lcov: "./lcov.info"
   valgrind:
     name: valgrind ubuntu
     runs-on: ubuntu-22.04
@@ -82,13 +103,13 @@ jobs:
     name: Windows Latest
     runs-on: windows-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: cmake, RunTests with Windows
-      run: |
-        mkdir build-win
-        cd build-win
-        cmake ..
-        cmake --build . --config Release -j 6
-        ctest -C Release -j 6
+      - name: cmake, RunTests with Windows
+        run: |
+          mkdir build-win
+          cd build-win
+          cmake ..
+          cmake --build . --config Release -j 6
+          ctest -C Release -j 6
