@@ -8,7 +8,7 @@
 
 Chia's proof of space is written in C++. Includes a plotter, prover, and
 verifier. It exclusively runs on 64 bit architectures. Read the
-[Proof of Space document](https://www.chia.net/assets/Chia_Proof_of_Space_Construction_v1.1.pdf) to
+[Proof of Space document](https://www.chia.net/wp-content/uploads/2022/09/Chia_Proof_of_Space_Construction_v1.1.pdf) to
 learn about what proof of space is and how it works.
 
 ## C++ Usage Instructions
