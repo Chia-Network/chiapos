@@ -11,6 +11,10 @@ on:
     branches:
       - "**"
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build_wheels:
     timeout-minutes: 60
