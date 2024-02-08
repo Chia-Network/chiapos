@@ -101,7 +101,7 @@ jobs:
         if: env.RELEASE == 'true'
         shell: sh
         run: |
-          aws s3 ls s3://download.chia.net/simple/chiavdf/ > existing_wheel_list_raw
+          aws s3 ls s3://download.chia.net/simple/chiapos/ > existing_wheel_list_raw
           cat existing_wheel_list_raw
           cat existing_wheel_list_raw | tr -s ' ' | cut -d ' ' -f 4 > existing_wheel_list
 
@@ -109,7 +109,7 @@ jobs:
         if: env.RELEASE == 'true'
         shell: sh
         run: |
-          (cd dist/; ls ${{ inputs.package_name }}-*.whl) > new_wheel_list
+          (cd dist/; ls chiapos-*.whl) > new_wheel_list
           cat new_wheel_list | xargs -I % sh -c 'ls -l dist/%'
 
       - name: Choose wheels to upload
