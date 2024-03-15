@@ -4,7 +4,7 @@
 ![PyPI](https://img.shields.io/pypi/v/chiapos?logo=pypi)
 ![PyPI - Format](https://img.shields.io/pypi/format/chiapos?logo=pypi)
 ![GitHub](https://img.shields.io/github/license/Chia-Network/chiapos?logo=Github)
-
+[![Coverage Status](https://coveralls.io/repos/github/Chia-Network/chiapos/badge.svg?branch=main)](https://coveralls.io/github/Chia-Network/chiapos?branch=main)
 
 Chia's proof of space is written in C++. Includes a plotter, prover, and
 verifier. It exclusively runs on 64 bit architectures. Read the
