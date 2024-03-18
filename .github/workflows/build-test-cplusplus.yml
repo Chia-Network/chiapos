@@ -76,6 +76,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # See: https://github.com/google/sanitizers/issues/1716
+      # Fixes `FATAL: ThreadSanitizer: unexpected memory mapping 0x70498d8ae000-0x70498dd00000` type errors
+      - name: Adjust mmap_rnd_bits on ubuntu
+        run: |
+          sudo sysctl vm.mmap_rnd_bits=28
+
       - name: cmake, RunTests with thread sanitizer on Ubuntu
         run: |
           mkdir build-tsan
