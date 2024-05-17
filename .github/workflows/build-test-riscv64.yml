@@ -88,7 +88,7 @@ jobs:
 
       - name: Download artifacts
         if: env.RELEASE == 'true'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           pattern: packages-*
