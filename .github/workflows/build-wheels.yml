@@ -32,7 +32,7 @@ jobs:
             matrix: macos
             runs-on:
               arm: [macOS, ARM64]
-              intel: [macos-latest]
+              intel: [macos-12]
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
@@ -99,7 +99,7 @@ jobs:
               matrix: macos
               runs-on:
                 arm: [macOS, ARM64]
-                intel: [macos-latest]
+                intel: [macos-12]
             python:
               major-dot-minor: '3.8'
               cibw-build: 'cp38-*'
