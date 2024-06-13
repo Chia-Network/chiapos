@@ -27,60 +27,63 @@
 // 64 * 2^16. 2^17 values, each value can store 64 bits.
 #define kMaxSizeBits 8388608
 
-// A stack vector of length 5, having the functions of std::vector needed for Bits.
-struct SmallVector {
-    typedef uint16_t size_type;
+template <class item_type, class size_type_arg, unsigned capacity>
+class InlineVector {
+  public:
 
-    SmallVector() noexcept { count_ = 0; }
+    static_assert(std::is_integral<item_type>::value, "InlineVector only supports integral types");
 
-    uint64_t& operator[](const uint16_t index) { return v_[index]; }
+    typedef size_type_arg size_type;
 
-    uint64_t operator[](const uint16_t index) const { return v_[index]; }
+    item_type& operator[](const size_type index) {
+        assert(index < capacity);
+        return v_[index];
+    }
 
-    void push_back(uint64_t value) { v_[count_++] = value; }
+    item_type operator[](const size_type index) const {
+        assert(index < capacity);
+        return v_[index];
+    }
 
-    SmallVector& operator=(const SmallVector& other)
-    {
+    void push_back(item_type value) {
+        assert(count_ < capacity);
+        v_[count_++] = value;
+    }
+
+    InlineVector& operator=(const InlineVector& other) & {
         count_ = other.count_;
         for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
         return (*this);
     }
 
-    size_type size() const noexcept { return count_; }
+    InlineVector& operator=(const std::vector<item_type>& other) & {
+        assert(other.size() <= capacity);
 
-    void resize(const size_type n) { count_ = n; }
-
-private:
-    uint64_t v_[10];
-    size_type count_;
-};
-
-// A stack vector of length 1024, having the functions of std::vector needed for Bits.
-// The max number of Bits that can be stored is 1024 * 64
-struct ParkVector {
-    typedef uint32_t size_type;
-
-    ParkVector() noexcept { count_ = 0; }
-
-    uint64_t& operator[](const uint32_t index) { return v_[index]; }
-
-    uint64_t operator[](const uint32_t index) const { return v_[index]; }
-
-    void push_back(uint64_t value) { v_[count_++] = value; }
-
-    ParkVector& operator=(const ParkVector& other)
-    {
-        count_ = other.count_;
-        for (size_type i = 0; i < other.count_; i++) v_[i] = other.v_[i];
+        count_ = other.size();
+        for (size_type i = 0; i < static_cast<size_type>(other.size()); i++) v_[i] = other[i];
         return (*this);
     }
 
     size_type size() const noexcept { return count_; }
 
-private:
-    uint64_t v_[2048];
-    size_type count_;
+    void resize(const size_type n) {
+        assert(n <= capacity);
+        count_ = n;
+    }
+
+    size_type max_size() const { return capacity; }
+
+  private:
+    item_type v_[capacity];
+    size_type count_ = 0;
 };
+
+// A stack vector of length 10, having the functions of std::vector needed for Bits.
+using SmallVector = InlineVector<uint64_t, uint8_t, 10>;
+
+// A stack vector of length 2048, having the functions of std::vector needed for Bits.
+// The max number of Bits that can be stored is 2048 * 64
+using ParkVector = InlineVector<uint64_t, uint16_t, 2048>;
 
 /*
  * This class represents an array of bits. These are stored in an
