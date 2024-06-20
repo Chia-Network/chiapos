@@ -35,14 +35,13 @@ class TMemoCache {
 public:
     ~TMemoCache() 
     {
+        std::lock_guard<std::mutex> l(memoMutex);
         // Clean up global entries on destruction
-        std::map<double, FSE_CTable *>::iterator itc;
-        for (itc = CT_MEMO.begin(); itc != CT_MEMO.end(); itc++) {
-            FSE_freeCTable(itc->second);
+        for (const auto& entry : CT_MEMO) {
+            FSE_freeCTable(entry.second);
         }
-        std::map<double, FSE_DTable *>::iterator itd;
-        for (itd = DT_MEMO.begin(); itd != DT_MEMO.end(); itd++) {
-            FSE_freeDTable(itd->second);
+        for (const auto& entry : DT_MEMO) {
+            FSE_freeDTable(entry.second);
         }
     }
 
@@ -61,13 +60,21 @@ public:
     void CTAssign(double R, FSE_CTable *ct)
     {
         std::lock_guard<std::mutex> l(memoMutex);
-        CT_MEMO[R] = ct;
+        auto& table = CT_MEMO[R];
+        if(table) {
+            FSE_freeCTable(table);
+        }
+        table = ct;
     }
 
     void DTAssign(double R, FSE_DTable *dt)
     {
         std::lock_guard<std::mutex> l(memoMutex);
-        DT_MEMO[R] = dt;
+        auto& table = DT_MEMO[R];
+        if(table) {
+            FSE_freeDTable(table);
+        }
+        table = dt;
     }
 
     FSE_CTable *CTGet(double R)
