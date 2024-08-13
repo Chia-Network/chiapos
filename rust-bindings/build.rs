@@ -33,22 +33,6 @@ fn main() {
     println!("cargo:rustc-link-lib=static=blake3");
     println!("cargo:rustc-link-lib=static=chiapos_static");
 
-    // Build::new()
-    //     .cpp(true)
-    //     .file(manifest_dir.join("wrapper.cpp"))
-    //     .include(
-    //         manifest_dir
-    //             .parent()
-    //             .unwrap()
-    //             .join("lib")
-    //             .join("include")
-    //             .to_str()
-    //             .unwrap(),
-    //     )
-    //     .include(blake3_include_path.to_str().unwrap())
-    //     .std("c++14")
-    //     .compile("wrapper");
-
     let bindings = bindgen::Builder::default()
         .header(manifest_dir.join("wrapper.h").to_str().unwrap())
         .clang_arg("-x")
