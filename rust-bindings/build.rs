@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use cmake::Config;
 
 fn main() {
-    println!("cargo:rerun-if-changed=wrapper.h");
-    println!("cargo:rerun-if-changed=wrapper.cpp");
+    println!("cargo:rerun-if-changed=../c-bindings/wrapper.h");
+    println!("cargo:rerun-if-changed=../c-bindings/wrapper.cpp");
     println!("cargo:rerun-if-changed=../CMakeLists.txt");
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -42,7 +42,13 @@ fn main() {
     println!("cargo:rustc-link-lib=static=chiapos_static");
 
     let bindings = bindgen::Builder::default()
-        .header(manifest_dir.join("wrapper.h").to_str().unwrap())
+        .header(
+            cpp_dir
+                .join("c-bindings")
+                .join("wrapper.h")
+                .to_str()
+                .unwrap(),
+        )
         .clang_arg("-x")
         .clang_arg("c++")
         .clang_arg(format!(
