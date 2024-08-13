@@ -159,6 +159,12 @@ IF (BUILD_PROOF_OF_SPACE_STATICALLY)
   target_link_libraries(ProofOfSpace PUBLIC -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
 ENDIF()
 
+option(BUILD_STATIC_CHIAPOS_LIBRARY "Build chiapos library statically" OFF)
+IF (BUILD_STATIC_CHIAPOS_LIBRARY)
+  message("Statically build chiapos library")
+  add_library(chiapos_static STATIC src/chacha8.c src/verifier.hpp)
+ENDIF()
+
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
