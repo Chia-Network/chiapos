@@ -10,7 +10,15 @@ fn main() {
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 
-    let dst = Config::new(manifest_dir.parent().unwrap())
+    let mut cpp_dir = manifest_dir.join("cpp");
+    if !cpp_dir.exists() {
+        cpp_dir = manifest_dir
+            .parent()
+            .expect("can't access ../")
+            .to_path_buf();
+    }
+
+    let dst = Config::new(cpp_dir.as_path())
         .build_target("chiapos_static")
         .define("BUILD_STATIC_CHIAPOS_LIBRARY", "ON")
         .build();
@@ -39,13 +47,7 @@ fn main() {
         .clang_arg("c++")
         .clang_arg(format!(
             "-I{}",
-            manifest_dir
-                .parent()
-                .unwrap()
-                .join("lib")
-                .join("include")
-                .to_str()
-                .unwrap()
+            cpp_dir.join("lib").join("include").to_str().unwrap()
         ))
         .clang_arg(format!("-I{}", blake3_include_path.to_str().unwrap()))
         .clang_arg("-std=c++14")
