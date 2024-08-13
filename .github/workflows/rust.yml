@@ -63,8 +63,7 @@ jobs:
       - name: Prepare for publish
         run: |
           mkdir rust-bindings/cpp
-          cp -r src rust-bindings/cpp/src
-          cp CMakeLists.txt rust-bindings/cpp/CMakeLists.txt
+          cp -r src lib uint128_t CMakeLists.txt rust-bindings/cpp
 
       - name: Publish to crates.io (dry run)
         # We use `--allow-dirty` because the `cpp` folder is copied into the working directory.
