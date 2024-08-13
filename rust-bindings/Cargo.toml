@@ -14,5 +14,3 @@ link-cplusplus = "1.0.9"
 [build-dependencies]
 bindgen = "0.69.4"
 cmake = "0.1.50"
-
-[dev-dependencies]

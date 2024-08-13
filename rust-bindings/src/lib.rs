@@ -10,30 +10,32 @@ mod bindings {
 }
 
 pub fn validate_proof(
-    seed: [u8; 32],
+    seed: &[u8; 32],
     k: u8,
-    challenge: [u8; 32],
-    proof: [u8; 32],
-) -> Option<Vec<u8>> {
+    challenge: &[u8; 32],
+    proof: &[u8],
+    quality: &mut [u8; 32],
+) -> bool {
+    let Some(proof_len) = proof.len().try_into().ok() else {
+        return false;
+    };
+
     unsafe {
         let array = bindings::validate_proof(
             seed.as_ptr(),
             k,
             challenge.as_ptr(),
             proof.as_ptr(),
-            proof
-                .len()
-                .try_into()
-                .expect("proof must be less than 2^16 bytes long"),
+            proof_len,
         );
 
         if array.data.is_null() {
-            None
+            false
         } else {
             let data = std::slice::from_raw_parts(array.data, array.length);
-            let result = data.to_vec();
+            quality.copy_from_slice(data);
             bindings::delete_byte_array(array);
-            Some(result)
+            true
         }
     }
 }
@@ -43,7 +45,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_proof() {
-        assert_eq!(validate_proof([0; 32], 0, [0; 32], [0; 32]), Some(vec![]));
+    fn test_empty_proof() {
+        let mut quality = [0; 32];
+        assert!(!validate_proof(&[0; 32], 32, &[0; 32], &[], &mut quality));
+        assert_eq!(quality, [0; 32]);
+    }
+
+    #[test]
+    fn test_min_k_size() {
+        let mut quality = [0; 32];
+        assert!(!validate_proof(&[0; 32], 0, &[0; 32], &[0], &mut quality));
+        assert_eq!(quality, [0; 32]);
+    }
+
+    #[test]
+    fn test_max_k_size() {
+        let mut quality = [0; 32];
+        assert!(!validate_proof(&[0; 32], 100, &[0; 32], &[0], &mut quality));
+        assert_eq!(quality, [0; 32]);
+    }
+
+    #[test]
+    fn test_wrong_proof_length() {
+        let mut quality = [0; 32];
+        assert!(!validate_proof(
+            &[0; 32],
+            32,
+            &[0; 32],
+            &[0; 1000],
+            &mut quality
+        ));
+        assert_eq!(quality, [0; 32]);
+    }
+
+    #[test]
+    fn test_bad_proof() {
+        let mut quality = [0; 32];
+        assert!(!validate_proof(
+            &[0; 32],
+            32,
+            &[0; 32],
+            &[0; 32 * 8],
+            &mut quality
+        ));
+        assert_eq!(quality, [0; 32]);
     }
 }

@@ -163,6 +163,7 @@ option(BUILD_STATIC_CHIAPOS_LIBRARY "Build chiapos library statically" OFF)
 IF (BUILD_STATIC_CHIAPOS_LIBRARY)
   message("Statically build chiapos library")
   add_library(chiapos_static STATIC src/chacha8.c src/verifier.hpp rust-bindings/wrapper.cpp)
+  target_link_libraries(chiapos_static PUBLIC blake3)
   target_include_directories(chiapos_static PUBLIC lib/include)
 ENDIF()
 

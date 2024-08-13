@@ -14,8 +14,8 @@ libfuzzer-sys = "0.4"
 path = ".."
 
 [[bin]]
-name = "placeholder"
-path = "fuzz_targets/placeholder.rs"
+name = "validate_proof"
+path = "fuzz_targets/validate_proof.rs"
 test = false
 doc = false
 bench = false
