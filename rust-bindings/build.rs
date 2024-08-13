@@ -1,7 +1,6 @@
 use std::env;
 use std::path::PathBuf;
 
-use cc::Build;
 use cmake::Config;
 
 fn main() {
@@ -22,24 +21,33 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         dst.join("build").to_str().unwrap()
     );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        dst.join("build")
+            .join("_deps")
+            .join("blake3-build")
+            .to_str()
+            .unwrap()
+    );
 
+    println!("cargo:rustc-link-lib=static=blake3");
     println!("cargo:rustc-link-lib=static=chiapos_static");
 
-    Build::new()
-        .cpp(true)
-        .file(manifest_dir.join("wrapper.cpp"))
-        .include(
-            manifest_dir
-                .parent()
-                .unwrap()
-                .join("lib")
-                .join("include")
-                .to_str()
-                .unwrap(),
-        )
-        .include(blake3_include_path.to_str().unwrap())
-        .std("c++14")
-        .compile("wrapper");
+    // Build::new()
+    //     .cpp(true)
+    //     .file(manifest_dir.join("wrapper.cpp"))
+    //     .include(
+    //         manifest_dir
+    //             .parent()
+    //             .unwrap()
+    //             .join("lib")
+    //             .join("include")
+    //             .to_str()
+    //             .unwrap(),
+    //     )
+    //     .include(blake3_include_path.to_str().unwrap())
+    //     .std("c++14")
+    //     .compile("wrapper");
 
     let bindings = bindgen::Builder::default()
         .header(manifest_dir.join("wrapper.h").to_str().unwrap())
@@ -57,7 +65,9 @@ fn main() {
         ))
         .clang_arg(format!("-I{}", blake3_include_path.to_str().unwrap()))
         .clang_arg("-std=c++14")
-        .allowlist_function("something")
+        .allowlist_function("validate_proof")
+        .allowlist_function("delete_byte_array")
+        .allowlist_type("ByteArray")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");
