@@ -30,7 +30,7 @@ jobs:
       - name: Cargo fuzz
         run: |
           cd rust-bindings
-          cargo fuzz list | xargs -I "%" sh -c "cargo +nightly fuzz run % -- -max_total_time=30 || exit 255"
+          cargo fuzz list | xargs -I "%" sh -c "cargo +nightly fuzz run % -- -max_total_time=600 || exit 255"
 
   build_crate:
     name: Build crate
