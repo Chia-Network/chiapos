@@ -21,22 +21,14 @@ pub fn validate_proof(
     };
 
     unsafe {
-        let array = bindings::validate_proof(
-            seed.as_ptr(),
+        bindings::validate_proof(
+            seed.as_ptr() as *mut u8,
             k,
-            challenge.as_ptr(),
-            proof.as_ptr(),
+            challenge.as_ptr() as *mut u8,
+            proof.as_ptr() as *mut u8,
             proof_len,
-        );
-
-        if array.data.is_null() {
-            false
-        } else {
-            let data = std::slice::from_raw_parts(array.data, array.length);
-            quality.copy_from_slice(data);
-            bindings::delete_byte_array(array);
-            true
-        }
+            quality.as_mut_ptr(),
+        )
     }
 }
 

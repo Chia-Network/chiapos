@@ -58,8 +58,6 @@ fn main() {
         .clang_arg(format!("-I{}", blake3_include_path.to_str().unwrap()))
         .clang_arg("-std=c++14")
         .allowlist_function("validate_proof")
-        .allowlist_function("delete_byte_array")
-        .allowlist_type("ByteArray")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");
