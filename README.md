@@ -65,7 +65,7 @@ Attacks that can provide significant space savings for the final file.
 ./HellmanAttacks -f "plot.dat" check <iterations>
 ```
 
-## Python bindindg
+## Python binding
 
 Python bindings are provided in the python-bindings directory.
 
