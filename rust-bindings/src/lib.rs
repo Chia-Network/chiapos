@@ -22,10 +22,10 @@ pub fn validate_proof(
 
     unsafe {
         bindings::validate_proof(
-            seed.as_ptr() as *mut u8,
+            seed.as_ptr(),
             k,
-            challenge.as_ptr() as *mut u8,
-            proof.as_ptr() as *mut u8,
+            challenge.as_ptr(),
+            proof.as_ptr(),
             proof_len,
             quality.as_mut_ptr(),
         )
