@@ -65,9 +65,9 @@ Attacks that can provide significant space savings for the final file.
 ./HellmanAttacks -f "plot.dat" check <iterations>
 ```
 
-## Python
+## Python binding
 
-Finally, python bindings are provided in the python-bindings directory.
+Python bindings are provided in the python-bindings directory.
 
 ### Install
 
@@ -84,6 +84,10 @@ Testings uses pytest. Linting uses flake8 and mypy.
 ```bash
 py.test ./tests -s -v
 ```
+
+# Rust binding
+
+Finally, Rust bindings are provided, but only validation of proofs of space is supported, and it cannot be used to make plots or create proofs for plots.
 
 ## ci Building
 The primary build process for this repository is to use GitHub Actions to

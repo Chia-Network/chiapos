@@ -1,0 +1,19 @@
+[package]
+name = "chiapos"
+version = "2.0.5"
+edition = "2021"
+license = "Apache-2.0"
+description = "Bindings to the chiapos C++ library."
+authors = ["Brandon Haggstrom <b.haggstrom@chia.net>"]
+homepage = "https://github.com/Chia-Network/chiapos"
+repository = "https://github.com/Chia-Network/chiapos"
+
+[dependencies]
+link-cplusplus = "1.0.9"
+
+[build-dependencies]
+bindgen = "0.69.4"
+cmake = "0.1.50"
+
+[dev-dependencies]
+hex = "0.4.3"

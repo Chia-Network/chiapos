@@ -591,6 +591,26 @@ TEST_CASE("(De)Serialization")
     }
 }
 
+TEST_CASE("K Sizes")
+{
+    Verifier verifier = Verifier();
+    uint8_t challenge[32];
+
+    SECTION("Minimum K Size")
+    {
+        LargeBits result = verifier.ValidateProof(plot_id_1, kMinPlotSize - 1, challenge, nullptr, 0);
+        REQUIRE(result.GetSize() == 0);
+    }
+
+    SECTION("Maximum K Size")
+    {
+        uint8_t *proof_data = new uint8_t[200 * 8];
+        LargeBits result = verifier.ValidateProof(plot_id_1, 200, challenge, proof_data, 200 * 8);
+        REQUIRE(result.GetSize() == 0);
+        delete[] proof_data;
+    }
+}
+
 void HexToBytes(const string& hex, uint8_t* result)
 {
     for (unsigned int i = 0; i < hex.length(); i += 2) {

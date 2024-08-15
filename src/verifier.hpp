@@ -65,6 +65,12 @@ public:
         uint16_t proof_size)
     {
         LargeBits proof_bits = LargeBits(proof_bytes, proof_size, proof_size * 8);
+        if (k < kMinPlotSize) {
+            return LargeBits();
+        }
+        if (k > kMaxPlotSize) {
+            return LargeBits();
+        }
         if (k * 64 != proof_bits.GetSize()) {
             return LargeBits();
         }

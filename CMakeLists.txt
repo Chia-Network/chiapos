@@ -156,7 +156,15 @@ include_directories(
 option(BUILD_PROOF_OF_SPACE_STATICALLY "Build ProofOfSpace target statically" OFF)
 IF (BUILD_PROOF_OF_SPACE_STATICALLY)
   message("Statically build ProofOfSpace")
-  target_link_libraries(ProofOfSpace -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
+  target_link_libraries(ProofOfSpace PUBLIC -static -Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive)
+ENDIF()
+
+option(BUILD_STATIC_CHIAPOS_LIBRARY "Build chiapos static library (verify-only)" OFF)
+IF (BUILD_STATIC_CHIAPOS_LIBRARY)
+  message("Build chiapos static library (verify-only)")
+  add_library(chiapos_static STATIC src/chacha8.c c-bindings/wrapper.cpp)
+  target_link_libraries(chiapos_static PUBLIC blake3)
+  target_include_directories(chiapos_static PUBLIC lib/include)
 ENDIF()
 
 FetchContent_Declare(

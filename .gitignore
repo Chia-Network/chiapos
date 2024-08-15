@@ -32,3 +32,4 @@ cmake-build*
 *.zip
 *.tar.gz
 libs/
+target/
