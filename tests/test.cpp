@@ -598,16 +598,18 @@ TEST_CASE("K Sizes")
 
     SECTION("Minimum K Size")
     {
-        uint8_t proof_data[0];
+        uint8_t *proof_data = new uint8_t[0];
         LargeBits result = verifier.ValidateProof(plot_id_1, kMinPlotSize - 1, challenge, proof_data, 0);
         REQUIRE(result.GetSize() == 0);
+        delete[] proof_data;
     }
 
     SECTION("Maximum K Size")
     {
-        uint8_t proof_data[200 * 8];
+        uint8_t *proof_data = new uint8_t[200 * 8];
         LargeBits result = verifier.ValidateProof(plot_id_1, 200, challenge, proof_data, 200 * 8);
         REQUIRE(result.GetSize() == 0);
+        delete[] proof_data;
     }
 }
 
