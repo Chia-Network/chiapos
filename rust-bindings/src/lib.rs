@@ -10,7 +10,7 @@ mod bindings {
 }
 
 pub fn validate_proof(
-    seed: &[u8; 32],
+    plot_id: &[u8; 32],
     k: u8,
     challenge: &[u8; 32],
     proof: &[u8],
@@ -22,7 +22,7 @@ pub fn validate_proof(
 
     unsafe {
         bindings::validate_proof(
-            seed.as_ptr(),
+            plot_id.as_ptr(),
             k,
             challenge.as_ptr(),
             proof.as_ptr(),
@@ -48,7 +48,7 @@ mod tests {
 
         for line in proofs.lines() {
             let mut parts = line.split(", ");
-            let seed = hex::decode(parts.next().unwrap())
+            let plot_id = hex::decode(parts.next().unwrap())
                 .unwrap()
                 .try_into()
                 .unwrap();
@@ -63,7 +63,7 @@ mod tests {
             // The test should pass with the initial data.
             let mut actual_quality = [0; 32];
             assert!(validate_proof(
-                &seed,
+                &plot_id,
                 k,
                 &challenge,
                 &proof,
@@ -73,10 +73,10 @@ mod tests {
 
             // If you change the seed, the test should fail.
             let mut actual_quality = [0; 32];
-            let mut new_seed = seed;
-            new_seed[0] = new_seed[0].wrapping_add(1);
+            let mut new_plot_id = plot_id;
+            new_plot_id[0] = new_plot_id[0].wrapping_add(1);
             assert!(!validate_proof(
-                &new_seed,
+                &new_plot_id,
                 k,
                 &challenge,
                 &proof,
@@ -88,7 +88,7 @@ mod tests {
             let mut actual_quality = [0; 32];
             let new_k = k.wrapping_add(1);
             assert!(!validate_proof(
-                &seed,
+                &plot_id,
                 new_k,
                 &challenge,
                 &proof,
@@ -100,7 +100,7 @@ mod tests {
             let mut new_challenge = challenge;
             new_challenge[0] = new_challenge[0].wrapping_add(1);
             assert!(!validate_proof(
-                &seed,
+                &plot_id,
                 k,
                 &new_challenge,
                 &proof,
@@ -113,7 +113,7 @@ mod tests {
             let mut new_proof = proof;
             new_proof[0] = new_proof[0].wrapping_add(1);
             assert!(!validate_proof(
-                &seed,
+                &plot_id,
                 k,
                 &challenge,
                 &new_proof,
