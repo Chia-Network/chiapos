@@ -62,7 +62,7 @@ jobs:
 
       - name: Prepare for publish
         run: |
-          sh install-offline.sh
+          sh install-dependencies.sh
           mkdir rust-bindings/cpp
           cp -r src lib tests uint128_t python-bindings c-bindings CMakeLists.txt thirdparty rust-bindings/cpp
 
