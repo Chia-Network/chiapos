@@ -62,8 +62,9 @@ jobs:
 
       - name: Prepare for publish
         run: |
+          sh install-offline.sh
           mkdir rust-bindings/cpp
-          cp -r src lib tests uint128_t python-bindings c-bindings CMakeLists.txt rust-bindings/cpp
+          cp -r src lib tests uint128_t python-bindings c-bindings CMakeLists.txt thirdparty rust-bindings/cpp
 
       - name: Publish to crates.io (dry run)
         # We use `--allow-dirty` because the `cpp` folder is copied into the working directory.
