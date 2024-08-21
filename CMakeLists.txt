@@ -16,22 +16,32 @@ project(chiapos C CXX ASM)
 # CMake 3.14+
 include(FetchContent)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-include(${CMAKE_INSTALL_PREFIX}/share/cmake/pybind11/pybind11Config.cmake)
+# Make sure to also update install-offline.sh with these hashes.
+option(BUILD_OFFLINE "Build offline, without fetching dependencies from Git" OFF)
+
+if (BUILD_OFFLINE)
+  FetchContent_Declare(pybind11 SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/thirdparty/pybind11")
+  FetchContent_MakeAvailable(pybind11)
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  include(${CMAKE_INSTALL_PREFIX}/share/cmake/pybind11/pybind11Config.cmake)
 else()
-FetchContent_Declare(
-  pybind11-src
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v2.11.1
-)
-FetchContent_MakeAvailable(pybind11-src)
+  FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        8a099e44b3d5f85b20f05828d919d2332a8de841 # v2.11.1
+  )
+  FetchContent_MakeAvailable(pybind11)
 endif()
 
-FetchContent_Declare(
-  cxxopts
-  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-  GIT_TAG        v3.1.1
-)
+if (BUILD_OFFLINE)
+  FetchContent_Declare(cxxopts SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/thirdparty/cxxopts")
+else()
+  FetchContent_Declare(
+    cxxopts
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+    GIT_TAG        eb787304d67ec22f7c3a184ee8b4c481d04357fd # v3.1.1
+  )
+endif()
 FetchContent_MakeAvailable(cxxopts)
 
 option(CP_LINK_BLADEBIT_HARVESTER "Links libbladebit_harvester at build time instead of dynamically loading it." OFF)
@@ -53,11 +63,16 @@ if (${CP_BUILD_BLADEBIT_HARVESTER})
   FetchContent_MakeAvailable(bladebit)
 endif()
 
-FetchContent_Declare(
-  gulrak
-  GIT_REPOSITORY https://github.com/gulrak/filesystem.git
-  GIT_TAG        v1.5.14
-)
+if (BUILD_OFFLINE)
+  FetchContent_Declare(gulrak SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/thirdparty/filesystem")
+  FetchContent_MakeAvailable(gulrak)
+else()
+  FetchContent_Declare(
+    gulrak
+    GIT_REPOSITORY https://github.com/gulrak/filesystem.git
+    GIT_TAG        8a2edd6d92ed820521d42c94d179462bf06b5ed3 # v1.5.14
+  )
+  endif()
 FetchContent_MakeAvailable(gulrak)
 
 set(FSE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/lib/FiniteStateEntropy/lib)
@@ -128,11 +143,15 @@ add_executable(ProofOfSpace
     src/chacha8.c
 )
 
-FetchContent_Declare(
-  blake3
-  GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
-  GIT_TAG        1.5.0
-)
+if (BUILD_OFFLINE)
+  FetchContent_Declare(blake3 SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/thirdparty/BLAKE3")
+else()
+  FetchContent_Declare(
+    blake3
+    GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
+    GIT_TAG        5aa53f07f7188a569cadfc5daf1522972d9a9630 # 1.5.0
+  )
+endif()
 
 FetchContent_GetProperties(blake3)
 if(NOT blake3_POPULATED)
@@ -167,11 +186,15 @@ IF (BUILD_STATIC_CHIAPOS_LIBRARY)
   target_include_directories(chiapos_static PUBLIC lib/include)
 ENDIF()
 
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.5.2
-)
+if (BUILD_OFFLINE)
+  FetchContent_Declare(Catch2 SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/thirdparty/Catch2")
+else()
+  FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG        05e10dfccc28c7f973727c54f850237d07d5e10f # v3.5.2
+  )
+endif()
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(RunTests

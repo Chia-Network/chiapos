@@ -21,6 +21,10 @@ fn main() {
     let dst = Config::new(cpp_dir.as_path())
         .build_target("chiapos_static")
         .define("BUILD_STATIC_CHIAPOS_LIBRARY", "ON")
+        .define(
+            "BUILD_OFFLINE",
+            env::var("BUILD_OFFLINE").unwrap_or_else(|_| "OFF".to_string()),
+        )
         .build();
 
     let blake3_include_path = dst.join("build").join("_deps").join("blake3-src").join("c");
