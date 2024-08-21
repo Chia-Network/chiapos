@@ -16,7 +16,7 @@ project(chiapos C CXX ASM)
 # CMake 3.14+
 include(FetchContent)
 
-# Make sure to also update install-offline.sh with these hashes.
+# Make sure to also update install-dependencies.sh with these hashes.
 option(BUILD_OFFLINE "Build offline, without fetching dependencies from Git" OFF)
 
 if (BUILD_OFFLINE)
