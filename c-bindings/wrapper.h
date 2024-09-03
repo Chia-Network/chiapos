@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "picosha2.hpp"
 
 extern "C" {
