@@ -44,7 +44,7 @@ jobs:
           - name: Windows
             matrix: windows
             runs-on:
-              intel: [windows-latest]
+              intel: [windows-2019]
         python:
           - major-dot-minor: '3.8'
             cibw-build: 'cp38-*'
@@ -80,7 +80,7 @@ jobs:
               name: Windows
               matrix: windows
               runs-on:
-                intel: [windows-latest]
+                intel: [windows-2019]
             arch:
               name: ARM
               matrix: arm
