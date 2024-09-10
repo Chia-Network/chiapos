@@ -33,3 +33,4 @@ cmake-build*
 *.tar.gz
 libs/
 target/
+thirdparty/
