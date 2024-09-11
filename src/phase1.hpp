@@ -35,8 +35,7 @@
 #include <thread>
 #include <memory>
 #include <mutex>
-
-#include "chia_filesystem.hpp"
+#include <filesystem>
 
 #include "calculate_bucket.hpp"
 #include "entry_sizes.hpp"
@@ -46,6 +45,8 @@
 #include "threading.hpp"
 #include "util.hpp"
 #include "progress.hpp"
+
+namespace fs = std::filesystem;
 
 struct THREADDATA {
     int index;

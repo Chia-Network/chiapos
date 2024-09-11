@@ -20,8 +20,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
-#include "chia_filesystem.hpp"
+#include <filesystem>
 
 #include "./bits.hpp"
 #include "./calculate_bucket.hpp"
@@ -29,6 +28,8 @@
 #include "./quicksort.hpp"
 #include "./uniformsort.hpp"
 #include "exceptions.hpp"
+
+namespace fs = std::filesystem;
 
 class b17SortManager {
 public:

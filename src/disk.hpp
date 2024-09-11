@@ -22,14 +22,13 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-
+#include <filesystem>
 // enables disk I/O logging to disk.log
 // use tools/disk.gnuplot to generate a plot
 #define ENABLE_LOGGING 0
 
 using namespace std::chrono_literals; // for operator""min;
-
-#include "chia_filesystem.hpp"
+namespace fs = std::filesystem;
 
 #include "./bits.hpp"
 #include "./util.hpp"
