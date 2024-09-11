@@ -20,8 +20,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
-#include "chia_filesystem.hpp"
+#include <filesystem>
 
 #include "./bits.hpp"
 #include "./calculate_bucket.hpp"
@@ -30,6 +29,8 @@
 #include "./uniformsort.hpp"
 #include "disk.hpp"
 #include "exceptions.hpp"
+
+namespace fs = std::filesystem;
 
 enum class strategy_t : uint8_t
 {
