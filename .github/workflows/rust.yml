@@ -32,16 +32,11 @@ jobs:
           cd rust-bindings
           cargo fuzz list | xargs -I "%" sh -c "cargo +nightly fuzz run % -- -max_total_time=600 || exit 255"
 
-  build_crate:
-    name: Build crate
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -54,8 +49,66 @@ jobs:
       - name: Clippy
         run: cargo clippy
 
+  test:
+    name: Test (${{ matrix.os.name }} ${{ matrix.arch.name }})
+    runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: macOS
+            matrix: macos
+            runs-on:
+              arm: [macos-13-arm64]
+              intel: [macos-13]
+            cibw-archs-macos:
+              arm: arm64
+              intel: x86_64
+          - name: Ubuntu
+            matrix: ubuntu
+            runs-on:
+              arm: [Linux, ARM64]
+              intel: [ubuntu-latest]
+          - name: Windows
+            matrix: windows
+            runs-on:
+              intel: [windows-latest]
+
+        arch:
+          - name: ARM
+            matrix: arm
+          - name: Intel
+            matrix: intel
+
+        exclude:
+          - os:
+              name: Windows
+              matrix: windows
+              runs-on:
+                intel: [windows-latest]
+            arch:
+              name: ARM
+              matrix: arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Tests
         run: cargo test && cargo test --release
+
+  build_crate:
+    name: Build crate
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build
         run: cargo build --release
