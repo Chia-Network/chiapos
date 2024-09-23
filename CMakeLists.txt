@@ -163,7 +163,7 @@ option(BUILD_STATIC_CHIAPOS_LIBRARY "Build chiapos static library (verify-only)"
 IF (BUILD_STATIC_CHIAPOS_LIBRARY)
   message("Build chiapos static library (verify-only)")
   add_library(chiapos_static STATIC src/chacha8.c c-bindings/wrapper.cpp)
-  target_link_libraries(chiapos_static PUBLIC blake3)
+  target_link_libraries(chiapos_static PRIVATE blake3)
   target_include_directories(chiapos_static PUBLIC lib/include)
 ENDIF()
 
@@ -218,6 +218,13 @@ target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMa
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
 )
+
+IF (BUILD_STATIC_CHIAPOS_LIBRARY)
+  target_link_libraries(chiapos_static PRIVATE # fse Threads::Threads
+    $<$<CXX_COMPILER_ID:MSVC>:uint128>
+    # $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
+  )
+ENDIF()
 
 if (${CP_LINK_BLADEBIT_HARVESTER})
 
