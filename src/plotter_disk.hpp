@@ -32,8 +32,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-
-#include "chia_filesystem.hpp"
+#include <filesystem>
 
 #include "calculate_bucket.hpp"
 #include "encoding.hpp"
@@ -51,6 +50,7 @@
 #include "util.hpp"
 
 #define B17PHASE23
+namespace fs = std::filesystem;
 
 class DiskPlotter {
 public:
