@@ -38,8 +38,8 @@ fn main() {
             .unwrap()
     );
 
-    println!("cargo:rustc-link-lib=static=blake3");
     println!("cargo:rustc-link-lib=static=chiapos_static");
+    println!("cargo:rustc-link-lib=static=blake3");
 
     let bindings = bindgen::Builder::default()
         .header(
