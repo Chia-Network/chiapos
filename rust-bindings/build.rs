@@ -30,7 +30,7 @@ fn main() {
         dst.join("build").to_str().unwrap()
     );
     println!(
-        "cargo:rustc-link-search=static={}",
+        "cargo:rustc-link-search=all={}",
         dst.join("build")
             .join("_deps")
             .join("blake3-build")
