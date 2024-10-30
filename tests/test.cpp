@@ -20,7 +20,6 @@
 #include <catch2/catch_session.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
 
-#include "../lib/include/picosha2.hpp"
 #include "calculate_bucket.hpp"
 #include "disk.hpp"
 #include "plotter_disk.hpp"

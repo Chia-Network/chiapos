@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "calculate_bucket.hpp"
+#include "../lib/include/picosha2.hpp"
 
 class Verifier {
 public:
