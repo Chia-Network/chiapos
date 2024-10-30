@@ -29,7 +29,16 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         dst.join("build").to_str().unwrap()
     );
+    println!(
+        "cargo:rustc-link-search=static={}",
+        dst.join("build")
+            .join("_deps")
+            .join("blake3-build")
+            .to_str()
+            .unwrap()
+    );
 
+    println!("cargo:rustc-link-lib=static=blake3");
     println!("cargo:rustc-link-lib=static=chiapos_static");
 
     let bindings = bindgen::Builder::default()
