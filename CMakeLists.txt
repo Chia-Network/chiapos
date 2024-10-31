@@ -189,8 +189,8 @@ endif()
 find_package(Threads REQUIRED)
 
 add_library(uint128 STATIC uint128_t/uint128_t.cpp)
-target_include_directories(uint128 PUBLIC uint128_t
-set_target_properties(uint128 PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>"))
+target_include_directories(uint128 PUBLIC uint128_t)
+set_target_properties(uint128 PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>")
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
