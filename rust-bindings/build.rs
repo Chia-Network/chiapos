@@ -27,15 +27,7 @@ fn main() {
 
     println!(
         "cargo:rustc-link-search=native={}",
-        dst.join("build").to_str().unwrap()
-    );
-    println!(
-        "cargo:rustc-link-search=native={}",
-        dst.join("build")
-            .join("_deps")
-            .join("blake3-build")
-            .to_str()
-            .unwrap()
+        dst.join("build").join("lib").to_str().unwrap()
     );
 
     println!("cargo:rustc-link-lib=static=chiapos_static");

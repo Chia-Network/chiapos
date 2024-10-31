@@ -138,6 +138,7 @@ endif()
 
 set(BLAKE3_SRC ${blake3_SOURCE_DIR}/c)
 set(BLAKE3_INCLUDE_DIR ${blake3_SOURCE_DIR}/c)
+set_target_properties(blake3 PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>")
 target_link_libraries(chiapos PRIVATE blake3)
 target_link_libraries(ProofOfSpace PRIVATE blake3)
 include_directories(
@@ -157,6 +158,7 @@ IF (BUILD_STATIC_CHIAPOS_LIBRARY)
   add_library(chiapos_static STATIC src/chacha8.c c-bindings/wrapper.cpp)
   target_link_libraries(chiapos_static PUBLIC blake3)
   target_include_directories(chiapos_static PUBLIC lib/include)
+  set_target_properties(chiapos_static PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>")
 ENDIF()
 
 FetchContent_Declare(
