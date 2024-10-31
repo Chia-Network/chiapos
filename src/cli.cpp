@@ -16,7 +16,6 @@
 #include <set>
 
 #include "cxxopts.hpp"
-#include "../lib/include/picosha2.hpp"
 #include "plotter_disk.hpp"
 #include "prover_disk.hpp"
 #include "verifier.hpp"
