@@ -156,8 +156,8 @@ option(BUILD_STATIC_CHIAPOS_LIBRARY "Build chiapos static library (verify-only)"
 IF (BUILD_STATIC_CHIAPOS_LIBRARY)
   message("Build chiapos static library (verify-only)")
   add_library(chiapos_static STATIC src/chacha8.c c-bindings/wrapper.cpp)
-  target_link_libraries(chiapos_static PUBLIC blake3)
-  target_include_directories(chiapos_static PUBLIC lib/include)
+  target_link_libraries(chiapos_static PRIVATE blake3 $<$<CXX_COMPILER_ID:MSVC>:uint128>)
+  target_include_directories(chiapos_static PUBLIC lib/include uint128_t)
   set_target_properties(chiapos_static PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>")
 ENDIF()
 
@@ -190,6 +190,7 @@ find_package(Threads REQUIRED)
 
 add_library(uint128 STATIC uint128_t/uint128_t.cpp)
 target_include_directories(uint128 PUBLIC uint128_t)
+set_target_properties(uint128 PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib$<0:>")
 
 target_compile_features(fse PUBLIC cxx_std_17)
 target_compile_features(chiapos PUBLIC cxx_std_17)
@@ -212,6 +213,7 @@ target_link_libraries(RunTests PRIVATE fse Threads::Threads Catch2::Catch2WithMa
   $<$<CXX_COMPILER_ID:MSVC>:uint128>
   $<$<NOT:$<PLATFORM_ID:Darwin,OpenBSD,FreeBSD,Windows>>:stdc++fs>
 )
+
 
 if (${CP_LINK_BLADEBIT_HARVESTER})
 

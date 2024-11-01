@@ -33,6 +33,10 @@ fn main() {
     println!("cargo:rustc-link-lib=static=chiapos_static");
     println!("cargo:rustc-link-lib=static=blake3");
 
+    if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-lib=static=uint128");
+    }
+
     let bindings = bindgen::Builder::default()
         .header(
             cpp_dir
