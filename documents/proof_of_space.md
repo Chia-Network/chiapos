@@ -6,7 +6,7 @@ Updated: July 31, 2020
 
 ## Introduction
 
-In order to create a secure blockchain consensus algorithm using disk space a Proof of Space is scheme is necessary.
+In order to create a secure blockchain consensus algorithm using disk space a Proof of Space scheme is necessary.
 This document describes a practical construction of Proofs of Space based on [Beyond Hellman’s Time-Memory Trade-Offs
  with Applications to Proofs of Space](https://eprint.iacr.org/2017/893.pdf) [1].
 We use the techniques laid out in that paper, extend it from 2 to 7 tables, and tweak it to make it efficient and secure for use in the Chia Blockchain.
@@ -772,7 +772,7 @@ The proof retrieval algorithm takes in a plot file $F$, a challenge $Chall$, and
 2. Calculate $qual\_id \gets Chall\%32$
 3. Follow table pointers from $Table_6$ to $Table_1$. For each bit of $qual\_id$, if the bit is 0, follow the smaller position, and if the bit is 1, follow the larger position of the pair.
 4. Retrieve two $x$ values from the $Table_1$ entry, $x_1$ and $x_2$, where $x_1 < x_2$.
-5. Return $x_1 \mathbin{\|} x_2$. Note that is is equivalent to the [Proof Quality String](#proof-quality-string).
+5. Return $x_1 \mathbin{\|} x_2$. Note that it is equivalent to the [Proof Quality String](#proof-quality-string).
 
 
 #### Proving Performance
@@ -792,7 +792,7 @@ On a successful proof, the verifier can also compute the quality string by conve
 
 ### Blockchain consensus summary
 
-The motivation for Chia's proof of space construction is for use as an alternative resource to Proof of Work in a Namakoto-consensus style blockchain. Space miners (referred to as farmers) allocate space on their hard drives, respond to challenges, and occasionally win rewards.
+The motivation for Chia's proof of space construction is for use as an alternative resource to Proof of Work in a Nakamoto-consensus style blockchain. Space miners (referred to as farmers) allocate space on their hard drives, respond to challenges, and occasionally win rewards.
 Challenges are random 256 values that result from each block.
 In Chia's blockchain, this challenge is the unpredictable output of a Verifiable Delay Function that is required for each block.
 
@@ -1027,7 +1027,7 @@ Considering the *underlying graph* of a table (see [Matching Function Requiremen
 
 Because there are no 4-cycles (or 5-cycles, because each edge changes the parity of the first coordinate), the minimum length cycle is a 6-cycle.
 
-For every cycle on an island in the graph of a table it is possible to save one of the edges by specifying how to walk the edges to find the the pair instead of giving the counterpart directly.
+For every cycle on an island in the graph of a table it is possible to save one of the edges by specifying how to walk the edges to find the pair instead of giving the counterpart directly.
 There are two types of cycles which occur: 4-cycles which happen when there's a bucket which has two things in it and has at least two things it connects to, and 6-cycles, which can happen with two buckets with two things in them being connected but are more common as happenstance through the graph as a whole.
 The cycles which depend on multiple things in the same bucket can be made much less common by increasing the degree of the graph (and correspondingly the B-group size) at the direct linear expense of CPU time.
 The length of other types of cycles can be increased by increasing the C-group size, at the expense of requiring correspondingly more cache space when plotting.
