@@ -71,7 +71,7 @@ setup(
     author="Mariano Sorgente",
     author_email="mariano@chia.net",
     description="Chia proof of space plotting, proving, and verifying (wraps C++)",
-    license="Apache License",
+    license="Apache-2.0",
     python_requires=">=3.7",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
