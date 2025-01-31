@@ -165,11 +165,12 @@ PYBIND11_MODULE(chiapos, m)
 
                 std::string proof_str(proof);
                 const uint8_t *proof_ptr = reinterpret_cast<const uint8_t *>(proof_str.data());
+                auto proof_size = len(proof);
 
                 LargeBits quality;
                 {
                     py::gil_scoped_release release;
-                    quality = v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, len(proof));
+                    quality = v.ValidateProof(seed_ptr, k, challenge_ptr, proof_ptr, proof_size);
                 }
                 if (quality.GetSize() == 0) {
                     return stdx::optional<py::bytes>();
