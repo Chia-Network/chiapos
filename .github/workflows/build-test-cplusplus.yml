@@ -27,7 +27,7 @@ jobs:
           cmake -B ../build -DCMAKE_BUILD_TYPE=Debug -DWITH_COVERAGE=1
           cmake --build ../build -- -j 6
           ../build/RunTests
-          lcov -v --ignore-errors --directory ../build --capture --output-file lcov.info
+          lcov --directory ../build --capture --output-file lcov.info
           lcov --remove lcov.info '*_deps/*' '/usr/*' --output-file lcov.info
       - name: Upload to Coveralls
         uses: coverallsapp/github-action@v2
