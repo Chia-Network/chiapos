@@ -24,8 +24,6 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python:
-          - major-dot-minor: "3.8"
-            matrix: "3.8"
           - major-dot-minor: "3.9"
             matrix: "3.9"
           - major-dot-minor: "3.10"
