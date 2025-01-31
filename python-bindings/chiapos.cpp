@@ -165,7 +165,7 @@ PYBIND11_MODULE(chiapos, m)
 
                 std::string proof_str(proof);
                 const uint8_t *proof_ptr = reinterpret_cast<const uint8_t *>(proof_str.data());
-                auto proof_size = len(proof);
+                auto proof_size = proof_str.size();
 
                 LargeBits quality;
                 {
