@@ -77,28 +77,28 @@ ENDIF ()
 add_library(fse ${FSE_FILES})
 
 IF (MSVC)
-add_compile_options(
-  "$<$<CONFIG:Release>:/O2 /Oy>"
-  "$<$<CONFIG:Debug>:/Ob1>"
-  /Zi
-)
+  add_compile_options(
+    "$<$<CONFIG:Release>:/O2 /Oy>"
+    "$<$<CONFIG:Debug>:/Ob1>"
+    /Zi
+  )
 ELSE()
-add_compile_options(
-  "$<$<CONFIG:Debug>:-Og>"
-  "$<$<CONFIG:Release>:-O3>"
-  -Wall
-  -g
-)
+  add_compile_options(
+    "$<$<CONFIG:Debug>:-Og>"
+    "$<$<CONFIG:Release>:-O3>"
+    -Wall
+    -g
+  )
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
-add_compile_options(-O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
-add_link_options(-fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
+  add_compile_options(-O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
+  add_link_options(-fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "TSAN")
-add_compile_options(-O2 -fno-omit-frame-pointer -fsanitize=thread)
-add_link_options(-fno-omit-frame-pointer -fsanitize=thread)
+  add_compile_options(-O2 -fno-omit-frame-pointer -fsanitize=thread)
+  add_link_options(-fno-omit-frame-pointer -fsanitize=thread)
 ENDIF()
 
 pybind11_add_module(chiapos ${CMAKE_CURRENT_SOURCE_DIR}/python-bindings/chiapos.cpp src/chacha8.c)
