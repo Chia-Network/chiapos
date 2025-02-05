@@ -77,13 +77,18 @@ ENDIF ()
 add_library(fse ${FSE_FILES})
 
 IF (MSVC)
-add_compile_options("$<$<CONFIG:Release>:/O2 /Oy>")
-add_compile_options("$<$<CONFIG:Debug>:/Ob1>")
-add_compile_options(/Zi)
+add_compile_options(
+  "$<$<CONFIG:Release>:/O2 /Oy>"
+  "$<$<CONFIG:Debug>:/Ob1>"
+  /Zi
+)
 ELSE()
-add_compile_options("$<$<CONFIG:Debug>:-Og>")
-add_compile_options("$<$<CONFIG:Release>:-O3>")
-add_compile_options(-Wall -g)
+add_compile_options(
+  "$<$<CONFIG:Debug>:-Og>"
+  "$<$<CONFIG:Release>:-O3>"
+  -Wall
+  -g
+)
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "ASAN")
