@@ -70,7 +70,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chiapos"
-version = "2.0.8"
+version = "2.0.9"
 dependencies = [
  "bindgen",
  "cmake",
