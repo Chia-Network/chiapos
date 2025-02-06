@@ -67,7 +67,7 @@ esac
 
 # Download artifact
 artifact_name="green_reaper.${artifact_ext}"
-curl -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
+curl --ssl-revoke-best-effort -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
 
 # Validate sha256, if one was given
 if [ -n "${expected_sha256}" ]; then
