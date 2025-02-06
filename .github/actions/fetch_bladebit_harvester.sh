@@ -22,11 +22,17 @@ if [[ "${host_arch}" != "arm64" ]] && [[ "${host_arch}" != "x86-64" ]]; then
 fi
 
 ## Change this if including a new bladebit release
+# NOTE @harold: We have isolated linux x86-64 to use a different artifact version because it required an
+#               unplanned update to fix the bladebit harvester shared object being compiled
+#               with the executable bit set in the GNU_STACK flags.
+#               See: https://github.com/Chia-Network/bladebit/pull/481
+#               In order to not break anything else unnecessarily, we limited the update to only linux x86-64.
+artifact_ver_linux_x86_64="v3.1.1"
 artifact_ver="v3.1.0"
-artifact_base_url="https://github.com/Chia-Network/bladebit/releases/download/${artifact_ver}"
+artifact_base_url="https://github.com/Chia-Network/bladebit/releases/download"
 
 linux_arm_sha256="e8fc09bb5862ce3d029b78144ea46791afe14a2d640390605b6df28fb420e782"
-linux_x86_sha256="e31e5226d1e4a399f4181bb2cca243d46218305a8b54912ef29c791022ac079d"
+linux_x86_sha256="8306c02b6591cc879dca03d4f9377d4f347ad1d9ad4202d3fbb6cd60a5c999b1"
 macos_arm_sha256="03958b94ad9d01de074b5a9a9d86a51bd2246c0eab5529c5886bb4bbc4168e0b"
 macos_x86_sha256="14975aabfb3d906e22e04cd973be4265f9c5c61e67a92f890c8e51cf9edf0c87"
 windows_sha256="ccf115ebec18413c3134f9ca37945f30f4f02d6766242c7e84a6df0d1d989a69"
@@ -45,6 +51,7 @@ linux)
   if [[ "${host_arch}" == "arm64" ]]; then
     expected_sha256=$linux_arm_sha256
   else
+    artifact_ver=${artifact_ver_linux_x86_64}
     expected_sha256=$linux_x86_sha256
   fi
   ;;
@@ -67,7 +74,7 @@ esac
 
 # Download artifact
 artifact_name="green_reaper.${artifact_ext}"
-curl -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
+curl -L "${artifact_base_url}/${artifact_ver}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
 
 # Validate sha256, if one was given
 if [ -n "${expected_sha256}" ]; then
