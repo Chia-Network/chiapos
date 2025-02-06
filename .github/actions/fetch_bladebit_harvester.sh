@@ -89,7 +89,7 @@ if [[ "${artifact_ext}" == "zip" ]]; then
 else
   pushd "${dst_dir}"
   tar -xzvf "../../${artifact_name}"
-  if [[ "${host_os}" == "linux" ]] && [[${host_arch}" == "x86-64]]; then
+  if [[ "${host_os}" == "linux" ]] && [[ "${host_arch}" == "x86-64" ]]; then
     execstack -c lib/libbladebit_harvester.so
   fi
   popd
