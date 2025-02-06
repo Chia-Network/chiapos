@@ -90,6 +90,7 @@ else
   pushd "${dst_dir}"
   tar -xzvf "../../${artifact_name}"
   if [[ "${host_os}" == "linux" ]] && [[ "${host_arch}" == "x86-64" ]]; then
+    # On linux clear the GNU_STACK executable bit for glibc 2.41 compat
     execstack -c lib/libbladebit_harvester.so
   fi
   popd
