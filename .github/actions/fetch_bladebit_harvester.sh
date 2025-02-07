@@ -92,7 +92,11 @@ else
   pushd "${dst_dir}"
   tar -xzvf "../../${artifact_name}"
   if [[ "${host_os}" == "linux" ]] && [[ "${host_arch}" == "x86-64" ]]; then
-    # On linux clear the GNU_STACK executable bit for glibc 2.41 compat
+    # On Linux clear the GNU_STACK executable bit for glibc 2.41 compatability
+    # TODO: this should be removed when there is a new bladebit library
+    # that clears this explicitly during compiling/linking
+    # see https://github.com/Chia-Network/bladebit/pull/481
+    # and https://github.com/BLAKE3-team/BLAKE3/issues/109
     execstack -c lib/libbladebit_harvester.so
   fi
   popd
