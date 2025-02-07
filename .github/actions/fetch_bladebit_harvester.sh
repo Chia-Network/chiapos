@@ -40,6 +40,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   sha_bin="shasum -a 256"
 fi
 
+curlopts=""
 case "${host_os}" in
 linux)
   if [[ "${host_arch}" == "arm64" ]]; then
@@ -58,6 +59,7 @@ macos)
 windows)
   expected_sha256=$windows_sha256
   artifact_ext="zip"
+  curlopts="--ssl-revoke-best-effort"
   ;;
 *)
   echo >&2 "Unexpected OS '${host_os}'"
@@ -67,7 +69,7 @@ esac
 
 # Download artifact
 artifact_name="green_reaper.${artifact_ext}"
-curl -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
+curl ${curlopts} -L "${artifact_base_url}/green_reaper-${artifact_ver}-${host_os}-${host_arch}.${artifact_ext}" >"${artifact_name}"
 
 # Validate sha256, if one was given
 if [ -n "${expected_sha256}" ]; then
@@ -89,5 +91,13 @@ if [[ "${artifact_ext}" == "zip" ]]; then
 else
   pushd "${dst_dir}"
   tar -xzvf "../../${artifact_name}"
+  if [[ "${host_os}" == "linux" ]] && [[ "${host_arch}" == "x86-64" ]]; then
+    # On Linux clear the GNU_STACK executable bit for glibc 2.41 compatability
+    # TODO: this should be removed when there is a new bladebit library
+    # that clears this explicitly during compiling/linking
+    # see https://github.com/Chia-Network/bladebit/pull/481
+    # and https://github.com/BLAKE3-team/BLAKE3/issues/109
+    execstack -c lib/libbladebit_harvester.so
+  fi
   popd
 fi

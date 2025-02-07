@@ -16,6 +16,7 @@ environment = {CP_USE_GREEN_REAPER=1}
 before-all = '''
 set -eo pipefail && set -x && set -eo pipefail && ARCH=$(uname -m)
 if [[ $ARCH == x86_64 ]]; then
+  dnf -y install execstack
   .github/actions/fetch_bladebit_harvester.sh linux x86-64
 else
   .github/actions/fetch_bladebit_harvester.sh linux arm64
