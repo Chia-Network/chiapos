@@ -53,6 +53,8 @@ const uint16_t kBC = kB * kC;
 // compute f5.
 static const uint8_t kVectorLens[] = {0, 0, 1, 2, 4, 4, 3, 2};
 
+// a global instance of std::mutex to protect global initialization
+std::mutex tableMutex;
 uint16_t L_targets[2][kBC][kExtraBitsPow];
 bool initialized = false;
 void load_tables()
@@ -208,9 +210,12 @@ public:
         this->table_index_ = table_index;
 
         this->rmap.resize(kBC);
-        if (!initialized) {
-            load_tables();
-            initialized = true;
+        {
+            std::lock_guard<std::mutex> guard(tableMutex);
+            if (!initialized) {
+                load_tables();
+                initialized = true;
+            }
         }
     }
 
