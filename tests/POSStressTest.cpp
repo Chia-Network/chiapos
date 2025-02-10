@@ -63,26 +63,11 @@ void doit(int thread)
 
 int main()
 {
-    std::thread bunch0(doit,0);
-    std::thread bunch1(doit,1);
-    std::thread bunch2(doit,2);
-    std::thread bunch3(doit,3);
-    std::thread bunch4(doit,4);
-    std::thread bunch5(doit,5);
-    std::thread bunch6(doit,6);
-    std::thread bunch7(doit,7);
-    std::thread bunch8(doit,8);
+    std::vector<std::jthread> threads;
+    for (int i = 0; i < 10; ++i) {
+        threads.emplace_back(doit, i);
+    }
     doit(9);
-    bunch0.join();
-    bunch1.join();
-    bunch2.join();
-    bunch3.join();
-    bunch4.join();
-    bunch5.join();
-    bunch6.join();
-    bunch7.join();
-    bunch8.join();
 
     return 0;
 }
-
