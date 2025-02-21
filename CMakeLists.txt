@@ -110,7 +110,7 @@ add_executable(ProofOfSpace
 FetchContent_Declare(
   blake3
   GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
-  GIT_TAG        1.5.0
+  GIT_TAG        1.6.0
 )
 
 FetchContent_GetProperties(blake3)
