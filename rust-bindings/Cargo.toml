@@ -9,7 +9,7 @@ homepage = "https://github.com/Chia-Network/chiapos"
 repository = "https://github.com/Chia-Network/chiapos"
 
 [dependencies]
-link-cplusplus = "1.0.9"
+link-cplusplus = "1.0.10"
 
 [build-dependencies]
 bindgen = "0.71.1"
