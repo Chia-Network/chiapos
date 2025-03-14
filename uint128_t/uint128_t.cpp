@@ -157,7 +157,7 @@ uint128_t uint128_t::operator<<(const uint128_t & rhs) const{
     else if (shift < 64){
         return uint128_t((UPPER << shift) + (LOWER >> (64 - shift)), LOWER << shift);
     }
-    else if ((128 > shift) && (shift > 64)){
+    else if (shift > 64) {
         return uint128_t(LOWER << (shift - 64), 0);
     }
     else{
@@ -184,7 +184,7 @@ uint128_t uint128_t::operator>>(const uint128_t & rhs) const{
     else if (shift < 64){
         return uint128_t(UPPER >> shift, (UPPER << (64 - shift)) + (LOWER >> shift));
     }
-    else if ((128 > shift) && (shift > 64)){
+    else if (shift > 64) {
         return uint128_t(0, (UPPER >> (shift - 64)));
     }
     else{
