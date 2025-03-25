@@ -326,9 +326,6 @@ public:
 
     void ToBytes(uint8_t buffer[], size_t buffer_size_bytes) const
     {
-        int i;
-        uint8_t tmp[8];
-
         // Return if nothing to work on
         if (!values_.size())
             return;
@@ -337,12 +334,7 @@ public:
             throw InvalidStateException("Buffer size is too small for the Bits object.");
         }
 
-        for (i = 0; i < (int)values_.size() - 1; i++) {
-            Util::IntToEightBytes(buffer + i * 8, values_[i]);
-        }
-
-        Util::IntToEightBytes(tmp, values_[i] << (64 - last_size_));
-        memcpy(buffer + i * 8, tmp, cdiv(last_size_, 8));
+        ToBytes(buffer);
     }
 
     std::string ToString() const
