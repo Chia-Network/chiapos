@@ -78,7 +78,8 @@ add_library(fse ${FSE_FILES})
 
 IF (MSVC)
   add_compile_options(
-    "$<$<CONFIG:Release>:/O2 /Oy>"
+    "$<$<CONFIG:Release>:/O2>"
+    "$<$<CONFIG:Release>:/Oy>"
     "$<$<CONFIG:Debug>:/Ob1>"
     /Zi
   )
