@@ -98,7 +98,7 @@ PYBIND11_MODULE(chiapos, m)
                 const std::vector<uint8_t>& memo = dp.GetMemo();
                 return py::bytes(reinterpret_cast<const char*>(memo.data()), memo.size());
             })
-        .def(t
+        .def(
             "get_id",
             [](DiskProver &dp) {
                 const std::vector<uint8_t>& id = dp.GetId();
