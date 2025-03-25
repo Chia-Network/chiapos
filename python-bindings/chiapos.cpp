@@ -98,7 +98,7 @@ PYBIND11_MODULE(chiapos, m)
                 const std::vector<uint8_t>& memo = dp.GetMemo();
                 return py::bytes(reinterpret_cast<const char*>(memo.data()), memo.size());
             })
-        .def(
+        .def(t
             "get_id",
             [](DiskProver &dp) {
                 const std::vector<uint8_t>& id = dp.GetId();
@@ -117,14 +117,21 @@ PYBIND11_MODULE(chiapos, m)
                 const uint8_t *challenge_ptr =
                     reinterpret_cast<const uint8_t *>(challenge_str.data());
                 std::vector<LargeBits> qualities;
-                {
+                try {
                     py::gil_scoped_release release;
                     qualities = dp.GetQualitiesForChallenge(challenge_ptr);
+                } catch (const std::bad_alloc &e) {
+                    throw std::invalid_argument("GetQualitiesForChallenge - bad_alloc Insufficient memory?");
+                } catch (const std::exception &e) {
+                    std::stringstream buffer;
+                    buffer << "Caught error GetQualitiesForChallenge: " << e.what();
+                    throw std::invalid_argument(buffer.str());
                 }
+
                 std::vector<py::bytes> ret;
                 uint8_t *quality_buf = new uint8_t[32];
                 for (LargeBits quality : qualities) {
-                    quality.ToBytes(quality_buf);
+                    quality.ToBytes(quality_buf, 32);
                     py::bytes quality_py = py::bytes(reinterpret_cast<char *>(quality_buf), 32);
                     ret.push_back(quality_py);
                 }
