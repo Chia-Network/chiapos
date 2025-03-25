@@ -78,10 +78,9 @@ add_library(fse ${FSE_FILES})
 
 IF (MSVC)
   add_compile_options(
-    $<$<COMPILE_LANGUAGE:C,CXX>:
-      $<$<CONFIG:Release>:/O2 /Oy>
-      $<$<CONFIG:Debug>:/Ob1>
-     >
+     $<$<COMPILE_LANGUAGE:C,CXX>:$<$<CONFIG:Release>:/O2>>
+     $<$<COMPILE_LANGUAGE:C,CXX>:$<$<CONFIG:Release>:/Oy>>
+     $<$<COMPILE_LANGUAGE:C,CXX>:$<$<CONFIG:Debug>:/Ob1>>
      /Zi
   )
 ELSE()
