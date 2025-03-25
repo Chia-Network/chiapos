@@ -334,7 +334,7 @@ public:
             throw InvalidStateException("Buffer size is too small for the Bits object.");
         }
 
-        ToBytes(buffer);
+        this->ToBytes(buffer);
     }
 
     std::string ToString() const
