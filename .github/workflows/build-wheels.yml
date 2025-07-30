@@ -62,6 +62,10 @@ jobs:
             cibw-build: 'cp312-*'
             manylinux: manylinux_2_28
             matrix: '3.12'
+          - major-dot-minor: '3.13'
+            cibw-build: 'cp313-*'
+            manylinux: manylinux_2_28
+            matrix: '3.13'
         arch:
           - name: ARM
             matrix: arm
