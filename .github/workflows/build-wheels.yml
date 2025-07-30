@@ -46,10 +46,6 @@ jobs:
             runs-on:
               intel: [windows-latest]
         python:
-          - major-dot-minor: '3.8'
-            cibw-build: 'cp38-*'
-            manylinux: manylinux_2_28
-            matrix: '3.8'
           - major-dot-minor: '3.9'
             cibw-build: 'cp39-*'
             manylinux: manylinux_2_28
@@ -81,19 +77,6 @@ jobs:
               matrix: windows
               runs-on:
                 intel: [windows-latest]
-            arch:
-              name: ARM
-              matrix: arm
-          - os:
-              name: macOS
-              matrix: macos
-              runs-on:
-                arm: [macOS, ARM64]
-                intel: [macos-13]
-            python:
-              major-dot-minor: '3.8'
-              cibw-build: 'cp38-*'
-              matrix: '3.8'
             arch:
               name: ARM
               matrix: arm
