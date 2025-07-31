@@ -324,6 +324,19 @@ public:
         memcpy(buffer + i * 8, tmp, cdiv(last_size_, 8));
     }
 
+    void ToBytes(uint8_t buffer[], size_t buffer_size_bytes) const
+    {
+        // Return if nothing to work on
+        if (!values_.size())
+            return;
+
+        if (values_.size() * 8 > buffer_size_bytes) {
+            throw InvalidStateException("Buffer size is too small for the Bits object.");
+        }
+
+        this->ToBytes(buffer);
+    }
+
     std::string ToString() const
     {
         std::string str = "";
