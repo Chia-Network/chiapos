@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Collect coverage data
         run: |
           sudo apt-get update
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: cmake, RunTests, and valgrind on ubuntu-20.04
         run: |
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: cmake, RunTests with address- and undefined sanitizer on Ubuntu
         run: |
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # See: https://github.com/google/sanitizers/issues/1716
       # Fixes `FATAL: ThreadSanitizer: unexpected memory mapping 0x70498d8ae000-0x70498dd00000` type errors
@@ -95,7 +95,7 @@ jobs:
     runs-on: macos-13
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: cmake, RunTests on Mac
         run: |
@@ -110,7 +110,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: cmake, RunTests with Windows
         run: |
