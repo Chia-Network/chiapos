@@ -12,7 +12,7 @@ repository = "https://github.com/Chia-Network/chiapos"
 link-cplusplus = "1.0.10"
 
 [build-dependencies]
-bindgen = "0.71.1"
+bindgen = "0.72.0"
 cmake = "0.1.54"
 
 [dev-dependencies]
