@@ -1138,7 +1138,7 @@ with Applications to Proofs of Space (2017) https://eprint.iacr.org/2017/893.pdf
 [2] Philippe Oechslin: Making a Faster Cryptanalytic Time-Memory
 Trade-Off (2003) https://lasec.epfl.ch/pub/lasec/doc/Oech03.pdf
 
-[3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019) https://www.chia.net/assets/ChiaGreenPaper.pdf
+[3] Krzysztof Pietrzak, Bram Cohen: Chia Greenpaper (2019) https://www.chia.net/wp-content/uploads/2022/07/ChiaGreenPaper.pdf
 
 [4] Mart Simisker: Asymmetrical Number Systems (2017) https://courses.cs.ut.ee/MTAT.07.022/2017_fall/uploads/Main/mart-report-f17.pdf
 
