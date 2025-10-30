@@ -8,7 +8,7 @@ local_scheme = "no-local-version"
 [tool.cibuildwheel]
 test-requires = "pytest"
 test-command = "pytest -v {project}/tests"
-skip = "*-manylinux_i686 *-win32 *-musllinux_*"
+skip = "cp31?t-* *-manylinux_i686 *-win32 *-musllinux_*"
 
 [tool.cibuildwheel.linux]
 build-verbosity = 1
