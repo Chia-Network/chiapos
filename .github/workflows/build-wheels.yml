@@ -264,7 +264,7 @@ jobs:
         python-version: ${{ matrix.python.major-dot-minor }}
 
     - name: Download artifacts
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         merge-multiple: true
         pattern: packages-*
