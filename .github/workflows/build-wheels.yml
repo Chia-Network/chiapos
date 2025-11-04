@@ -32,7 +32,7 @@ jobs:
             matrix: macos
             runs-on:
               arm: [macOS, ARM64]
-              intel: [macos-13]
+              intel: [macos-15-intel]
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
