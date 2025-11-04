@@ -32,7 +32,7 @@ jobs:
             matrix: macos
             runs-on:
               arm: [macOS, ARM64]
-              intel: [macos-13]
+              intel: [macos-15-intel]
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
@@ -150,8 +150,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.9'
-            matrix: '3.9'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
@@ -193,8 +193,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.9'
-            matrix: '3.9'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
@@ -239,8 +239,8 @@ jobs:
               arm: [Linux, ARM64]
               intel: [ubuntu-latest]
         python:
-          - major-dot-minor: '3.9'
-            matrix: '3.9'
+          - major-dot-minor: '3.12'
+            matrix: '3.12'
         arch:
           - name: Intel
             matrix: intel
