@@ -60,7 +60,7 @@ jobs:
           - name: macOS
             matrix: macos
             runs-on:
-              arm: [macos-13-arm64]
+              arm: [macos-15]
               intel: [macos-15-intel]
             cibw-archs-macos:
               arm: arm64
