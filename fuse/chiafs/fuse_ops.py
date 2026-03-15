@@ -27,15 +27,13 @@ from .store import Store
 log = logging.getLogger(__name__)
 
 
-def _schedule_plots_in_background(plot_mgr: PlotManager) -> None:
-    """Run plot scheduling in a daemon thread so the caller returns immediately."""
-    def _run() -> None:
+def _plot_poll_loop(plot_mgr: PlotManager, stop_event: threading.Event) -> None:
+    """Daemon loop: every 10 seconds, create a plot if under max size and space available."""
+    while not stop_event.wait(timeout=10):
         try:
             plot_mgr.schedule_create_plot_if_possible()
         except Exception:
-            log.exception("Background plot schedule failed")
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
+            log.exception("Plot schedule poll failed")
 
 
 def _row_to_attrs(
@@ -83,11 +81,22 @@ class ChiaFsOperations(pyfuse3.Operations):
             get_data_size=self.store.total_data_size,
         )
         self.backing_dir = backing_dir
+        self._plot_poll_stop = threading.Event()
+        self._plot_poll_thread: Optional[threading.Thread] = None
 
     def init(self) -> None:
-        """Called when FUSE starts; begin filling space with plots in background."""
+        """Called when FUSE starts; poll every 10s and create plots when under max size."""
         super().init()
-        _schedule_plots_in_background(self.plot_mgr)
+        self._plot_poll_thread = threading.Thread(
+            target=_plot_poll_loop,
+            args=(self.plot_mgr, self._plot_poll_stop),
+            daemon=True,
+        )
+        self._plot_poll_thread.start()
+
+    def destroy(self) -> None:
+        self._plot_poll_stop.set()
+        self.store.close()
 
     def _uid_gid(self, ctx: Optional[RequestContext]) -> tuple:
         if ctx is not None:
@@ -247,7 +256,6 @@ class ChiaFsOperations(pyfuse3.Operations):
         ino = self.store.unlink(parent_inode, name_str)
         if ino is None:
             raise FUSEError(errno.ENOENT)
-        _schedule_plots_in_background(self.plot_mgr)
 
     async def mkdir(
         self, parent_inode: InodeT, name: bytes, mode: int, ctx: RequestContext
@@ -268,7 +276,6 @@ class ChiaFsOperations(pyfuse3.Operations):
         ino = self.store.rmdir(parent_inode, name_str)
         if ino is None:
             raise FUSEError(errno.ENOENT)
-        _schedule_plots_in_background(self.plot_mgr)
 
     async def releasedir(self, fh: FileHandleT) -> None:
         pass
@@ -289,7 +296,6 @@ class ChiaFsOperations(pyfuse3.Operations):
                     with open(path, "r+b") as f:
                         f.truncate(attr.st_size)
                     self.store.set_size(inode, attr.st_size)
-                    _schedule_plots_in_background(self.plot_mgr)
                 elif attr.st_size > current:
                     need = attr.st_size - current
                     if not self.plot_mgr.ensure_space(need):
@@ -315,6 +321,3 @@ class ChiaFsOperations(pyfuse3.Operations):
         stat_.f_favail = 1000000
         stat_.f_namemax = 255
         return stat_
-
-    def destroy(self) -> None:
-        self.store.close()
