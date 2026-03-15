@@ -1,0 +1,4 @@
+# FUSE filesystem for chiafs (Linux only)
+# Install system deps: libfuse3-dev (Debian/Ubuntu)
+pyfuse3>=3.2.0
+trio>=0.20.0
