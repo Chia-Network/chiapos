@@ -103,15 +103,22 @@ class ChiaFsOperations(pyfuse3.Operations):
             return (ctx.uid, ctx.gid)
         return (os.getuid(), os.getgid())
 
+    def _store_ino(self, inode: InodeT) -> int:
+        """Map FUSE inode to store inode (ROOT_INODE -> 1)."""
+        return 1 if inode == pyfuse3.ROOT_INODE else inode
+
+    def _get_row(self, inode: InodeT):
+        """Get attr row for inode, handling ROOT_INODE."""
+        if inode == pyfuse3.ROOT_INODE:
+            return self.store.get_root()
+        return self.store.get_attr(inode)
+
     async def getattr(
         self, inode: InodeT, ctx: Optional[RequestContext] = None
     ) -> EntryAttributes:
         try:
             uid, gid = self._uid_gid(ctx)
-            if inode == pyfuse3.ROOT_INODE:
-                row = self.store.get_root()
-            else:
-                row = self.store.get_attr(inode)
+            row = self._get_row(inode)
             if row is None:
                 raise FUSEError(errno.ENOENT)
             return _row_to_attrs(row, uid, gid)
@@ -125,79 +132,94 @@ class ChiaFsOperations(pyfuse3.Operations):
         self, parent_inode: InodeT, name: bytes, ctx: RequestContext
     ) -> EntryAttributes:
         uid, gid = self._uid_gid(ctx)
+        parent_ino = self._store_ino(parent_inode)
         if name == b".":
             return await self.getattr(parent_inode, ctx)
         if name == b"..":
-            row = self.store.get_attr(parent_inode)
+            row = self._get_row(parent_inode)
             if row is None:
                 raise FUSEError(errno.ENOENT)
-            parent_ino = row[1]
-            if parent_ino == parent_inode:
+            grandparent_ino = row[1]
+            if grandparent_ino == parent_ino:
                 return await self.getattr(parent_inode, ctx)
-            row = self.store.get_attr(parent_ino)
+            row = self.store.get_attr(grandparent_ino)
             if row is None:
                 raise FUSEError(errno.ENOENT)
             return _row_to_attrs(row, uid, gid)
         name_str = name.decode("utf-8", errors="surrogateescape")
-        row = self.store.lookup(parent_inode, name_str)
+        row = self.store.lookup(parent_ino, name_str)
         if row is None:
             raise FUSEError(errno.ENOENT)
         return _row_to_attrs(row, uid, gid)
 
     async def opendir(self, inode: InodeT, ctx: RequestContext) -> FileHandleT:
-        if inode == pyfuse3.ROOT_INODE:
-            row = self.store.get_root()
-            dir_ino = 1  # store's root inode for readdir/list_dir
-        else:
-            row = self.store.get_attr(inode)
-            dir_ino = inode
+        row = self._get_row(inode)
+        dir_ino = self._store_ino(inode)
         if row is None or not row[7]:
             raise FUSEError(errno.ENOTDIR)
         return FileHandleT(dir_ino)
+
+    def _readdir_entries(
+        self, fh: FileHandleT, start_id: int, token: ReaddirToken
+    ) -> None:
+        """Shared logic for readdir and readdirplus: list directory and reply with entries."""
+        dir_ino = self._store_ino(int(fh))
+        entries = self.store.list_dir(dir_ino)
+        uid, gid = os.getuid(), os.getgid()
+        row_fh = self.store.get_attr(dir_ino)
+        if row_fh is None:
+            log.error("readdir: get_attr(%s) returned None", dir_ino)
+            raise FUSEError(errno.EIO)
+        parent_ino = row_fh[1]
+
+        # . and .. with fixed ids 0 and 1
+        if start_id == 0:
+            if not pyfuse3.readdir_reply(
+                token, b".", await self.getattr(fh, None), 1
+            ):
+                return
+            parent_row = self.store.get_attr(parent_ino)
+            if parent_row is not None and not pyfuse3.readdir_reply(
+                token, b"..", _row_to_attrs(parent_row, uid, gid), 2
+            ):
+                return
+
+        next_id = max(2, start_id)
+        for i, (name, ino, is_dir) in enumerate(entries):
+            if i + 2 < start_id:
+                continue
+            row = self.store.get_attr(ino)
+            if row is not None:
+                attr = _row_to_attrs(row, uid, gid)
+                name_b = name.encode("utf-8", errors="surrogateescape")
+                if not pyfuse3.readdir_reply(token, name_b, attr, next_id + 1):
+                    return
+                next_id += 1
 
     async def readdir(
         self, fh: FileHandleT, start_id: int, token: ReaddirToken
     ) -> None:
         try:
-            entries = self.store.list_dir(fh)
-            uid, gid = os.getuid(), os.getgid()
-            row_fh = self.store.get_attr(fh)
-            if row_fh is None:
-                log.error("readdir: get_attr(%s) returned None", fh)
-                raise FUSEError(errno.EIO)
-            parent_ino = row_fh[1]
-
-            # . and .. with fixed ids 0 and 1
-            if start_id == 0:
-                if not pyfuse3.readdir_reply(
-                    token, b".", await self.getattr(fh, None), 1
-                ):
-                    return
-                parent_row = self.store.get_attr(parent_ino)
-                if parent_row is not None and not pyfuse3.readdir_reply(
-                    token, b"..", _row_to_attrs(parent_row, uid, gid), 2
-                ):
-                    return
-
-            next_id = max(2, start_id)
-            for i, (name, ino, is_dir) in enumerate(entries):
-                if i + 2 < start_id:
-                    continue
-                row = self.store.get_attr(ino)
-                if row is not None:
-                    attr = _row_to_attrs(row, uid, gid)
-                    name_b = name.encode("utf-8", errors="surrogateescape")
-                    if not pyfuse3.readdir_reply(token, name_b, attr, next_id + 1):
-                        return
-                    next_id += 1
+            await self._readdir_entries(fh, start_id, token)
         except FUSEError:
             raise
         except Exception as e:
             log.exception("readdir fh=%s start_id=%s: %s", fh, start_id, e)
             raise FUSEError(errno.EIO)
 
+    async def readdirplus(
+        self, fh: FileHandleT, start_id: int, token: ReaddirToken
+    ) -> None:
+        try:
+            await self._readdir_entries(fh, start_id, token)
+        except FUSEError:
+            raise
+        except Exception as e:
+            log.exception("readdirplus fh=%s start_id=%s: %s", fh, start_id, e)
+            raise FUSEError(errno.EIO)
+
     async def open(self, inode: InodeT, flags: int, ctx: RequestContext) -> FileInfo:
-        row = self.store.get_attr(inode)
+        row = self._get_row(inode)
         if row is None:
             raise FUSEError(errno.ENOENT)
         if row[7]:
