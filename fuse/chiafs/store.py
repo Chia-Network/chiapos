@@ -3,9 +3,13 @@
 
 import os
 import sqlite3
+import stat
 import time
 import errno
 from pathlib import Path
+
+# Root directory: rwxr-xr-x so listing and traversal work.
+ROOT_MODE = stat.S_IFDIR | 0o755
 from typing import Optional, List, Tuple, Iterator
 
 META_DIR = "_chiafs"
@@ -80,13 +84,12 @@ class Store:
             return row
         # Create root
         now = time.time_ns()
-        root_mode = 0o40755  # directory: rwxr-xr-x
         self.conn.execute(
             "INSERT INTO inodes (ino, parent_ino, name, mode, size, mtime_ns, ctime_ns, is_dir) VALUES (1, 1, '', ?, 0, ?, ?, 1)",
-            (root_mode, now, now),
+            (ROOT_MODE, now, now),
         )
         self.conn.commit()
-        return (1, 1, "", 0o40755, 0, now, now, True)
+        return (1, 1, "", ROOT_MODE, 0, now, now, True)
 
     def lookup(self, parent_ino: int, name: str) -> Optional[Tuple[int, int, str, int, int, int, int, bool]]:
         cur = self.conn.execute(

@@ -36,6 +36,10 @@ def _plot_poll_loop(plot_mgr: PlotManager, stop_event: threading.Event) -> None:
             log.exception("Plot schedule poll failed")
 
 
+# Root directory: always present as rwxr-xr-x so listing and traversal work.
+ROOT_MODE = stat.S_IFDIR | 0o755
+
+
 def _row_to_attrs(
     row: tuple,
     uid: int,
@@ -47,7 +51,7 @@ def _row_to_attrs(
     entry.generation = 0
     entry.entry_timeout = 300
     entry.attr_timeout = 300
-    entry.st_mode = mode
+    entry.st_mode = ROOT_MODE if ino == 1 else mode
     entry.st_nlink = 2 if is_dir else 1
     entry.st_uid = uid
     entry.st_gid = gid
