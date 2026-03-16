@@ -145,10 +145,15 @@ class ChiaFsOperations(pyfuse3.Operations):
         return _row_to_attrs(row, uid, gid)
 
     async def opendir(self, inode: InodeT, ctx: RequestContext) -> FileHandleT:
-        row = self.store.get_attr(inode)
+        if inode == pyfuse3.ROOT_INODE:
+            row = self.store.get_root()
+            dir_ino = 1  # store's root inode for readdir/list_dir
+        else:
+            row = self.store.get_attr(inode)
+            dir_ino = inode
         if row is None or not row[7]:
             raise FUSEError(errno.ENOTDIR)
-        return FileHandleT(inode)
+        return FileHandleT(dir_ino)
 
     async def readdir(
         self, fh: FileHandleT, start_id: int, token: ReaddirToken
