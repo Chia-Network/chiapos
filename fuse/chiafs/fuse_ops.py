@@ -159,7 +159,7 @@ class ChiaFsOperations(pyfuse3.Operations):
             raise FUSEError(errno.ENOTDIR)
         return FileHandleT(dir_ino)
 
-    def _readdir_entries(
+    async def _readdir_entries(
         self, fh: FileHandleT, start_id: int, token: ReaddirToken
     ) -> None:
         """Shared logic for readdir and readdirplus: list directory and reply with entries."""
