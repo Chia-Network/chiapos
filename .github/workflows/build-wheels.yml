@@ -85,7 +85,7 @@ jobs:
               name: Windows
               matrix: windows
               runs-on:
-                intel: [windows-latest]
+                intel: windows-latest
             arch:
               name: ARM
               matrix: arm
