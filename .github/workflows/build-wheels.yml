@@ -31,20 +31,20 @@ jobs:
           - name: macOS
             matrix: macos
             runs-on:
-              arm: [macOS, ARM64]
-              intel: [macos-15-intel]
+              arm: macos-15
+              intel: macos-15-intel
             cibw-archs-macos:
               arm: arm64
               intel: x86_64
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              arm: [Linux, ARM64]
-              intel: [ubuntu-latest]
+              arm: ubuntu-24.04-arm
+              intel: ubuntu-latest
           - name: Windows
             matrix: windows
             runs-on:
-              intel: [windows-latest]
+              intel: windows-latest
         python:
           - major-dot-minor: '3.10'
             cibw-build: 'cp310-*'
@@ -85,7 +85,7 @@ jobs:
               name: Windows
               matrix: windows
               runs-on:
-                intel: [windows-latest]
+                intel: windows-latest
             arch:
               name: ARM
               matrix: arm
@@ -147,8 +147,8 @@ jobs:
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              arm: [Linux, ARM64]
-              intel: [ubuntu-latest]
+              arm: ubuntu-24.04-arm
+              intel: ubuntu-latest
         python:
           - major-dot-minor: '3.12'
             matrix: '3.12'
@@ -190,8 +190,8 @@ jobs:
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              arm: [Linux, ARM64]
-              intel: [ubuntu-latest]
+              arm: ubuntu-24.04-arm
+              intel: ubuntu-latest
         python:
           - major-dot-minor: '3.12'
             matrix: '3.12'
@@ -236,8 +236,8 @@ jobs:
           - name: Ubuntu
             matrix: ubuntu
             runs-on:
-              arm: [Linux, ARM64]
-              intel: [ubuntu-latest]
+              arm: ubuntu-24.04-arm
+              intel: ubuntu-latest
         python:
           - major-dot-minor: '3.12'
             matrix: '3.12'
