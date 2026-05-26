@@ -55,7 +55,7 @@ namespace UniformSort {
         uint64_t read_pos = input_disk_begin;
         uint64_t buf_size = 0;
         uint64_t buf_ptr = 0;
-        uint64_t swaps = 0;
+        [[maybe_unused]] uint64_t swaps = 0;
         for (uint64_t i = 0; i < num_entries; i++) {
             if (buf_size == 0) {
                 // If read buffer is empty, read from disk and refill it.
