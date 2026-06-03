@@ -240,12 +240,10 @@ private:
         uint64_t bucket_entries = bucket_write_pointers[bucket_i] / this->entry_size;
         uint64_t entries_fit_in_memory = this->memory_size / this->entry_size;
 
-        uint32_t entry_len_memory = this->entry_size - this->begin_bits / 8;
-
         double have_ram = entry_size * entries_fit_in_memory / (1024.0 * 1024.0 * 1024.0);
         double qs_ram = entry_size * bucket_entries / (1024.0 * 1024.0 * 1024.0);
         double u_ram =
-            Util::RoundSize(bucket_entries) * entry_len_memory / (1024.0 * 1024.0 * 1024.0);
+            Util::RoundSize(bucket_entries) * entry_size / (1024.0 * 1024.0 * 1024.0);
 
         if (bucket_entries > entries_fit_in_memory) {
             throw InsufficientMemoryException(
@@ -257,9 +255,10 @@ private:
                            this->bucket_write_pointers[bucket_i + 1] == 0;
         bool force_quicksort = (quicksort == 1) || (quicksort == 2 && last_bucket);
         // Do SortInMemory algorithm if it fits in the memory
-        // (number of entries required * entry_len_memory) <= total memory available
+        // (number of entries required * entry_size) <= total memory available.
+        // entry_size matches what SortToMemory uses below, like the standard SortManager.
         if (!force_quicksort &&
-            Util::RoundSize(bucket_entries) * entry_len_memory <= this->memory_size) {
+            Util::RoundSize(bucket_entries) * this->entry_size <= this->memory_size) {
             std::cout << "\tBucket " << bucket_i << " uniform sort. Ram: " << std::fixed
                       << std::setprecision(3) << have_ram << "GiB, u_sort min: " << u_ram
                       << "GiB, qs min: " << qs_ram << "GiB." << std::endl;
