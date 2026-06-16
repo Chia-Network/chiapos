@@ -134,7 +134,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: rust-lang/crates-io-auth-action@v1
+      - uses: rust-lang/crates-io-auth-action@v1.0.4
         if: env.RELEASE == 'true'
         id: auth
 
