@@ -72,7 +72,7 @@ setup(
     author_email="mariano@chia.net",
     description="Chia proof of space plotting, proving, and verifying (wraps C++)",
     license="Apache-2.0",
-    python_requires=">=3.7",
+    python_requires=">=3.10, <4",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/Chia-Network/chiapos",
