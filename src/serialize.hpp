@@ -73,6 +73,13 @@ size_t DeserializeContainer(const std::vector<uint8_t>& in, TypeOut& out, const 
     if (size == 0) {
         return offset;
     }
+    // Every element occupies at least one byte, so a declared element count larger
+    // than the number of bytes remaining can never be satisfied. Checking here keeps
+    // resize() from committing memory proportional to an untrusted length before the
+    // per-element reads below have a chance to fail.
+    if (size > in.size() - position - offset) {
+        throw std::invalid_argument("DeserializeContainer: declared size exceeds remaining input.");
+    }
     out.clear();
     out.resize(size);
     for (size_t i = 0; i < size; ++i) {
