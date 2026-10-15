@@ -42,3 +42,5 @@ environment = {MACOSX_DEPLOYMENT_TARGET="15", SYSTEM_VERSION_COMPAT=0, CP_USE_GR
 [tool.cibuildwheel.windows]
 build-verbosity = 1
 environment = "CP_USE_GREEN_REAPER=1"
+# Bundle the Bladebit DLL downloaded before cibuildwheel runs.
+repair-wheel-command = 'delvewheel repair --add-path "{project}/libs/green_reaper/lib" -w {dest_dir} -v {wheel}'
