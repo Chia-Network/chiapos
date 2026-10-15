@@ -114,13 +114,12 @@ jobs:
 
     - name: Build and test
       env:
-        CIBW_PRERELEASE_PYTHONS: True
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
       run:
-        pipx run --spec='cibuildwheel==3.2.1' cibuildwheel --output-dir dist 2>&1
+        pipx run --spec='cibuildwheel==4.3.1' cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
