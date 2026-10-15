@@ -50,22 +50,18 @@ jobs:
             cibw-build: 'cp311-*'
             manylinux: manylinux_2_28
             matrix: '3.11'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.12'
             cibw-build: 'cp312-*'
             manylinux: manylinux_2_28
             matrix: '3.12'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.13'
             cibw-build: 'cp313-*'
             manylinux: manylinux_2_28
             matrix: '3.13'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.14'
             cibw-build: 'cp314-*'
             manylinux: manylinux_2_28
             matrix: '3.14'
-            cibuildwheel: 'cibuildwheel==3.2.1'
         arch:
           - name: ARM
             matrix: arm
@@ -124,7 +120,7 @@ jobs:
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
       run:
-        pipx run --spec=${{ matrix.python.cibuildwheel }} cibuildwheel --output-dir dist 2>&1
+        pipx run --spec='cibuildwheel==3.2.1' cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
