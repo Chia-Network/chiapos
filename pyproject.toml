@@ -42,3 +42,5 @@ environment = {MACOSX_DEPLOYMENT_TARGET="15", SYSTEM_VERSION_COMPAT=0, CP_USE_GR
 [tool.cibuildwheel.windows]
 build-verbosity = 1
 environment = "CP_USE_GREEN_REAPER=1"
+# Preserve the existing CMake packaging of bladebit_harvester.dll beside the extension.
+repair-wheel-command = ""

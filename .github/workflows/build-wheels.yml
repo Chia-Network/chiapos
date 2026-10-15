@@ -46,31 +46,22 @@ jobs:
             runs-on:
               intel: windows-latest
         python:
-          - major-dot-minor: '3.10'
-            cibw-build: 'cp310-*'
-            manylinux: manylinux_2_28
-            matrix: '3.10'
-            cibuildwheel: 'cibuildwheel==2.23.3'
           - major-dot-minor: '3.11'
             cibw-build: 'cp311-*'
             manylinux: manylinux_2_28
             matrix: '3.11'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.12'
             cibw-build: 'cp312-*'
             manylinux: manylinux_2_28
             matrix: '3.12'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.13'
             cibw-build: 'cp313-*'
             manylinux: manylinux_2_28
             matrix: '3.13'
-            cibuildwheel: 'cibuildwheel==3.2.1'
           - major-dot-minor: '3.14'
             cibw-build: 'cp314-*'
             manylinux: manylinux_2_28
             matrix: '3.14'
-            cibuildwheel: 'cibuildwheel==3.2.1'
         arch:
           - name: ARM
             matrix: arm
@@ -123,13 +114,12 @@ jobs:
 
     - name: Build and test
       env:
-        CIBW_PRERELEASE_PYTHONS: True
         CIBW_BUILD: ${{ matrix.python.cibw-build }}
         CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.python.manylinux }}
         CIBW_ARCHS_MACOS: ${{ matrix.os.cibw-archs-macos[matrix.arch.matrix] }}
       run:
-        pipx run --spec=${{ matrix.python.cibuildwheel }} cibuildwheel --output-dir dist 2>&1
+        pipx run --spec='cibuildwheel==4.3.1' cibuildwheel --output-dir dist 2>&1
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
