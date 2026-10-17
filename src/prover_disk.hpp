@@ -373,6 +373,17 @@ public:
         memcpy(id.data(), header.id, sizeof(header.id));
         this->k = header.k;
 
+        // `k` is read from the (untrusted) plot header. The proof verifier
+        // constrains it to [kMinPlotSize, kMaxPlotSize]; the prover must do the
+        // same. An out-of-range k from a malformed/crafted plot is otherwise
+        // propagated into fixed on-stack buffer sizing downstream
+        // (FxCalculator::CalculateBucket's 64-byte input_bytes), where a k >= 64
+        // overflows the buffer when the plot is loaded and challenged.
+        if (this->k < kMinPlotSize || this->k > kMaxPlotSize) {
+            throw std::invalid_argument(
+                "Invalid plot k size: " + std::to_string(this->k));
+        }
+
         uint8_t size_buf[2];
         SafeRead(disk_file, size_buf, 2);
         memo.resize(Util::TwoBytesToInt(size_buf));
