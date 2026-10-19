@@ -29,6 +29,7 @@ updates:
   - package-ecosystem: "pip"
     registries:
       - chia-pypi
+    insecure-external-code-execution: allow
     directory: /
     schedule:
       interval: "weekly"
