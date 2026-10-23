@@ -357,7 +357,7 @@ b17Phase3Results b17RunPhase3(
         // The final table will simply store the deltas between each line_point, in fixed space
         // groups(parks), with a checkpoint in each group.
         Bits right_entry_bits;
-        int added_to_cache = 0;
+        [[maybe_unused]] int added_to_cache = 0;
         uint8_t index_size = table_index == 6 ? k + 1 : k;
         for (uint64_t index = 0; index < total_r_entries; index++) {
             right_reader_entry_buf = R_sort_manager->ReadEntry(right_reader, 2);
