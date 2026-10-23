@@ -1,36 +1,22 @@
 # This file is managed by the repo-content-updater project. Manual changes here will result in a PR to bring back
-# inline with the upstream template, unless you remove the dependabot managed file property from the repo
+# inline with the upstream template, unless you add !dependabot to the repo's managed-files property
 
 version: 2
 registries:
   chia-pypi:
     type: python-index
     url: https://pypi.chia.net/simple/
+  chia-downloads:
+    type: python-index
+    url: https://download.chia.net/simple/
 updates:
-  - package-ecosystem: "gomod"
-    directory: /
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 10
-    rebase-strategy: auto
-    labels:
-      - dependencies
-      - go
-      - "Changed"
-    reviewers: ["cameroncooper", "emlowe"]
-    groups:
-      global:
-        patterns:
-          - "*"
 
   - package-ecosystem: "pip"
     registries:
       - chia-pypi
+      - chia-downloads
     insecure-external-code-execution: allow
-    directory: /
+    directories: ["/"]
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -59,23 +45,8 @@ updates:
       - "Changed"
     reviewers: ["cameroncooper", "emlowe"]
 
-  - package-ecosystem: "npm"
-    directory: /
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 10
-    rebase-strategy: auto
-    labels:
-      - dependencies
-      - javascript
-      - "Changed"
-    reviewers: ["emlowe", "seeden"]
-
   - package-ecosystem: cargo
-    directory: /
+    directories: ["/"]
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -87,9 +58,10 @@ updates:
       - dependencies
       - rust
       - "Changed"
+    reviewers: ["cameroncooper", "emlowe"]
 
-  - package-ecosystem: swift
-    directory: /
+  - package-ecosystem: docker
+    directories: ["/"]
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -97,3 +69,23 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto
+    labels:
+      - dependencies
+      - docker
+      - "Changed"
+    reviewers: ["cameroncooper", "emlowe"]
+
+  - package-ecosystem: nuget
+    directories: ["/lib/FiniteStateEntropy/Visual/VC2012"]
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    rebase-strategy: auto
+    labels:
+      - dependencies
+      - dotnet
+      - "Changed"
+    reviewers: ["cameroncooper", "emlowe"]
