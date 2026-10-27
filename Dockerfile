@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as builder
+FROM ubuntu:25.10 as builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BUILD_PROOF_OF_SPACE_STATICALLY=OFF
@@ -25,7 +25,7 @@ RUN cmake -DBUILD_PROOF_OF_SPACE_STATICALLY=${BUILD_PROOF_OF_SPACE_STATICALLY} .
 RUN cmake --build . -- -j `nproc`
 
 
-FROM ubuntu:20.04
+FROM ubuntu:25.10
 
 COPY --from=builder /app/build /app
 
