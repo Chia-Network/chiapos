@@ -56,6 +56,10 @@ updates:
       - dependencies
       - rust
       - "Changed"
+    groups:
+      global:
+        patterns:
+          - "*"
   - package-ecosystem: docker
     directories: ["/"]
     schedule:
@@ -68,17 +72,4 @@ updates:
     labels:
       - dependencies
       - docker
-      - "Changed"
-  - package-ecosystem: nuget
-    directories: ["/lib/FiniteStateEntropy/Visual/VC2012"]
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 10
-    rebase-strategy: auto
-    labels:
-      - dependencies
-      - dotnet
       - "Changed"
