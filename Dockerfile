@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as builder
+FROM ubuntu:26.04 as builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BUILD_PROOF_OF_SPACE_STATICALLY=OFF
@@ -12,7 +12,6 @@ RUN apt-get install -y --no-install-recommends \
   git \
   python3 \
   python3-dev \
-  python3-distutils \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -25,7 +24,7 @@ RUN cmake -DBUILD_PROOF_OF_SPACE_STATICALLY=${BUILD_PROOF_OF_SPACE_STATICALLY} .
 RUN cmake --build . -- -j `nproc`
 
 
-FROM ubuntu:20.04
+FROM ubuntu:26.04
 
 COPY --from=builder /app/build /app
 
