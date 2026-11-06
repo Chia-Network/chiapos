@@ -554,7 +554,7 @@ public:
     {
         std::vector<LargeBits> qualities;
 
-        uint32_t p7_entries_size = 0;
+        [[maybe_unused]] uint32_t p7_entries_size = 0;
 
         {
             std::lock_guard<std::mutex> l(_mtx);
@@ -585,7 +585,7 @@ public:
                 #endif
                 // This inner loop goes from table 6 to table 1, getting the two backpointers,
                 // and following one of them.
-                uint64_t alt_position;
+                [[maybe_unused]] uint64_t alt_position;
                 for (uint8_t table_index = 6; table_index > GetEndTable(); table_index--) {
                     uint128_t line_point = ReadLinePoint(disk_file, table_index, position);
 
