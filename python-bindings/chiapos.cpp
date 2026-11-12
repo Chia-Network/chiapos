@@ -156,6 +156,12 @@ PYBIND11_MODULE(chiapos, m)
                uint8_t k,
                const py::bytes &challenge,
                const py::bytes &proof) {
+                if (len(seed) != 32) {
+                    throw std::invalid_argument("Seed must be exactly 32 bytes");
+                }
+                if (len(challenge) != 32) {
+                    throw std::invalid_argument("Challenge must be exactly 32 bytes");
+                }
                 std::string seed_str(seed);
                 const uint8_t *seed_ptr = reinterpret_cast<const uint8_t *>(seed_str.data());
 

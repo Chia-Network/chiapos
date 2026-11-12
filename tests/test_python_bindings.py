@@ -200,6 +200,44 @@ class TestPythonBindings(unittest.TestCase):
         with self.assertRaises(ValueError):
             DiskProver.from_bytes(serialized[0:int(len(serialized)/2)])
 
+    def test_validate_proof_rejects_wrong_length_inputs(self):
+        v = Verifier()
+        good = bytes(32)
+        proof = bytes(21 * 8)
+        # Well-formed input is handled without raising (the proof is simply invalid).
+        v.validate_proof(good, 21, good, proof)
+        for bad in (b"", bytes(4), bytes(31), bytes(33)):
+            with self.assertRaises(ValueError):
+                v.validate_proof(bad, 21, good, proof)
+            with self.assertRaises(ValueError):
+                v.validate_proof(good, 21, bad, proof)
+
+    def test_disk_prover_rejects_k_out_of_range_in_header(self):
+        plot_path = Path("k_range_plot.dat")
+        bad_path = Path("k_range_plot_bad.dat")
+        for p in (plot_path, bad_path):
+            if p.exists():
+                p.unlink()
+        pl = DiskPlotter()
+        pl.create_plot_disk(
+            ".", ".", ".", str(plot_path), 21, bytes([1, 2, 3, 4, 5]), bytes(b"\0" * 32), 300, 32, 8192, 8, False
+        )
+        data = bytearray(plot_path.read_bytes())
+        # Header: 19 bytes magic, 32 bytes plot id, then the 1-byte k.
+        k_offset = 19 + 32
+        assert data[k_offset] == 21
+        # A valid header still loads.
+        DiskProver(str(plot_path))
+        # k outside [18, 50] must be rejected with an exception, not crash the process
+        # (k == 0 used to cause a division by zero in the constructor).
+        for bad_k in (0, 1, 17, 51, 255):
+            data[k_offset] = bad_k
+            bad_path.write_bytes(bytes(data))
+            with self.assertRaises(ValueError):
+                DiskProver(str(bad_path))
+        for p in (plot_path, bad_path):
+            p.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

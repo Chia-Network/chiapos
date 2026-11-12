@@ -372,6 +372,10 @@ public:
 
         memcpy(id.data(), header.id, sizeof(header.id));
         this->k = header.k;
+        // k comes straight from the (untrusted) file header and is used as a divisor below.
+        if (this->k < kMinPlotSize || this->k > kMaxPlotSize) {
+            throw std::invalid_argument("Invalid plot file: k out of range");
+        }
 
         uint8_t size_buf[2];
         SafeRead(disk_file, size_buf, 2);
